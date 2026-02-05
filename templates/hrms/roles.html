@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hrms-theme.css') }}">
+
+<div class="container mt-4">
+
+    <div class="hrms-card p-4">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+
+            <h3 class="hrms-heading">👥 Roles</h3>
+
+            <a href="/hrms/roles/add" class="btn btn-anti-success">
+                ➕ Add Role
+            </a>
+
+        </div>
+
+        <table class="table table-hover hrms-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Role Name</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for role in roles %}
+                <tr>
+                    <td>{{ role.id }}</td>
+                    <td>{{ role.role_name }}</td>
+                    <td>{{ role.description or "-" }}</td>
+
+                    <td>
+                        <a href="/hrms/roles/delete/{{ role.id }}"
+                           class="btn btn-anti-warning btn-sm">
+                            Delete
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}

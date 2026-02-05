@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+
+/* ===== WRAPPER ===== */
+.hrms-wrapper{
+    padding:30px 40px;
+}
+
+/* ===== HEADER ===== */
+.hrms-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+}
+
+.hrms-title{
+    font-size:22px;
+    font-weight:600;
+    color:#ffffff;
+}
+
+/* ===== CARD ===== */
+.hrms-card{
+    background:#020202;
+    border-radius:18px;
+    border:1px solid #111;
+    box-shadow:0 0 35px rgba(0,0,0,0.9);
+    padding:28px;
+}
+
+/* ===== TABLE ===== */
+.hrms-table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0 14px;
+}
+
+.hrms-table thead th{
+    color:#9ca3af;
+    font-size:13px;
+    border:none;
+}
+
+.hrms-table tbody tr{
+    background:#050505;
+    transition:.25s;
+}
+
+.hrms-table tbody tr:hover{
+    background:#0a0a0a;
+}
+
+.hrms-table td{
+    padding:18px 14px;
+    border:none;
+    color:#e5e7eb;
+}
+
+/* ===== STATUS ===== */
+.status-active{
+    background:#111;
+    color:#ffffff;
+    border:1px solid #333;
+    padding:5px 14px;
+    border-radius:8px;
+    font-size:12px;
+}
+
+.status-inactive{
+    background:#000;
+    color:#9ca3af;
+    border:1px solid #222;
+    padding:5px 14px;
+    border-radius:8px;
+    font-size:12px;
+}
+
+/* ===== BUTTONS ===== */
+.btn-add{
+    background:#111;
+    border:1px solid #333;
+    color:#fff;
+    padding:8px 18px;
+}
+
+.btn-add:hover{
+    background:#1a1a1a;
+}
+
+.btn-edit{
+    background:#111;
+    border:1px solid #444;
+    color:#fff;
+}
+
+.btn-edit:hover{
+    background:#1a1a1a;
+}
+
+.btn-toggle{
+    background:#000;
+    border:1px solid #333;
+    color:#9ca3af;
+}
+
+.btn-toggle:hover{
+    background:#111;
+    color:white;
+}
+
+/* BUTTON GROUP */
+.action-group{
+    display:flex;
+    gap:10px;
+}
+
+</style>
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <div class="hrms-title">Employees</div>
+
+        <a href="/hrms/employees/add/ui" class="btn btn-add">
+            + Add Employee
+        </a>
+    </div>
+
+    <div class="hrms-card">
+
+        <table class="hrms-table">
+
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th style="width:200px;">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody id="employees-table"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+
+async function loadEmployees(){
+
+    const tbody=document.getElementById("employees-table");
+    tbody.innerHTML="";
+
+    const res=await fetch("/hrms/employees/list");
+    const data=await res.json();
+
+    if(!data.employees.length){
+        tbody.innerHTML=`<tr>
+        <td colspan="6" class="text-center text-muted">No employees found</td>
+        </tr>`;
+        return;
+    }
+
+    data.employees.forEach(emp=>{
+
+        tbody.innerHTML+=`
+        <tr>
+
+            <td><strong>${emp.full_name}</strong></td>
+
+            <td>${emp.email}</td>
+
+            <td>${emp.department || "-"}</td>
+
+            <td>${emp.role_name || "-"}</td>
+
+            <td>
+                <span class="${emp.status==="Active" ? "status-active" : "status-inactive"}">
+                    ${emp.status}
+                </span>
+            </td>
+
+     <td class="d-flex gap-2">
+
+    <a href="/hrms/employees/${emp.id}/edit"
+        class="btn btn-outline-light btn-sm">
+        Edit
+    </a>
+
+    <button class="btn btn-outline-secondary btn-sm"
+        onclick="toggleStatus(${emp.id}, '${emp.status === 'Active' ? 'Inactive' : 'Active'}')">
+        Toggle
+    </button>
+
+    <button class="btn btn-outline-danger btn-sm"
+        onclick="deleteEmployee(${emp.id})">
+        Delete
+    </button>
+
+</td>
+
+
+        </tr>`;
+    });
+}
+
+async function toggleStatus(id,status){
+
+    await fetch(`/hrms/employees/${id}/status`,{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/x-www-form-urlencoded"
+        },
+        body:`status=${status}`
+    });
+
+    loadEmployees();
+}
+
+loadEmployees();
+
+async function deleteEmployee(id){
+
+    if(!confirm("Are you sure you want to delete this employee?"))
+        return;
+
+    await fetch(`/hrms/employees/${id}/delete`, {
+        method:"POST"
+    });
+
+    loadEmployees();
+}
+
+</script>
+
+{% endblock %}

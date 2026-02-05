@@ -20,3 +20,22 @@ uploads/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Environment
+.env
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Database
+*.db
+
+# Uploads
+uploads/
+
+# Testing files
+*.xlsx
+exports/
+

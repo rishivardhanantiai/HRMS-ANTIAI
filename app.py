@@ -1,14 +1,22 @@
-from flask import Flask, render_template, request, redirect, session, send_file
-from functools import wraps
+print("APP.PY LOADED")
+
+from flask import (
+    Flask, render_template, request,
+    redirect, session, send_from_directory
+)
 import os
-import pandas as pd
 from datetime import datetime
-import psycopg2
-import psycopg2.extras
-from psycopg2 import pool
 from dotenv import load_dotenv
-from flask import send_from_directory
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash
+
+from utils.auth import login_required
+from utils.db import get_db, release_db
+
+# =========================
+# HRMS BLUEPRINTS
+# =========================
+from hrms.employees.routes import employees_bp
+from hrms.roles.routes import roles_bp
 
 load_dotenv()
 
@@ -21,47 +29,16 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 UPLOAD_FOLDER = "uploads/resumes"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
 
 # =========================
-# DB POOL
+# REGISTER BLUEPRINTS
 # =========================
-db_pool = None
+app.register_blueprint(employees_bp)
+app.register_blueprint(roles_bp)
 
-def init_db_pool():
-    global db_pool
-    if not db_pool:
-        db_pool = pool.SimpleConnectionPool(
-            minconn=1,
-            maxconn=5,
-            dsn=DATABASE_URL,
-            sslmode="require"
-        )
-
-def get_db(dict_cursor=False):
-    init_db_pool()
-    conn = db_pool.getconn()
-    if dict_cursor:
-        return conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    return conn, conn.cursor()
-
-def release_db(conn, cur):
-    cur.close()
-    db_pool.putconn(conn)
 
 # =========================
-# LOGIN REQUIRED
-# =========================
-def login_required(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        if not session.get("hr_logged_in"):
-            return redirect("/")
-        return f(*args, **kwargs)
-    return wrap
-
-# =========================
-# AUTH
+# AUTHENTICATION
 # =========================
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -71,7 +48,7 @@ def login():
 
         conn, cur = get_db(True)
 
-        #  First check: users table (secure auth)
+        # -------- Users Table --------
         cur.execute("SELECT * FROM users WHERE email=%s", (email,))
         user = cur.fetchone()
 
@@ -82,9 +59,10 @@ def login():
             release_db(conn, cur)
             return redirect("/dashboard")
 
-        # Fallback: old admin login (no breaking)
+        # -------- Legacy Admin --------
         cur.execute("SELECT * FROM admins WHERE email=%s", (email,))
         admin = cur.fetchone()
+
         release_db(conn, cur)
 
         if admin and admin["password"] == password:
@@ -96,10 +74,12 @@ def login():
 
     return render_template("login.html")
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
+
 
 # =========================
 # DASHBOARD
@@ -123,8 +103,9 @@ def dashboard():
         total_applications=total_applications
     )
 
+
 # =========================
-# JOBS
+# JOB MANAGEMENT
 # =========================
 @app.route("/jobs", methods=["GET", "POST"])
 @login_required
@@ -145,9 +126,11 @@ def jobs():
 
     cur.execute("SELECT * FROM jobs ORDER BY id DESC")
     jobs = cur.fetchall()
+
     release_db(conn, cur)
 
     return render_template("jobs.html", jobs=jobs)
+
 
 @app.route("/delete-job/<int:job_id>")
 @login_required
@@ -158,9 +141,7 @@ def delete_job(job_id):
     release_db(conn, cur)
     return redirect("/jobs")
 
-# =========================
-# EDIT JOB
-# =========================
+
 @app.route("/edit-job/<int:job_id>", methods=["GET", "POST"])
 @login_required
 def edit_job(job_id):
@@ -184,6 +165,7 @@ def edit_job(job_id):
 
     cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
     job = cur.fetchone()
+
     release_db(conn, cur)
 
     if not job:
@@ -191,8 +173,9 @@ def edit_job(job_id):
 
     return render_template("edit_job.html", job=job)
 
+
 # =========================
-# APPLY JOB (URL APPROACH FINAL)
+# JOB APPLICATION
 # =========================
 @app.route("/apply/<int:job_id>", methods=["GET", "POST"])
 def apply(job_id):
@@ -215,7 +198,8 @@ def apply(job_id):
             resume_url = f"/uploads/resumes/{filename}"
 
         cur.execute("""
-            INSERT INTO applications (job_id, applicant_name, email, phone, resume_url)
+            INSERT INTO applications
+            (job_id, applicant_name, email, phone, resume_url)
             VALUES (%s, %s, %s, %s, %s)
         """, (
             job_id,
@@ -227,126 +211,13 @@ def apply(job_id):
 
         conn.commit()
         release_db(conn, cur)
+
         return "Application submitted successfully!"
 
     release_db(conn, cur)
+
     return render_template("apply.html", job=job)
 
-# =========================
-# APPLICATIONS
-# =========================
-@app.route("/applications")
-@login_required
-def applications():
-    selected_job = request.args.get("job_id")
-
-    conn, cur = get_db(True)
-
-    cur.execute("SELECT id, title FROM jobs")
-    jobs = cur.fetchall()
-
-    query = """
-        SELECT applications.*, jobs.title AS job_title
-        FROM applications
-        JOIN jobs ON applications.job_id = jobs.id
-    """
-
-    params = ()
-    if selected_job:
-        query += " WHERE jobs.id = %s"
-        params = (selected_job,)
-
-    query += " ORDER BY applications.id DESC"
-
-    cur.execute(query, params)
-    applications = cur.fetchall()
-
-    release_db(conn, cur)
-
-    return render_template(
-        "applications.html",
-        applications=applications,
-        jobs=jobs,
-        selected_job=selected_job
-    )
-
-# =========================
-# SETTINGS
-# =========================
-@app.route("/settings", methods=["GET", "POST"])
-@login_required
-def settings():
-    message = None
-
-    if request.method == "POST":
-        old = request.form["old_password"]
-        new = request.form["new_password"]
-        confirm = request.form["confirm_password"]
-
-        if new != confirm:
-            message = "Passwords do not match"
-        else:
-            conn, cur = get_db(True)
-
-            #  FIRST: check users table (secure users)
-            cur.execute("SELECT * FROM users WHERE email=%s", (session.get("user_email"),))
-            user = cur.fetchone()
-
-            if user:
-                # verify old password (hashed)
-                if check_password_hash(user["password"], old):
-                    new_hash = generate_password_hash(new)
-                    cur.execute(
-                        "UPDATE users SET password=%s WHERE email=%s",
-                        (new_hash, user["email"])
-                    )
-                    conn.commit()
-                    message = "Password updated successfully"
-                else:
-                    message = "Old password incorrect"
-
-            else:
-                #  FALLBACK: old admin logic (no breaking)
-                cur.execute("SELECT * FROM admins LIMIT 1")
-                admin = cur.fetchone()
-
-                if admin and admin["password"] == old:
-                    cur.execute("UPDATE admins SET password=%s", (new,))
-                    conn.commit()
-                    message = "Password updated successfully"
-                else:
-                    message = "Old password incorrect"
-
-            release_db(conn, cur)
-
-    return render_template("settings.html", message=message)
-
-# =========================
-# EXCEL DOWNLOAD
-# =========================
-@app.route("/download-excel")
-@login_required
-def download_excel():
-    job_id = request.args.get("job_id")
-
-    conn, _ = get_db()
-
-    query = """
-        SELECT j.title, a.applicant_name, a.email, a.phone, a.created_at
-        FROM applications a
-        JOIN jobs j ON a.job_id = j.id
-    """
-
-    params = ()
-    if job_id:
-        query += " WHERE j.id = %s"
-        params = (job_id,)
-
-    df = pd.read_sql(query, conn, params=params)
-
-    file_path = "applications.xlsx"
-    df.to_excel(file_path, index=False)
-    return send_file(file_path, as_attachment=True)
 
 # =========================
 # RESUME SERVE
@@ -355,6 +226,24 @@ def download_excel():
 def serve_resume(filename):
     return send_from_directory("uploads/resumes", filename)
 
+
+# =========================
+# APPLICATIONS & SETTINGS
+# =========================
+@app.route("/applications")
+@login_required
+def applications():
+    return render_template("applications.html")
+
+
+@app.route("/settings")
+@login_required
+def settings():
+    return render_template("settings.html")
+
+
+# =========================
+# RUN SERVER
 # =========================
 if __name__ == "__main__":
     app.run(debug=True)

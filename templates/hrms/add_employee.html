@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow p-4" style="background:#0b0f19; border-radius:15px;">
+        <h3 class="text-white mb-4">➕ Add Employee</h3>
+
+        <form method="POST" action="/hrms/employees/add">
+
+            <div class="mb-3">
+                <label class="text-light">Employee Code</label>
+                <input name="employee_code" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-light">Full Name</label>
+                <input name="full_name" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-light">Email</label>
+                <input name="email" class="form-control" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-light">Department</label>
+                <input name="department" class="form-control">
+            </div>
+
+            <div class="mb-3">
+                <label class="text-light">Role</label>
+                <select name="role_id" class="form-control" required>
+                    {% for role in roles %}
+                        <option value="{{ role.id }}">{{ role.role_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button class="btn btn-success">Add Employee</button>
+            <a href="/hrms/employees/ui" class="btn btn-secondary">Cancel</a>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}
