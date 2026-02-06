@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>{{ title or "HR Panel" }}</title>
 
-    <!-- MAIN CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
     <style>
@@ -75,11 +74,24 @@
 
         <nav class="sidebar-nav">
 
+            <!-- HOME -->
             <a href="/dashboard"
                class="{% if request.path == '/dashboard' %}active{% endif %}">
                 Home
             </a>
 
+            <!-- PAYROLL SECTION -->
+            <a href="/assign-salary"
+               class="{% if request.path.startswith('/assign-salary') %}active{% endif %}">
+                Assign Salary
+            </a>
+
+            <a href="/salary-records"
+               class="{% if request.path.startswith('/salary-records') %}active{% endif %}">
+                Salary Records
+            </a>
+
+            <!-- RECRUITMENT -->
             <a href="/jobs"
                class="{% if request.path.startswith('/jobs') %}active{% endif %}">
                 Manage Jobs
@@ -90,23 +102,24 @@
                 View Applications
             </a>
 
-            <!-- ✅ HRMS EMPLOYEES (ONLY THIS LINK) -->
+            <!-- EMPLOYEE MANAGEMENT -->
             <a href="/hrms/employees/ui"
                class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
                 Employees
             </a>
 
-            <!-- Roles (future safe) -->
             <a href="/hrms/roles/ui"
                class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
                 Roles
             </a>
 
+            <!-- SETTINGS -->
             <a href="/settings"
                class="{% if request.path.startswith('/settings') %}active{% endif %}">
                 ⚙️ Settings
             </a>
 
+            <!-- LOGOUT -->
             <a href="/logout" style="color:#ef4444; margin-top:20px;">
                 Logout
             </a>

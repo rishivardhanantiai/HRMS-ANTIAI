@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+
+    <h2 style="margin:0;">Salary Records</h2>
+
+    <a href="/download-salary-records" class="btn-primary">
+        ⬇ Download Records
+    </a>
+
+</div>
+
+
+<div class="card">
+
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Salary Structure</th>
+                <th>Effective From</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.employee_name }}</td>
+                <td>{{ record.structure_name }}</td>
+                <td>{{ record.effective_from }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

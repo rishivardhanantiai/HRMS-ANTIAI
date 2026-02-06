@@ -8,6 +8,8 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash
+import pandas as pd
+from flask import send_file
 
 from utils.auth import login_required
 from utils.db import get_db, release_db
@@ -241,6 +243,86 @@ def applications():
 def settings():
     return render_template("settings.html")
 
+@app.route("/assign-salary", methods=["GET", "POST"])
+@login_required
+def assign_salary():
+
+    conn, cur = get_db(True)
+
+    if request.method == "POST":
+
+        employee_id = request.form["employee_id"]
+        structure_id = request.form["structure_id"]
+        effective_from = request.form["effective_from"]
+
+        cur.execute("""
+            INSERT INTO employee_salary
+            (employee_id, structure_id, effective_from)
+            VALUES (%s, %s, %s)
+        """, (employee_id, structure_id, effective_from))
+
+        conn.commit()
+
+    cur.execute("SELECT * FROM hrms_employees")
+    employees = cur.fetchall()
+
+    cur.execute("SELECT * FROM salary_structures")
+    structures = cur.fetchall()
+
+    release_db(conn, cur)
+
+    return render_template(
+        "assign_salary.html",
+        employees=employees,
+        structures=structures
+    )
+
+@app.route("/salary-records")
+@login_required
+def salary_records():
+
+    conn, cur = get_db(True)
+
+    cur.execute("""
+        SELECT es.id,
+               e.full_name AS employee_name,
+               s.name AS structure_name,
+               es.effective_from
+        FROM employee_salary es
+        JOIN hrms_employees e ON es.employee_id = e.id
+        JOIN salary_structures s ON es.structure_id = s.id
+        ORDER BY es.effective_from DESC
+    """)
+
+    records = cur.fetchall()
+
+    release_db(conn, cur)
+
+    return render_template("salary_records.html", records=records)
+
+@app.route("/download-salary-records")
+@login_required
+def download_salary_records():
+
+    conn, _ = get_db()
+
+    query = """
+        SELECT 
+            e.full_name AS Employee,
+            s.name AS Salary_Structure,
+            es.effective_from AS Effective_From
+        FROM employee_salary es
+        JOIN hrms_employees e ON es.employee_id = e.id
+        JOIN salary_structures s ON es.structure_id = s.id
+        ORDER BY es.effective_from DESC
+    """
+
+    df = pd.read_sql(query, conn)
+
+    file_path = "salary_records.xlsx"
+    df.to_excel(file_path, index=False)
+
+    return send_file(file_path, as_attachment=True)
 
 # =========================
 # RUN SERVER
