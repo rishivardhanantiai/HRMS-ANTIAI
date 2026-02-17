@@ -31,9 +31,32 @@ body {
     left: 0;
     top: 0;
     height: 100vh;
+
     border-right: 1px solid #111;
     box-shadow: 5px 0 30px rgba(0,0,0,0.6);
+
+    /*  SCROLL FIX */
+    overflow-y: auto;
+    overflow-x: hidden;
 }
+/* Custom Scrollbar for Sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: #0c0c0c;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
 
 .sidebar .logo {
     text-align: center;
@@ -407,3 +430,26 @@ a:hover {
 .btn-small:hover {
     opacity: 0.8;
 }
+.user-profile {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.user-profile h4 {
+    font-size: 16px;
+    margin: 0;
+    color: white;
+}
+
+.user-profile p {
+    font-size: 13px;
+    color: #6fa8ff;
+    margin: 3px 0;
+}
+
+.user-profile small {
+    font-size: 11px;
+    color: #aaa;
+}
+

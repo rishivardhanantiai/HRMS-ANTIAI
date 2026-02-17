@@ -13,6 +13,8 @@ from flask import send_file
 
 from utils.auth import login_required
 from utils.db import get_db, release_db
+from hrms.attendance.routes import attendance_bp
+
 
 # =========================
 # HRMS BLUEPRINTS
@@ -27,6 +29,7 @@ load_dotenv()
 # =========================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
+app.register_blueprint(attendance_bp)
 
 UPLOAD_FOLDER = "uploads/resumes"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -44,24 +47,39 @@ app.register_blueprint(roles_bp)
 # =========================
 @app.route("/", methods=["GET", "POST"])
 def login():
+
     if request.method == "POST":
+
         email = request.form["email"]
         password = request.form["password"]
 
         conn, cur = get_db(True)
 
-        # -------- Users Table --------
-        cur.execute("SELECT * FROM users WHERE email=%s", (email,))
+        # ✅ SAFE JOIN (Only change made)
+        cur.execute("""
+            SELECT 
+                u.*,
+                r.role_name
+            FROM users u
+            LEFT JOIN system_roles r 
+                ON u.system_role_id = r.id
+            WHERE u.email = %s
+        """, (email,))
+
         user = cur.fetchone()
 
         if user and check_password_hash(user["password"], password):
+
             session.clear()
             session["hr_logged_in"] = True
             session["user_email"] = user["email"]
+            session["employee_id"] = user["employee_id"]
+            session["role"] = user["role_name"]   # ← now safe
+
             release_db(conn, cur)
             return redirect("/dashboard")
 
-        # -------- Legacy Admin --------
+        # -------- LEGACY ADMIN --------
         cur.execute("SELECT * FROM admins WHERE email=%s", (email,))
         admin = cur.fetchone()
 
@@ -70,12 +88,12 @@ def login():
         if admin and admin["password"] == password:
             session.clear()
             session["hr_logged_in"] = True
+            session["role"] = "Admin"
             return redirect("/dashboard")
 
         return "Invalid Login", 401
 
     return render_template("login.html")
-
 
 @app.route("/logout")
 def logout():
@@ -323,6 +341,7 @@ def download_salary_records():
     df.to_excel(file_path, index=False)
 
     return send_file(file_path, as_attachment=True)
+
 
 # =========================
 # RUN SERVER

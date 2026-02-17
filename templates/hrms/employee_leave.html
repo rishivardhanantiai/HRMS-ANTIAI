@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <h2>My Leave Dashboard</h2>
+        <p class="sub-text">Apply and track your leave requests</p>
+    </div>
+
+    <!-- Leave Balance -->
+    <div class="glass-card">
+        <h3>Leave Balance</h3>
+
+        <div class="balance-grid">
+            {% for b in balances %}
+            <div class="balance-box">
+                <h4>{{ b.name }}</h4>
+                <p>Total: {{ b.total_allocated }}</p>
+                <p>Used: {{ b.used }}</p>
+                <p class="remaining">Remaining: {{ b.remaining }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Apply Leave -->
+    <div class="glass-card">
+        <h3>Apply Leave</h3>
+
+        <form method="POST" class="leave-form">
+
+            <div class="form-group">
+                <label>Leave Type</label>
+                <select name="leave_type" required>
+                    {% for lt in leave_types %}
+                    <option value="{{ lt.id }}">{{ lt.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>From Date</label>
+                    <input type="text" id="from_date" name="from_date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>To Date</label>
+                    <input type="text" id="to_date" name="to_date" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Reason</label>
+                <textarea name="reason" required></textarea>
+            </div>
+
+            <button type="submit" class="btn-glow">
+                Apply Leave
+            </button>
+
+        </form>
+    </div>
+
+    <!-- Leave History -->
+    <div class="glass-card">
+        <h3>My Leave Applications</h3>
+
+        <table class="modern-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in leaves %}
+                <tr>
+                    <td>{{ l.leave_name }}</td>
+                    <td>{{ l.from_date }}</td>
+                    <td>{{ l.to_date }}</td>
+                    <td>
+                        {% if l.status == "Approved" %}
+                            <span class="badge approved">Approved</span>
+                        {% elif l.status == "Rejected" %}
+                            <span class="badge rejected">Rejected</span>
+                        {% else %}
+                            <span class="badge pending">Pending</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+
+<!-- STYLES -->
+<style>
+
+.sub-text {
+    color: #9ca3af;
+    margin-bottom: 20px;
+}
+
+.glass-card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: 0.3s ease;
+}
+
+.glass-card:hover {
+    transform: translateY(-4px);
+}
+
+.balance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.balance-box {
+    background: rgba(255,255,255,0.06);
+    padding: 18px;
+    border-radius: 12px;
+    transition: 0.3s ease;
+}
+
+.balance-box:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.balance-box h4 {
+    margin-bottom: 10px;
+}
+
+.remaining {
+    color: #22c55e;
+    font-weight: bold;
+}
+
+.leave-form .form-group {
+    margin-bottom: 18px;
+}
+
+.form-row {
+    display: flex;
+    gap: 20px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.leave-form input,
+.leave-form select,
+.leave-form textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    background: #0f172a;
+    border: 1px solid #1f2937;
+    color: white;
+}
+
+.leave-form textarea {
+    height: 90px;
+}
+
+.btn-glow {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border: none;
+    padding: 10px 22px;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.btn-glow:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 18px rgba(99,102,241,0.5);
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.modern-table th {
+    text-align: left;
+    padding: 12px;
+    border-bottom: 1px solid #1f2937;
+}
+
+.modern-table td {
+    padding: 12px;
+    border-bottom: 1px solid #1f2937;
+}
+
+.modern-table tbody tr:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.approved {
+    background: #065f46;
+    color: #34d399;
+}
+
+.rejected {
+    background: #7f1d1d;
+    color: #f87171;
+}
+
+.pending {
+    background: #78350f;
+    color: #fbbf24;
+}
+
+</style>
+
+
+<!-- Flatpickr -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    let toPicker;
+
+    let fromPicker = flatpickr("#from_date", {
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        disableMobile: true,
+        onChange: function(selectedDates, dateStr) {
+            if (toPicker) {
+                toPicker.set("minDate", dateStr);
+            }
+        }
+    });
+
+    toPicker = flatpickr("#to_date", {
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        disableMobile: true
+    });
+
+});
+</script>
+
+{% endblock %}

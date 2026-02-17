@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <h2>Leave Approval Panel</h2>
+        <p class="sub-text">Manage employee leave requests</p>
+    </div>
+
+    <!-- Leave Requests Card -->
+    <div class="hrms-card mt-4">
+
+        <table class="hrms-table">
+
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Leave Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Days</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for l in leaves %}
+                <tr>
+                    <td>{{ l.full_name }}</td>
+                    <td>{{ l.leave_name }}</td>
+                    <td>{{ l.from_date }}</td>
+                    <td>{{ l.to_date }}</td>
+                    <td>{{ (l.to_date - l.from_date).days + 1 }}</td>
+
+                    <td>
+                        {% if l.status == "Approved" %}
+                            <span class="badge badge-success">Approved</span>
+                        {% elif l.status == "Rejected" %}
+                            <span class="badge badge-danger">Rejected</span>
+                        {% else %}
+                            <span class="badge badge-warning">Pending</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if l.status == "Pending" %}
+                            <div class="action-buttons">
+                                <form method="POST" action="/hrms/leave/action/{{ l.id }}/approve">
+                                    <button class="btn-approve">Approve</button>
+                                </form>
+
+                                <form method="POST" action="/hrms/leave/action/{{ l.id }}/reject">
+                                    <button class="btn-reject">Reject</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<!-- STYLE -->
+<style>
+
+.sub-text {
+    color: #aaa;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-approve {
+    background: linear-gradient(45deg, #1b5e20, #2e7d32);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-approve:hover {
+    transform: scale(1.05);
+}
+
+.btn-reject {
+    background: linear-gradient(45deg, #b71c1c, #d32f2f);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-reject:hover {
+    transform: scale(1.05);
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.badge-success {
+    background: #1b5e20;
+    color: #a5d6a7;
+}
+
+.badge-danger {
+    background: #b71c1c;
+    color: #ffcdd2;
+}
+
+.badge-warning {
+    background: #f57f17;
+    color: #fff59d;
+}
+
+.hrms-table tbody tr:hover {
+    background: #111827;
+    transition: 0.2s;
+}
+
+</style>
+
+{% endblock %}

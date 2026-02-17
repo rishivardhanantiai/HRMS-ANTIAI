@@ -10,6 +10,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 db_pool = None
 
+# =========================
+# INIT CONNECTION POOL
+# =========================
 def init_db_pool():
     global db_pool
     if not db_pool:
@@ -20,13 +23,26 @@ def init_db_pool():
             sslmode="require"
         )
 
+# =========================
+# GET DATABASE CONNECTION
+# =========================
 def get_db(dict_cursor=False):
     init_db_pool()
     conn = db_pool.getconn()
-    if dict_cursor:
-        return conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    return conn, conn.cursor()
 
+    if dict_cursor:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        cur = conn.cursor()
+
+    #  CRITICAL FIX FOR SUPABASE SCHEMA CONFLICT
+    cur.execute("SET search_path TO public")
+
+    return conn, cur
+
+# =========================
+# RELEASE CONNECTION
+# =========================
 def release_db(conn, cur):
     cur.close()
     db_pool.putconn(conn)

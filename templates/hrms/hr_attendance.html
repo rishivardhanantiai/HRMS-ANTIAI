@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <h2>HR Attendance Panel</h2>
+    </div>
+
+    <!-- FILTER CARD -->
+    <div class="hrms-card filter-card">
+
+        <form method="GET" class="filter-form">
+
+            <div class="filter-group">
+                <label>Employee</label>
+                <select name="employee_id">
+                    <option value="">All Employees</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}"
+                        {% if request.args.get('employee_id') == emp.id|string %}selected{% endif %}>
+                        {{ emp.full_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>From Date</label>
+                <input type="date" name="from_date"
+                       value="{{ request.args.get('from_date','') }}">
+            </div>
+
+            <div class="filter-group">
+                <label>To Date</label>
+                <input type="date" name="to_date"
+                       value="{{ request.args.get('to_date','') }}">
+            </div>
+
+            <div class="filter-group button-group">
+                <button type="submit" class="btn-filter">
+                    🔍 Apply Filter
+                </button>
+
+                <a href="/hrms/attendance" class="btn-reset">
+                    Reset
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+    {% if request.args %}
+    <div class="active-filter">
+        Filters Applied
+    </div>
+    {% endif %}
+
+    <!-- TABLE CARD -->
+    <div class="hrms-card mt-4">
+
+        <table class="hrms-table">
+
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Date</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Duration (HH:MM)</th>
+                    <th>Edit</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for a in attendance %}
+                <tr>
+
+                    <td>{{ a.full_name }}</td>
+
+                    <td>{{ a.attendance_date }}</td>
+
+                    <td>
+                        {{ a.check_in_time.strftime("%H:%M") if a.check_in_time else "-" }}
+                    </td>
+
+                    <td>
+                        {{ a.check_out_time.strftime("%H:%M") if a.check_out_time else "-" }}
+                    </td>
+
+                    <td>
+                        {% if a.duration %}
+                            {{ "%02d:%02d"|format(
+                                (a.duration.total_seconds() // 3600)|int,
+                                ((a.duration.total_seconds() // 60) % 60)|int
+                            ) }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if not a.is_locked %}
+                        <form method="POST"
+                              action="/hrms/attendance/edit/{{ a.employee_id }}/{{ a.attendance_date }}">
+                            <select name="status">
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                                <option value="WFH">WFH</option>
+                            </select>
+                            <button type="submit">Save</button>
+                        </form>
+                        {% else %}
+                            🔒 Locked
+                        {% endif %}
+                    </td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<style>
+.filter-card {
+    padding: 25px;
+}
+
+.filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+}
+
+.filter-group label {
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: #aaa;
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #111;
+    color: white;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-filter {
+    background: linear-gradient(45deg, #3f51b5, #1a237e);
+    color: white;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-filter:hover {
+    transform: scale(1.05);
+}
+
+.btn-reset {
+    background: #333;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: 0.3s;
+}
+
+.btn-reset:hover {
+    background: #555;
+}
+
+.active-filter {
+    background: #1b5e20;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 10px;
+    color: #a5d6a7;
+}
+
+.hrms-table tbody tr:hover {
+    background: #111827;
+    transition: 0.2s;
+}
+</style>
+
+{% endblock %}

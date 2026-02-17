@@ -4,7 +4,7 @@
 
 <div class="dashboard-center">
 
-    <h1>Welcome to HR Dashboard</h1>
+    <h1>Welcome to HRMS</h1>
 
     <p class="subtitle">
         Overview of your hiring activity
@@ -22,8 +22,93 @@
             <p>{{ total_applications }}</p>
         </div>
 
+        
     </div>
 
 </div>
+
+<script>
+
+const checkInBtn = document.getElementById("checkInBtn");
+const checkOutBtn = document.getElementById("checkOutBtn");
+
+function updateStatus(text){
+    document.getElementById("attendanceStatus").innerText = text;
+}
+
+function loadTodayStatus(){
+
+    fetch("/hrms/attendance/today-status")
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === "Checked In"){
+            updateStatus(
+                "Checked In at " + data.time +
+                " | Working: " + data.worked
+            );
+
+            checkInBtn.disabled = true;
+            checkOutBtn.disabled = false;
+        }
+
+        else if(data.status === "Checked Out"){
+            updateStatus(
+                "Checked Out ✔ | Total: " + data.worked
+            );
+
+            checkInBtn.disabled = true;
+            checkOutBtn.disabled = true;
+        }
+
+        else{
+            updateStatus("Not Marked Today");
+
+            checkInBtn.disabled = false;
+            checkOutBtn.disabled = true;
+        }
+
+    });
+
+}
+
+checkInBtn.addEventListener("click", function() {
+
+    fetch("/hrms/attendance/check-in", { method:"POST" })
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.message){
+            alert(data.message);
+            loadTodayStatus();
+        }else{
+            alert(data.error);
+        }
+
+    });
+
+});
+
+checkOutBtn.addEventListener("click", function() {
+
+    fetch("/hrms/attendance/check-out", { method:"POST" })
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.message){
+            alert(data.message);
+            loadTodayStatus();
+        }else{
+            alert(data.error);
+        }
+
+    });
+
+});
+
+loadTodayStatus();
+setInterval(loadTodayStatus, 60000);
+
+</script>
 
 {% endblock %}

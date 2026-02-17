@@ -80,6 +80,32 @@
                 Home
             </a>
 
+            <!-- ATTENDANCE -->
+            <a href="/hrms/attendance"
+               class="{% if request.path.startswith('/hrms/attendance') %}active{% endif %}">
+                Attendance
+            </a>
+
+            <!-- USER INFO -->
+            <div class="user-profile">
+                <h4>{{ session.get("employee_name") }}</h4>
+                <p>{{ session.get("role") }}</p>
+                <small>{{ session.get("user_email") }}</small>
+            </div>
+
+            <!-- LEAVE (ROLE BASED FIX) -->
+            {% if session.get("role") == "Employee" %}
+                <a href="/hrms/leave"
+                   class="{% if request.path.startswith('/hrms/leave') and not request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
+                    Leave
+                </a>
+            {% elif session.get("role") in ["HR", "Admin"] %}
+                <a href="/hrms/leave/manage"
+                   class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
+                    Leave
+                </a>
+            {% endif %}
+
             <!-- PAYROLL SECTION -->
             <a href="/assign-salary"
                class="{% if request.path.startswith('/assign-salary') %}active{% endif %}">

@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <h2>My Attendance (Current Month)</h2>
+    </div>
+
+    <!-- ================= TODAY CARD ================= -->
+    <div class="hrms-card attendance-card mb-4">
+
+        <div class="attendance-header">
+            <h3>Today's Attendance</h3>
+        </div>
+
+        <div class="attendance-status" id="today-status">
+            Loading...
+        </div>
+
+        <div class="attendance-actions">
+            <button class="btn-checkin" onclick="checkIn()">Check In</button>
+            <button class="btn-checkout" onclick="checkOut()">Check Out</button>
+        </div>
+
+    </div>
+     
+    <div class="calendar-card">
+    <h3>{{ month }}/{{ year }}</h3>
+
+    <div class="calendar-grid">
+        {% for week in calendar_data %}
+            {% for day in week %}
+                {% if day == 0 %}
+                    <div class="calendar-day empty"></div>
+                {% else %}
+                    {% set current_date = date(year, month, day) %}
+                    {% set record = attendance_map.get(current_date) %}
+
+                    <div class="calendar-day
+                        {% if current_date.weekday() == 6 %} sunday
+                        {% elif record and record.status == 'Present' %} present
+                        {% endif %}
+                    ">
+                        {{ day }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+
+    <!-- ================= TABLE ================= -->
+    <div class="hrms-card">
+
+        <table class="hrms-table">
+
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Duration (HH:MM)</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for a in attendance %}
+                <tr>
+                    <td>{{ a.attendance_date.strftime("%d %b %Y") }}</td>
+
+                    <td>{{ a.status }}</td>
+                    <td>
+    {% if a.check_in_time %}
+        {{ a.check_in_time.strftime("%H:%M") }}
+    {% else %}
+        -
+    {% endif %}
+</td>
+
+<td>
+    {% if a.check_out_time %}
+        {{ a.check_out_time.strftime("%H:%M") }}
+    {% else %}
+        -
+    {% endif %}
+</td>
+
+                    
+                    <td>
+                        {% if a.duration %}
+                            {% set total_minutes = (a.duration.total_seconds() // 60)|int %}
+                            {% set hours = (total_minutes // 60)|int %}
+                            {% set minutes = (total_minutes % 60)|int %}
+                            {{ "%02d:%02d"|format(hours, minutes) }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<!-- ================= STYLING ================= -->
+<style>
+.attendance-card {
+    text-align: center;
+    padding: 25px;
+}
+
+.attendance-header h3 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #aaa;
+}
+
+.attendance-status {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.attendance-actions button {
+    padding: 10px 25px;
+    border-radius: 8px;
+    border: none;
+    margin: 5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-checkin {
+    background: linear-gradient(45deg, #4CAF50, #2e7d32);
+    color: white;
+}
+
+.btn-checkin:hover {
+    transform: scale(1.05);
+}
+
+.btn-checkout {
+    background: linear-gradient(45deg, #f44336, #b71c1c);
+    color: white;
+}
+
+.btn-checkout:hover {
+    transform: scale(1.05);
+}
+
+.calendar-card {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.calendar-day {
+    padding: 12px;
+    border-radius: 8px;
+    background: #111;
+    border: 1px solid #222;
+    transition: 0.3s;
+}
+
+.calendar-day:hover {
+    background: #1e1e1e;
+}
+
+.sunday {
+    background: #2a2a2a;
+    color: #888;
+}
+
+.present {
+    background: #1b5e20;
+}
+.empty {
+    visibility: hidden;
+}
+</style>
+
+<!-- ================= JAVASCRIPT ================= -->
+<script>
+
+function checkIn() {
+    fetch("/hrms/attendance/check-in", { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.message);
+            } else {
+                location.reload();
+            }
+        });
+}
+
+function checkOut() {
+    fetch("/hrms/attendance/check-out", { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.message);
+            } else {
+                location.reload();
+            }
+        });
+}
+
+
+function loadStatus() {
+    fetch("/hrms/attendance/today-status")
+        .then(res => res.json())
+        .then(data => {
+
+            let statusDiv = document.getElementById("today-status");
+
+            if (data.status === "Checked In") {
+                statusDiv.innerHTML =
+                    "🟢 Checked In<br><small>Total: " + data.worked + "</small>";
+            } 
+            else if (data.status === "Checked Out") {
+                statusDiv.innerHTML =
+                    "✅ Checked Out<br><small>Total: " + data.worked + "</small>";
+            } 
+            else {
+                statusDiv.innerHTML = "⚪ Not Marked Today";
+            }
+        });
+}
+
+loadStatus();
+setInterval(loadStatus, 60000);
+
+</script>
+
+{% endblock %}
