@@ -26,7 +26,7 @@
         }
 
         input, textarea, select {
-            transition: border 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+            transition: border 0.3s ease, box-shadow 0.3s ease;
         }
 
         input:focus, textarea:focus, select:focus {
@@ -36,8 +36,14 @@
         }
 
         .sidebar-nav a {
+            display: block;
+            padding: 10px 14px;
+            text-decoration: none;
+            color: #e5e7eb;
+            border-radius: 8px;
             transition: background 0.3s ease, padding-left 0.3s ease;
         }
+
         .sidebar-nav a:hover {
             background: rgba(255,255,255,0.08);
             padding-left: 18px;
@@ -46,7 +52,6 @@
         .sidebar-nav a.active {
             background: linear-gradient(135deg, #3b82f6, #6366f1);
             color: #fff;
-            border-radius: 8px;
         }
 
         .main-content {
@@ -87,14 +92,14 @@
             </a>
 
             <!-- USER INFO -->
-            <div class="user-profile">
+            <div class="user-profile" style="margin:15px 0;">
                 <h4>{{ session.get("employee_name") }}</h4>
                 <p>{{ session.get("role") }}</p>
                 <small>{{ session.get("user_email") }}</small>
             </div>
 
-            <!-- LEAVE (ROLE BASED FIX) -->
-            {% if session.get("role") == "Employee" %}
+            <!-- LEAVE -->
+            {% if session.get("role")|lower == "employee" %}
                 <a href="/hrms/leave"
                    class="{% if request.path.startswith('/hrms/leave') and not request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
                     Leave
@@ -107,15 +112,25 @@
             {% endif %}
 
             <!-- PAYROLL SECTION -->
-            <a href="/assign-salary"
-               class="{% if request.path.startswith('/assign-salary') %}active{% endif %}">
-                Assign Salary
-            </a>
 
-            <a href="/salary-records"
-               class="{% if request.path.startswith('/salary-records') %}active{% endif %}">
-                Salary Records
-            </a>
+            {% if session.get("role") in ["HR","Admin"] %}
+                <a href="/hrms/payroll/"
+                   class="{% if request.path.startswith('/hrms/payroll') %}active{% endif %}">
+                    Payroll
+                </a>
+
+                <a href="/hrms/assign-salary"
+                   class="{% if request.path.startswith('/hrms/assign-salary') %}active{% endif %}">
+                    Assign Salary
+                </a>
+            {% endif %}
+
+            {% if session.get("role")|lower == "employee" %}
+                <a href="{{ url_for('payroll.my_payroll') }}"
+                   class="{% if request.path.startswith('/hrms/my-payroll') %}active{% endif %}">
+                    My Payroll
+                </a>
+            {% endif %}
 
             <!-- RECRUITMENT -->
             <a href="/jobs"

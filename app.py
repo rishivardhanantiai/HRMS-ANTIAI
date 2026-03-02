@@ -14,6 +14,10 @@ from flask import send_file
 from utils.auth import login_required
 from utils.db import get_db, release_db
 from hrms.attendance.routes import attendance_bp
+from hrms.payroll.routes import payroll_bp
+from hrms.salary.routes import salary_bp
+
+
 
 
 # =========================
@@ -30,6 +34,8 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 app.register_blueprint(attendance_bp)
+app.register_blueprint(payroll_bp)
+app.register_blueprint(salary_bp)
 
 UPLOAD_FOLDER = "uploads/resumes"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -43,57 +49,61 @@ app.register_blueprint(roles_bp)
 
 
 # =========================
+# =========================
 # AUTHENTICATION
 # =========================
-@app.route("/", methods=["GET", "POST"])
-def login():
+
+@app.route("/")
+def role_select():
+    return render_template("role_select.html")
+
+
+@app.route("/login/<role>", methods=["GET", "POST"])
+def login(role):
 
     if request.method == "POST":
 
-        email = request.form["email"]
+        email = request.form["email"].strip().lower()
         password = request.form["password"]
 
         conn, cur = get_db(True)
 
-        # ✅ SAFE JOIN (Only change made)
         cur.execute("""
-            SELECT 
-                u.*,
-                r.role_name
+            SELECT u.id,
+                   u.email,
+                   u.employee_id,
+                   u.password,
+                   r.role_name
             FROM users u
-            LEFT JOIN system_roles r 
-                ON u.system_role_id = r.id
-            WHERE u.email = %s
+            JOIN system_roles r
+              ON u.system_role_id = r.id
+            WHERE u.email=%s
         """, (email,))
 
         user = cur.fetchone()
 
-        if user and check_password_hash(user["password"], password):
-
-            session.clear()
-            session["hr_logged_in"] = True
-            session["user_email"] = user["email"]
-            session["employee_id"] = user["employee_id"]
-            session["role"] = user["role_name"]   # ← now safe
-
+        if not user:
             release_db(conn, cur)
-            return redirect("/dashboard")
+            return "Invalid Email", 401
 
-        # -------- LEGACY ADMIN --------
-        cur.execute("SELECT * FROM admins WHERE email=%s", (email,))
-        admin = cur.fetchone()
+        if not check_password_hash(user["password"], password):
+            release_db(conn, cur)
+            return "Invalid Password", 401
+
+        if user["role_name"] != role:
+            release_db(conn, cur)
+            return "Unauthorized Role Access", 403
+
+        session.clear()
+        session["user_id"] = user["id"]
+        session["employee_id"] = user["employee_id"]
+        session["role"] = user["role_name"]
 
         release_db(conn, cur)
 
-        if admin and admin["password"] == password:
-            session.clear()
-            session["hr_logged_in"] = True
-            session["role"] = "Admin"
-            return redirect("/dashboard")
+        return redirect("/dashboard")
 
-        return "Invalid Login", 401
-
-    return render_template("login.html")
+    return render_template("login.html", role=role)
 
 @app.route("/logout")
 def logout():

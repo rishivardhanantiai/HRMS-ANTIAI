@@ -1,0 +1,50 @@
+from flask import Blueprint, render_template, request, redirect, session
+from utils.auth import login_required
+from utils.db import get_db, release_db
+salary_bp = Blueprint("salary", __name__, url_prefix="/hrms")
+
+
+    
+@salary_bp.route("/assign-salary", methods=["GET", "POST"])
+@login_required
+def assign_salary():
+
+    role = session.get("role")
+
+    if role not in ["HR", "Admin"]:
+        return redirect("/dashboard")
+
+    conn, cur = get_db(True)
+
+    try:
+
+        if request.method == "POST":
+            employee_id = request.form["employee_id"]
+            structure_id = request.form["structure_id"]
+            effective_from = request.form["effective_from"]
+
+            cur.execute("""
+                INSERT INTO employee_salary
+                (employee_id, structure_id, effective_from)
+                VALUES (%s, %s, %s)
+            """, (employee_id, structure_id, effective_from))
+
+            conn.commit()
+
+            return redirect("/hrms/assign-salary")
+
+        # GET part
+        cur.execute("SELECT id, full_name FROM hrms_employees ORDER BY full_name")
+        employees = cur.fetchall()
+
+        cur.execute("SELECT DISTINCT structure_id FROM salary_structure_components")
+        structures = cur.fetchall()
+
+        return render_template(
+            "hrms/assign_salary.html",
+            employees=employees,
+            structures=structures
+        )
+
+    finally:
+        release_db(conn, cur)

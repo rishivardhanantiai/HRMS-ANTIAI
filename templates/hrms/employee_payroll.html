@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+    <h2>My Payroll History</h2>
+</div>
+
+<div class="card">
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th>Year</th>
+                <th>Gross</th>
+                <th>Net Salary</th>
+                <th>Status</th>
+                <th>Payslip</th>
+            </tr>
+        </thead>
+        <tbody>
+
+        {% for run in payrolls %}
+        <tr>
+            <td>{{ run.month }}</td>
+            <td>{{ run.year }}</td>
+            <td>₹ {{ run.gross_salary }}</td>
+            <td><strong>₹ {{ run.net_salary }}</strong></td>
+
+            <td>
+                {% if run.status|upper == "DRAFT" %}
+                    <span class="badge-warning">DRAFT</span>
+                {% elif run.status|upper == "APPROVED" %}
+                    <span class="badge-info">APPROVED</span>
+                {% elif run.status|upper == "LOCKED" %}
+                    <span class="badge-success">LOCKED</span>
+                {% endif %}
+            </td>
+
+            <td>
+                <a href="{{ url_for('payroll.download_payslip', id=run.id) }}"
+                   class="btn-small btn-secondary">
+                   Download
+                </a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6">No payroll records found</td>
+        </tr>
+        {% endfor %}
+
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

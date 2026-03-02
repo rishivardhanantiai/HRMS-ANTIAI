@@ -1,0 +1,5 @@
+PAYROLL_STATUS = {
+    "DRAFT": "DRAFT",
+    "APPROVED": "APPROVED",
+    "LOCKED": "LOCKED"
+}

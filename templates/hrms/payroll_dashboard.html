@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+    <h2>Payroll Dashboard</h2>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('payroll.generate') }}">
+        <div class="form-row">
+            <select name="employee_id" required>
+                <option value="">Select Employee</option>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}">
+                    #{{ emp.id }} - {{ emp.full_name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="month" required>
+                <option value="">Month</option>
+                {% for i in range(1,13) %}
+                <option value="{{ i }}">{{ i }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="year" required>
+                {% for y in range(2024, 2031) %}
+                <option value="{{ y }}">{{ y }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="btn-primary">
+                Generate Payroll
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="card mt-4">
+    <h3>Generated Payroll Records</h3>
+
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Month</th>
+                <th>Year</th>
+                <th>Net Salary</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in payroll_runs %}
+            <tr>
+                <td>
+                    <strong>#{{ run.employee_id }}</strong> - {{ run.full_name }}
+                </td>
+                <td>{{ run.month }}</td>
+                <td>{{ run.year }}</td>
+                <td>₹ {{ run.net_salary }}</td>
+
+                <td>
+                    {% if run.status|upper == "DRAFT" %}
+                        <span class="badge-warning">DRAFT</span>
+                    {% elif run.status|upper == "APPROVED" %}
+                        <span class="badge-info">APPROVED</span>
+                    {% elif run.status|upper == "LOCKED" %}
+                        <span class="badge-success">LOCKED</span>
+                    {% endif %}
+                </td>
+
+                <td>
+
+                    {% if session.get("role")|lower == "hr" and run.status|upper == "DRAFT" %}
+                        <form method="POST" action="{{ url_for('payroll.approve_payroll', id=run.payroll_id) }}">
+                            <button type="submit" class="btn-small btn-info">Approve</button>
+                        </form>
+                    {% endif %}
+
+                    {% if session.get("role")|lower == "admin" and run.status|upper == "APPROVED" %}
+                        <form method="POST" action="{{ url_for('payroll.lock_payroll', id=run.payroll_id) }}">
+                            <button type="submit" class="btn-small btn-success">Lock</button>
+                        </form>
+                    {% endif %}
+
+                    <!-- Payslip Button -->
+                    <a href="{{ url_for('payroll.download_payslip', id=run.payroll_id) }}"
+                       class="btn-small btn-secondary">
+                       Payslip
+                    </a>
+
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6">No payroll generated yet</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

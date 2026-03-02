@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>HR Login</title>
+    <title>{{ role }} Login</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -15,13 +15,42 @@
 
     <!-- LOGIN CARD -->
     <div class="card login-card">
-        <h1 class="login-title">HR LOGIN</h1>
+        <h1 class="login-title">{{ role }} LOGIN</h1>
 
         <form method="POST">
-            <input type="email" name="email" placeholder="Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">Login</button>
+
+            <!-- Email -->
+            <input 
+                type="email" 
+                name="email" 
+                placeholder="Email Address" 
+                required
+                autocomplete="off"
+            >
+
+            <!-- Password -->
+            <input 
+                type="password" 
+                name="password" 
+                placeholder="Password" 
+                required
+                autocomplete="off"
+            >
+
+            <!-- Submit -->
+            <button type="submit">
+                Login
+            </button>
+
         </form>
+
+        <!-- Back to Role Selection -->
+        <div style="margin-top:15px; text-align:center;">
+            <a href="/" style="font-size:13px; opacity:0.7; text-decoration:none;">
+                ← Back to Role Selection
+            </a>
+        </div>
+
     </div>
 
 </div>

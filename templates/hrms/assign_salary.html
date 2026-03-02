@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <h2>Assign Salary</h2>
+</div>
+
+<div class="card">
+    <form method="POST">
+        <div class="form-row">
+
+            <select name="employee_id" required>
+                <option value="">Select Employee</option>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}">
+                    #{{ emp.id }} - {{ emp.full_name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="structure_id" required>
+                <option value="">Select Salary Structure</option>
+                {% for s in structures %}
+                <option value="{{ s.structure_id }}">
+                    Structure {{ s.structure_id }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <input type="date" name="effective_from" required>
+
+            <button type="submit" class="btn-primary">
+                Assign Salary
+            </button>
+
+        </div>
+    </form>
+</div>
+
+{% endblock %}
