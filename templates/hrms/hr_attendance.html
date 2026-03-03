@@ -91,10 +91,10 @@
 
                     <td>
                         {% if a.duration %}
-                            {{ "%02d:%02d"|format(
-                                (a.duration.total_seconds() // 3600)|int,
-                                ((a.duration.total_seconds() // 60) % 60)|int
-                            ) }}
+                        {% set total_minutes = a.duration|int %}
+                        {% set hours = total_minutes // 60 %}
+                        {% set minutes = total_minutes % 60 %}
+                        {{ "%02d:%02d"|format(hours, minutes) }}
                         {% else %}
                             -
                         {% endif %}

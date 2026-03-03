@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-4">
+    <div class="card p-4 shadow">
+        <h4>Edit Payroll</h4>
+
+        <form method="POST">
+            <div class="mb-3">
+                <label>Net Salary</label>
+                <input type="number" name="net_salary" 
+                       value="{{ payroll.net_salary }}" 
+                       class="form-control" required>
+            </div>
+
+            <button class="btn btn-success">Update</button>
+            <a href="/hrms/payroll/" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

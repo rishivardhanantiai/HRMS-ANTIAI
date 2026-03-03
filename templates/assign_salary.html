@@ -6,7 +6,7 @@
 
 <div class="card form-card">
 
-    <form method="POST" class="form-grid">
+    <form method="POST" action="{{ url_for('salary.assign_employee_salary') }}" class="form-grid">
 
         <div class="form-group">
             <label>Employee</label>
@@ -18,12 +18,8 @@
         </div>
 
         <div class="form-group">
-            <label>Salary Structure</label>
-            <select name="structure_id" required>
-                {% for s in structures %}
-                <option value="{{ s.id }}">{{ s.name }}</option>
-                {% endfor %}
-            </select>
+            <label>Monthly Salary (₹)</label>
+            <input type="number" name="monthly_salary" step="0.01" required>
         </div>
 
         <div class="form-group">

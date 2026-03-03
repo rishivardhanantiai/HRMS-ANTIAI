@@ -2,40 +2,39 @@
 
 {% block content %}
 
-<div class="page-header">
-    <h2>Assign Salary</h2>
-</div>
+<h2 class="page-title">Assign Salary</h2>
 
-<div class="card">
-    <form method="POST">
-        <div class="form-row">
+<div class="card form-card">
 
+    <form method="POST" class="form-grid">
+
+        <div class="form-group">
+            <label>Employee</label>
             <select name="employee_id" required>
-                <option value="">Select Employee</option>
                 {% for emp in employees %}
-                <option value="{{ emp.id }}">
-                    #{{ emp.id }} - {{ emp.full_name }}
-                </option>
+                <option value="{{ emp.id }}">{{ emp.full_name }}</option>
                 {% endfor %}
             </select>
+        </div>
 
-            <select name="structure_id" required>
-                <option value="">Select Salary Structure</option>
-                {% for s in structures %}
-                <option value="{{ s.structure_id }}">
-                    Structure {{ s.structure_id }}
-                </option>
-                {% endfor %}
-            </select>
+        <div class="form-group">
+            <label>Monthly Salary (₹)</label>
+            <input type="number" name="monthly_salary" step="0.01" required>
+        </div>
 
+        <div class="form-group">
+            <label>Effective From</label>
             <input type="date" name="effective_from" required>
+        </div>
 
-            <button type="submit" class="btn-primary">
+        <div class="form-group">
+            <button type="submit" class="primary-btn">
                 Assign Salary
             </button>
-
         </div>
+
     </form>
+
 </div>
 
 {% endblock %}

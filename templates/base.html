@@ -69,7 +69,6 @@
 
 <div class="app-container">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar">
 
         <div class="logo">
@@ -95,69 +94,67 @@
             <div class="user-profile" style="margin:15px 0;">
                 <h4>{{ session.get("employee_name") }}</h4>
                 <p>{{ session.get("role") }}</p>
-                <small>{{ session.get("user_email") }}</small>
             </div>
 
-            <!-- LEAVE -->
-            {% if session.get("role")|lower == "employee" %}
+            <!-- ================= EMPLOYEE ONLY ================= -->
+            {% if session.get("role") == "Employee" %}
+
                 <a href="/hrms/leave"
-                   class="{% if request.path.startswith('/hrms/leave') and not request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
+                   class="{% if request.path.startswith('/hrms/leave') %}active{% endif %}">
                     Leave
                 </a>
-            {% elif session.get("role") in ["HR", "Admin"] %}
-                <a href="/hrms/leave/manage"
-                   class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
-                    Leave
+
+                <a href="{{ url_for('payroll.my_payroll') }}"
+                   class="{% if request.path.startswith('/hrms/my-payroll') %}active{% endif %}">
+                    My Payroll
                 </a>
+
             {% endif %}
 
-            <!-- PAYROLL SECTION -->
-
+            <!-- ================= HR & ADMIN ================= -->
             {% if session.get("role") in ["HR","Admin"] %}
+
+                <a href="/hrms/leave/manage"
+                   class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
+                    Manage Leave
+                </a>
+
                 <a href="/hrms/payroll/"
                    class="{% if request.path.startswith('/hrms/payroll') %}active{% endif %}">
                     Payroll
                 </a>
 
-                <a href="/hrms/assign-salary"
-                   class="{% if request.path.startswith('/hrms/assign-salary') %}active{% endif %}">
+                <a href="/assign-salary"
+                   class="{% if request.path.startswith('/assign-salary') %}active{% endif %}">
                     Assign Salary
                 </a>
-            {% endif %}
 
-            {% if session.get("role")|lower == "employee" %}
-                <a href="{{ url_for('payroll.my_payroll') }}"
-                   class="{% if request.path.startswith('/hrms/my-payroll') %}active{% endif %}">
-                    My Payroll
+                <a href="/jobs"
+                   class="{% if request.path.startswith('/jobs') %}active{% endif %}">
+                    Manage Jobs
                 </a>
+
+                <a href="/applications"
+                   class="{% if request.path.startswith('/applications') %}active{% endif %}">
+                    Applications
+                </a>
+
+                <a href="/hrms/employees/ui"
+                   class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
+                    Employees
+                </a>
+
+                <a href="/hrms/roles/ui"
+                   class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
+                    Roles
+                </a>
+
             {% endif %}
 
-            <!-- RECRUITMENT -->
-            <a href="/jobs"
-               class="{% if request.path.startswith('/jobs') %}active{% endif %}">
-                Manage Jobs
-            </a>
-
-            <a href="/applications"
-               class="{% if request.path.startswith('/applications') %}active{% endif %}">
-                View Applications
-            </a>
-
-            <!-- EMPLOYEE MANAGEMENT -->
-            <a href="/hrms/employees/ui"
-               class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
-                Employees
-            </a>
-
-            <a href="/hrms/roles/ui"
-               class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
-                Roles
-            </a>
-
-            <!-- SETTINGS -->
+            <!-- SETTINGS (ALL ROLES) -->
             <a href="/settings"
                class="{% if request.path.startswith('/settings') %}active{% endif %}">
-                ⚙️ Settings
+                ⚙ Settings
             </a>
 
             <!-- LOGOUT -->
@@ -169,7 +166,6 @@
 
     </aside>
 
-    <!-- MAIN CONTENT -->
     <main class="main-content">
         {% block content %}{% endblock %}
     </main>

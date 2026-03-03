@@ -5,30 +5,44 @@ from constants import PAYROLL_STATUS
 
 
 class PayrollEngine:
+
     def __init__(self):
         pass
 
-    # =====================================================
-    # SALARY BREAKUP
-    # =====================================================
-    def get_monthly_salary_breakup(self, employee_id, month, year):
-        conn, cur = get_db(True)
-        try:
-            cur.execute("""
-                SELECT structure_id
-                FROM employee_salary
-                WHERE employee_id = %s
-                AND effective_from <= %s
-                ORDER BY effective_from DESC
-                LIMIT 1
-            """, (employee_id, date(year, month, 1)))
+    # ================= SALARY BREAKUP =================
+def get_monthly_salary_breakup(self, employee_id, month, year):
+    conn, cur = get_db(True)
+    try:
+        cur.execute("""
+            SELECT structure_id, monthly_salary
+            FROM employee_salary
+            WHERE employee_id = %s
+            AND effective_from <= %s
+            ORDER BY effective_from DESC
+            LIMIT 1
+        """, (employee_id, date(year, month, 1)))
 
-            row = cur.fetchone()
-            if not row:
-                return None
+        row = cur.fetchone()
+        if not row:
+            return None
 
-            structure_id = row["structure_id"]
+        # 🔥 NEW HYBRID LOGIC
+        monthly_salary = row.get("monthly_salary")
+        structure_id = row.get("structure_id")
 
+        # ✅ CASE 1 — Manual salary assigned
+        if monthly_salary:
+            gross = float(monthly_salary)
+
+            return {
+                "earnings": {"Manual Salary": gross},
+                "deductions": {},
+                "gross": gross,
+                "basic": gross  # treat full salary as basic for PF
+            }
+
+        # ✅ CASE 2 — Structure-based salary (old system)
+        if structure_id:
             cur.execute("""
                 SELECT sc.name, sc.type, ssc.amount
                 FROM salary_structure_components ssc
@@ -62,12 +76,13 @@ class PayrollEngine:
                 "gross": gross,
                 "basic": basic
             }
-        finally:
-            release_db(conn, cur)
 
-    # =====================================================
-    # ATTENDANCE
-    # =====================================================
+        # ❌ No salary info found
+        return None
+
+    finally:
+        release_db(conn, cur)
+    # ================= ATTENDANCE =================
     def get_attendance_summary(self, employee_id, month, year):
         conn, cur = get_db(True)
         try:
@@ -80,7 +95,6 @@ class PayrollEngine:
             """, (employee_id, month, year))
 
             records = cur.fetchall()
-
             total_days = calendar.monthrange(year, month)[1]
 
             working_days = sum(
@@ -117,9 +131,7 @@ class PayrollEngine:
         finally:
             release_db(conn, cur)
 
-    # =====================================================
-    # CALCULATIONS
-    # =====================================================
+    # ================= CALCULATIONS =================
     def calculate_attendance_deduction(self, gross_salary, attendance_summary):
         working_days = attendance_summary["working_days"]
         if working_days == 0:
@@ -135,67 +147,7 @@ class PayrollEngine:
     def calculate_pf(self, basic_salary):
         return round(basic_salary * 0.12, 2)
 
-    # =====================================================
-    # INDIAN TAX ENGINE
-    # =====================================================
-    def calculate_indian_tax(self, gross_salary, employee_id, financial_year):
-        conn, cur = get_db(True)
-        try:
-            cur.execute("""
-                SELECT regime, section_80c, section_80d,
-                       housing_loan_interest, other_deductions
-                FROM employee_tax_declarations
-                WHERE employee_id=%s AND financial_year=%s
-                ORDER BY created_at DESC
-                LIMIT 1
-            """, (employee_id, financial_year))
-
-            decl = cur.fetchone()
-            annual_income = gross_salary * 12
-
-            if not decl:
-                return 0
-
-            regime = decl["regime"]
-
-            if regime == "NEW":
-                if annual_income <= 300000:
-                    annual_tax = 0
-                elif annual_income <= 600000:
-                    annual_tax = (annual_income - 300000) * 0.05
-                elif annual_income <= 900000:
-                    annual_tax = 15000 + (annual_income - 600000) * 0.10
-                elif annual_income <= 1200000:
-                    annual_tax = 45000 + (annual_income - 900000) * 0.15
-                else:
-                    annual_tax = 90000 + (annual_income - 1200000) * 0.20
-            else:
-                deductions = (
-                    min(decl["section_80c"], 150000)
-                    + decl["section_80d"]
-                    + decl["housing_loan_interest"]
-                    + decl["other_deductions"]
-                )
-
-                taxable_income = max(0, annual_income - deductions)
-
-                if taxable_income <= 250000:
-                    annual_tax = 0
-                elif taxable_income <= 500000:
-                    annual_tax = (taxable_income - 250000) * 0.05
-                elif taxable_income <= 1000000:
-                    annual_tax = 12500 + (taxable_income - 500000) * 0.20
-                else:
-                    annual_tax = 112500 + (taxable_income - 1000000) * 0.30
-
-            return round(annual_tax / 12, 2)
-
-        finally:
-            release_db(conn, cur)
-
-    # =====================================================
-    # BONUS
-    # =====================================================
+    # ================= BONUS =================
     def get_bonus(self, employee_id, month, year):
         conn, cur = get_db(True)
         try:
@@ -210,64 +162,43 @@ class PayrollEngine:
         finally:
             release_db(conn, cur)
 
-    # =====================================================
-    # VARIABLE & REIMBURSEMENT
-    # =====================================================
+    # ================= VARIABLE PAY =================
     def get_variable_pay(self, employee_id, month, year):
         conn, cur = get_db(True)
         try:
             cur.execute("""
-                SELECT COALESCE(SUM(amount),0) as total
+                SELECT 
+                    COALESCE(SUM(bonus),0) +
+                    COALESCE(SUM(incentive),0) +
+                    COALESCE(SUM(commission),0) +
+                    COALESCE(SUM(esop_value),0) AS total
                 FROM employee_variable_pay
                 WHERE employee_id=%s AND month=%s AND year=%s
             """, (employee_id, month, year))
+
             row = cur.fetchone()
-            return float(row["total"]) if row else 0
+            return float(row["total"]) if row and row["total"] else 0
         finally:
             release_db(conn, cur)
 
+    # ================= REIMBURSEMENTS =================
     def get_reimbursements(self, employee_id, month, year):
         conn, cur = get_db(True)
         try:
             cur.execute("""
                 SELECT COALESCE(SUM(amount),0) as total
                 FROM reimbursement_requests
-                WHERE employee_id=%s AND status='Approved'
-                AND month=%s AND year=%s
+                WHERE employee_id=%s
+                AND status='Approved'
+                AND EXTRACT(MONTH FROM created_at)=%s
+                AND EXTRACT(YEAR FROM created_at)=%s
             """, (employee_id, month, year))
+
             row = cur.fetchone()
             return float(row["total"]) if row else 0
         finally:
             release_db(conn, cur)
-
-    # =====================================================
-    # GRATUITY (For Exit Use)
-    # =====================================================
-    def calculate_gratuity(self, employee_id, basic_salary):
-        conn, cur = get_db(True)
-        try:
-            cur.execute("""
-                SELECT joining_date
-                FROM hrms_employees
-                WHERE id=%s
-            """, (employee_id,))
-            row = cur.fetchone()
-
-            if not row or not row["joining_date"]:
-                return 0
-
-            years = (date.today() - row["joining_date"]).days / 365
-            if years < 5:
-                return 0
-
-            gratuity = (basic_salary * 15/26) * int(years)
-            return round(gratuity, 2)
-        finally:
-            release_db(conn, cur)
-
-    # =====================================================
-    # GENERATE PAYROLL
-    # =====================================================
+    # ================= GENERATE PAYROLL =================
     def generate_payroll(self, employee_id, month, year, generated_by):
 
         financial_year = f"{year}-{year+1}" if month >= 4 else f"{year-1}-{year}"
@@ -279,6 +210,7 @@ class PayrollEngine:
                 FROM payroll_runs
                 WHERE employee_id=%s AND month=%s AND year=%s
             """, (employee_id, month, year))
+
             existing = cur.fetchone()
 
             if existing:
@@ -298,12 +230,6 @@ class PayrollEngine:
 
             pf = self.calculate_pf(salary_data["basic"])
 
-            tax = self.calculate_indian_tax(
-                salary_data["gross"],
-                employee_id,
-                financial_year
-            )
-
             variable_pay = self.get_variable_pay(employee_id, month, year)
             reimbursements = self.get_reimbursements(employee_id, month, year)
             bonus = self.get_bonus(employee_id, month, year)
@@ -312,7 +238,6 @@ class PayrollEngine:
                 salary_data["gross"]
                 - attendance_deduction
                 - pf
-                - tax
                 + variable_pay
                 + reimbursements
                 + bonus
@@ -324,15 +249,15 @@ class PayrollEngine:
                 INSERT INTO payroll_runs (
                     employee_id, month, year,
                     gross_salary, attendance_deduction,
-                    pf, tax, variable_pay, bonus,
+                    pf, variable_pay, bonus,
                     reimbursements, net_salary,
                     status, generated_at, generated_by, financial_year
                 )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
                 employee_id, month, year,
                 salary_data["gross"], attendance_deduction,
-                pf, tax, variable_pay, bonus,
+                pf, variable_pay, bonus,
                 reimbursements, net_salary,
                 PAYROLL_STATUS["DRAFT"],
                 datetime.now(),

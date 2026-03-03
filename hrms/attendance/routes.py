@@ -75,42 +75,56 @@ def attendance_page():
         records = cur.fetchall()
         attendance_map = {r["attendance_date"]: r for r in records}
         cal = calendar.monthcalendar(year, month)
-
+        month_name = calendar.month_name[month]
+        day_names = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
         release_db(conn, cur)
 
         return render_template(
-            "hrms/employee_attendance.html",
-            calendar_data=cal,
-            attendance_map=attendance_map,
-            year=year,
-            month=month,
-            date=date
-        )
+    "hrms/employee_attendance.html",
+    calendar_data=cal,
+    attendance_map=attendance_map,
+    attendance=records,   # ADD THIS
+    year=year,
+    month=month,
+    month_name=month_name,
+    day_names=day_names,
+    date=date
+)
 
     elif role in ["HR", "Admin"]:
 
+    # Fetch attendance
         cur.execute("""
-            SELECT 
-                a.employee_id,
-                a.attendance_date,
-                a.status,
-                a.check_in_time,
-                a.check_out_time,
-                a.duration,
-                a.is_locked,
-                e.full_name
-            FROM hrms_attendance a
-            JOIN hrms_employees e ON a.employee_id = e.id
-            ORDER BY a.attendance_date DESC
-        """)
+        SELECT 
+            a.employee_id,
+            a.attendance_date,
+            a.status,
+            a.check_in_time,
+            a.check_out_time,
+            a.duration,
+            a.is_locked,
+            e.full_name
+        FROM hrms_attendance a
+        JOIN hrms_employees e ON a.employee_id = e.id
+        ORDER BY a.attendance_date DESC
+    """)
+    records = cur.fetchall()
 
-        records = cur.fetchall()
-        release_db(conn, cur)
+    # Fetch employees for filter dropdown
+    cur.execute("""
+        SELECT id, full_name
+        FROM hrms_employees
+        ORDER BY full_name
+    """)
+    employees = cur.fetchall()
 
-        return render_template(
-            "hrms/hr_attendance.html",
-            attendance=records
-        )
+    release_db(conn, cur)
+
+    return render_template(
+        "hrms/hr_attendance.html",
+        attendance=records,
+        employees=employees
+    )
 
     release_db(conn, cur)
     return redirect("/dashboard")
@@ -268,3 +282,52 @@ def check_out():
     release_db(conn, cur)
 
     return jsonify({"success": True})
+
+
+# =========================================================
+# TODAY STATUS API
+# =========================================================
+
+@attendance_bp.route("/attendance/today-status")
+@login_required
+def today_status():
+
+    conn, cur = get_db(True)
+
+    employee_id = session.get("employee_id")
+    today = get_ist_today()
+
+    cur.execute("""
+        SELECT check_in_time,
+               check_out_time,
+               duration
+        FROM hrms_attendance
+        WHERE employee_id=%s AND attendance_date=%s
+    """, (employee_id, today))
+
+    record = cur.fetchone()
+
+    release_db(conn, cur)
+
+    if not record:
+        return jsonify({"status": "Not Marked"})
+
+    if record["check_in_time"] and not record["check_out_time"]:
+        worked = "-"
+        return jsonify({
+            "status": "Checked In",
+            "worked": worked
+        })
+
+    if record["check_out_time"]:
+        total_minutes = record["duration"] or 0
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        worked = f"{hours:02d}:{minutes:02d}"
+
+        return jsonify({
+            "status": "Checked Out",
+            "worked": worked
+        })
+
+    return jsonify({"status": "Not Marked"})

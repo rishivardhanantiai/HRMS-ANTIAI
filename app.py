@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from werkzeug.security import check_password_hash
 import pandas as pd
 from flask import send_file
-
+from hrms.leave.routes import leave_bp
 from utils.auth import login_required
 from utils.db import get_db, release_db
 from hrms.attendance.routes import attendance_bp
@@ -36,7 +36,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
 app.register_blueprint(attendance_bp)
 app.register_blueprint(payroll_bp)
 app.register_blueprint(salary_bp)
-
+app.register_blueprint(leave_bp)
 UPLOAD_FOLDER = "uploads/resumes"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -94,15 +94,30 @@ def login(role):
             release_db(conn, cur)
             return "Unauthorized Role Access", 403
 
+        # =========================
+        # SESSION SETUP
+        # =========================
+
         session.clear()
         session["user_id"] = user["id"]
         session["employee_id"] = user["employee_id"]
         session["role"] = user["role_name"]
 
+        # Fetch employee name (only if employee)
+        if user["employee_id"]:
+            cur.execute(
+                "SELECT full_name FROM hrms_employees WHERE id=%s",
+                (user["employee_id"],)
+            )
+            emp = cur.fetchone()
+            if emp:
+                session["employee_name"] = emp["full_name"]
+
         release_db(conn, cur)
 
         return redirect("/dashboard")
 
+    # GET request
     return render_template("login.html", role=role)
 
 @app.route("/logout")
@@ -117,6 +132,12 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+
+    role = session.get("role")
+
+    if role == "Employee":
+        return render_template("employee_dashboard.html")
+
     conn, cur = get_db(True)
 
     cur.execute("SELECT COUNT(*) AS total FROM jobs")
@@ -132,7 +153,6 @@ def dashboard():
         total_jobs=total_jobs,
         total_applications=total_applications
     )
-
 
 # =========================
 # JOB MANAGEMENT
@@ -358,3 +378,5 @@ def download_salary_records():
 # =========================
 if __name__ == "__main__":
     app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

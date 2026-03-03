@@ -4,42 +4,94 @@
 
 <div class="container mt-4">
 
-    <div class="card shadow p-4" style="background:#0b0f19; border-radius:15px;">
+    <div class="card shadow-lg p-4" 
+         style="background:linear-gradient(145deg,#0b0f19,#111827);
+                border-radius:18px;
+                border:1px solid rgba(255,255,255,0.05);">
+
         <h3 class="text-white mb-4">➕ Add Employee</h3>
 
         <form method="POST" action="/hrms/employees/add">
 
+            <!-- Employee Code -->
             <div class="mb-3">
-                <label class="text-light">Employee Code</label>
-                <input name="employee_code" class="form-control" required>
+                <label class="form-label text-light">Employee Code</label>
+                <input name="employee_code" class="form-control bg-dark text-light border-0"
+                       required>
             </div>
 
+            <!-- Full Name -->
             <div class="mb-3">
-                <label class="text-light">Full Name</label>
-                <input name="full_name" class="form-control" required>
+                <label class="form-label text-light">Full Name</label>
+                <input name="full_name" class="form-control bg-dark text-light border-0"
+                       required>
             </div>
 
+            <!-- Email -->
             <div class="mb-3">
-                <label class="text-light">Email</label>
-                <input name="email" class="form-control" required>
+                <label class="form-label text-light">Email</label>
+                <input type="email" name="email"
+                       class="form-control bg-dark text-light border-0"
+                       required>
             </div>
 
+            <!-- Department -->
             <div class="mb-3">
-                <label class="text-light">Department</label>
-                <input name="department" class="form-control">
+                <label class="form-label text-light">Department</label>
+                <input name="department"
+                       class="form-control bg-dark text-light border-0">
             </div>
 
+            <!-- Role -->
             <div class="mb-3">
-                <label class="text-light">Role</label>
-                <select name="role_id" class="form-control" required>
+                <label class="form-label text-light">Role</label>
+                <select name="role_id"
+                        class="form-control bg-dark text-light border-0"
+                        required>
                     {% for role in roles %}
                         <option value="{{ role.id }}">{{ role.role_name }}</option>
                     {% endfor %}
                 </select>
             </div>
 
-            <button class="btn btn-success">Add Employee</button>
-            <a href="/hrms/employees/ui" class="btn btn-secondary">Cancel</a>
+            <!-- Password -->
+            <div class="mb-3">
+                <label class="form-label text-light">Login Password</label>
+                <input type="password"
+                       name="password"
+                       class="form-control bg-dark text-light border-0"
+                       required>
+                <small class="text-muted">
+                    This password will be used for employee login.
+                </small>
+            </div>
+
+            <!-- Salary Structure -->
+            <div class="mb-4">
+                <label class="form-label text-light">Salary Structure</label>
+                <select name="structure_id"
+                        class="form-control bg-dark text-light border-0">
+                    <option value="">-- Select Salary Structure --</option>
+                    {% for s in salary_structures %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">
+                    Optional – You can assign salary later.
+                </small>
+            </div>
+
+            <!-- Buttons -->
+            <div class="d-flex gap-3">
+                <button class="btn btn-success px-4">
+                    Add Employee
+                </button>
+
+                <a href="/hrms/employees/ui"
+                   class="btn btn-secondary px-4">
+                    Cancel
+                </a>
+            </div>
 
         </form>
 

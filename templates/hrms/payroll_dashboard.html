@@ -70,7 +70,9 @@
                         <span class="badge-success">LOCKED</span>
                     {% endif %}
                 </td>
-
+                {% if run.status == "DRAFT" %}
+    <a href="/hrms/payroll/{{ run.payroll_id }}/edit" class="btn btn-warning btn-sm">Edit</a>
+{% endif %}
                 <td>
 
                     {% if session.get("role")|lower == "hr" and run.status|upper == "DRAFT" %}

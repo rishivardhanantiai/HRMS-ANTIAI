@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block content %}
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -11,7 +10,7 @@
         <p class="sub-text">Apply and track your leave requests</p>
     </div>
 
-    <!-- Leave Balance -->
+    <!-- ================= LEAVE BALANCE ================= -->
     <div class="glass-card">
         <h3>Leave Balance</h3>
 
@@ -27,7 +26,7 @@
         </div>
     </div>
 
-    <!-- Apply Leave -->
+    <!-- ================= APPLY LEAVE ================= -->
     <div class="glass-card">
         <h3>Apply Leave</h3>
 
@@ -35,9 +34,10 @@
 
             <div class="form-group">
                 <label>Leave Type</label>
-                <select name="leave_type" required>
+                <select name="leave_type_id" required>
+                    <option value="">Select Leave Type</option>
                     {% for lt in leave_types %}
-                    <option value="{{ lt.id }}">{{ lt.name }}</option>
+                        <option value="{{ lt.id }}">{{ lt.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -59,14 +59,12 @@
                 <textarea name="reason" required></textarea>
             </div>
 
-            <button type="submit" class="btn-glow">
-                Apply Leave
-            </button>
+            <button type="submit" class="btn-glow">Apply Leave</button>
 
         </form>
     </div>
 
-    <!-- Leave History -->
+    <!-- ================= LEAVE HISTORY ================= -->
     <div class="glass-card">
         <h3>My Leave Applications</h3>
 
@@ -82,7 +80,7 @@
             <tbody>
                 {% for l in leaves %}
                 <tr>
-                    <td>{{ l.leave_name }}</td>
+                    <td>{{ l.leave_type }}</td>
                     <td>{{ l.from_date }}</td>
                     <td>{{ l.to_date }}</td>
                     <td>
@@ -102,8 +100,7 @@
 
 </div>
 
-
-<!-- STYLES -->
+<!-- ================= STYLES ================= -->
 <style>
 
 .sub-text {
@@ -140,10 +137,6 @@
 
 .balance-box:hover {
     background: rgba(255,255,255,0.1);
-}
-
-.balance-box h4 {
-    margin-bottom: 10px;
 }
 
 .remaining {
@@ -199,12 +192,7 @@
     border-collapse: collapse;
 }
 
-.modern-table th {
-    text-align: left;
-    padding: 12px;
-    border-bottom: 1px solid #1f2937;
-}
-
+.modern-table th,
 .modern-table td {
     padding: 12px;
     border-bottom: 1px solid #1f2937;
@@ -237,8 +225,7 @@
 
 </style>
 
-
-<!-- Flatpickr -->
+<!-- ================= FLATPICKR ================= -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <script>
@@ -249,7 +236,6 @@ document.addEventListener("DOMContentLoaded", function () {
     let fromPicker = flatpickr("#from_date", {
         dateFormat: "Y-m-d",
         minDate: "today",
-        disableMobile: true,
         onChange: function(selectedDates, dateStr) {
             if (toPicker) {
                 toPicker.set("minDate", dateStr);
@@ -259,8 +245,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     toPicker = flatpickr("#to_date", {
         dateFormat: "Y-m-d",
-        minDate: "today",
-        disableMobile: true
+        minDate: "today"
     });
 
 });

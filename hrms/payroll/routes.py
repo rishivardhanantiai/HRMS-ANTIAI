@@ -324,3 +324,37 @@ def my_payroll():
         "hrms/employee_payroll.html",
         payrolls=payrolls
     )
+    
+@payroll_bp.route("/payroll/<int:id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_payroll(id):
+
+    if session.get("role") not in ["HR", "Admin"]:
+        return redirect("/dashboard")
+
+    conn, cur = get_db(True)
+
+    if request.method == "POST":
+        new_net_salary = request.form.get("net_salary")
+
+        cur.execute("""
+            UPDATE payroll_runs
+            SET net_salary=%s
+            WHERE id=%s AND status=%s
+        """, (
+            new_net_salary,
+            id,
+            PAYROLL_STATUS["DRAFT"]
+        ))
+
+        conn.commit()
+        release_db(conn, cur)
+
+        return redirect("/hrms/payroll/")
+
+    cur.execute("SELECT * FROM payroll_runs WHERE id=%s", (id,))
+    payroll = cur.fetchone()
+
+    release_db(conn, cur)
+
+    return render_template("hrms/edit_payroll.html", payroll=payroll)
