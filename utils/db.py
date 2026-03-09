@@ -1,4 +1,6 @@
 import os
+import pymysql
+pymysql.install_as_MySQLdb()
 import psycopg2
 import psycopg2.extras
 from psycopg2 import pool
