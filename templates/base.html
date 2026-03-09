@@ -1,176 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ title or "HR Panel" }}</title>
+<meta charset="UTF-8">
+<title>{{ title or "HR Panel" }}</title>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-    <style>
-        * { scroll-behavior: smooth; }
+<style>
 
-        .card {
-            transition: transform 0.35s ease, box-shadow 0.35s ease;
-        }
-        .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 35px rgba(255,255,255,0.12);
-        }
+* { scroll-behavior: smooth; }
 
-        table tbody tr {
-            transition: background 0.25s ease, transform 0.25s ease;
-        }
-        table tbody tr:hover {
-            background: rgba(255,255,255,0.06);
-            transform: scale(1.01);
-        }
+.card {
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 35px rgba(255,255,255,0.12);
+}
 
-        input, textarea, select {
-            transition: border 0.3s ease, box-shadow 0.3s ease;
-        }
+table tbody tr {
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+table tbody tr:hover {
+    background: rgba(255,255,255,0.06);
+    transform: scale(1.01);
+}
 
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border: 1px solid #60a5fa;
-            box-shadow: 0 0 0 3px rgba(96,165,250,0.25);
-        }
+input, textarea, select {
+    transition: border 0.3s ease, box-shadow 0.3s ease;
+}
 
-        .sidebar-nav a {
-            display: block;
-            padding: 10px 14px;
-            text-decoration: none;
-            color: #e5e7eb;
-            border-radius: 8px;
-            transition: background 0.3s ease, padding-left 0.3s ease;
-        }
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border: 1px solid #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96,165,250,0.25);
+}
 
-        .sidebar-nav a:hover {
-            background: rgba(255,255,255,0.08);
-            padding-left: 18px;
-        }
+.sidebar-nav a {
+    display: block;
+    padding: 10px 14px;
+    text-decoration: none;
+    color: #e5e7eb;
+    border-radius: 8px;
+    transition: background 0.3s ease, padding-left 0.3s ease;
+}
 
-        .sidebar-nav a.active {
-            background: linear-gradient(135deg, #3b82f6, #6366f1);
-            color: #fff;
-        }
+.sidebar-nav a:hover {
+    background: rgba(255,255,255,0.08);
+    padding-left: 18px;
+}
 
-        .main-content {
-            animation: fadeUp 0.6s ease;
-        }
+.sidebar-nav a.active {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: #fff;
+}
 
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+.main-content {
+    animation: fadeUp 0.6s ease;
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================= */
+/* TOAST NOTIFICATION STYLE */
+/* ========================= */
+.toast-container{
+position: fixed;
+top: 25px;
+right: 25px;
+z-index: 9999;
+}
+
+.toast{
+padding:14px 18px;
+border-radius:10px;
+margin-bottom:10px;
+box-shadow:0 8px 25px rgba(0,0,0,0.4);
+animation:slideIn 0.4s ease;
+font-size:14px;
+min-width:220px;
+}
+
+.toast.error{
+background:#ef4444;
+color:white;
+}
+
+.toast.success{
+background:#22c55e;
+color:white;
+}
+
+@keyframes slideIn{
+from{
+transform:translateX(100%);
+opacity:0;
+}
+to{
+transform:translateX(0);
+opacity:1;
+}
+}
+
+.toast-container{
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    z-index: 9999;
+}
+
+.toast{
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow:0 8px 25px rgba(0,0,0,0.4);
+    animation: slideIn 0.4s ease;
+    font-size:14px;
+    min-width:220px;
+}
+
+.toast.error{
+    background:#ef4444;
+    color:white;
+}
+
+.toast.success{
+    background:#22c55e;
+    color:white;
+}
+
+@keyframes slideIn{
+    from{
+        transform:translateX(100%);
+        opacity:0;
+    }
+    to{
+        transform:translateX(0);
+        opacity:1;
+    }
+}
+
+</style>
 </head>
 
 <body>
 
+<!-- ========================= -->
+<!-- FLASH TOAST MESSAGES -->
+<!-- ========================= -->
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="toast-container">
+    {% for category, message in messages %}
+    <div class="toast {{category}}">
+        {{message}}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
 <div class="app-container">
 
-    <aside class="sidebar">
+<aside class="sidebar">
 
-        <div class="logo">
-            <img src="{{ url_for('static', filename='images/logo.png') }}"
-                 alt="Logo" style="width:70px;">
-        </div>
+<div class="logo">
+<img src="{{ url_for('static', filename='images/logo.png') }}"
+alt="Logo" style="width:70px;">
+</div>
 
-        <nav class="sidebar-nav">
+<nav class="sidebar-nav">
 
-            <!-- HOME -->
-            <a href="/dashboard"
-               class="{% if request.path == '/dashboard' %}active{% endif %}">
-                Home
-            </a>
+<!-- HOME -->
+<a href="/dashboard"
+class="{% if request.path == '/dashboard' %}active{% endif %}">
+Home
+</a>
 
-            <!-- ATTENDANCE -->
-            <a href="/hrms/attendance"
-               class="{% if request.path.startswith('/hrms/attendance') %}active{% endif %}">
-                Attendance
-            </a>
+<!-- ATTENDANCE -->
+<a href="/hrms/attendance"
+class="{% if request.path.startswith('/hrms/attendance') %}active{% endif %}">
+Attendance
+</a>
 
-            <!-- USER INFO -->
-            <div class="user-profile" style="margin:15px 0;">
-                <h4>{{ session.get("employee_name") }}</h4>
-                <p>{{ session.get("role") }}</p>
-            </div>
+<!-- USER INFO -->
+<div class="user-profile" style="margin:15px 0;">
+<h4>{{ session.get("employee_name") }}</h4>
+<p>{{ session.get("role") }}</p>
+</div>
 
-            <!-- ================= EMPLOYEE ONLY ================= -->
-            {% if session.get("role") == "Employee" %}
+<!-- ================= EMPLOYEE ================= -->
 
-                <a href="/hrms/leave"
-                   class="{% if request.path.startswith('/hrms/leave') %}active{% endif %}">
-                    Leave
-                </a>
+{% if session.get("role") == "Employee" %}
 
-                <a href="{{ url_for('payroll.my_payroll') }}"
-                   class="{% if request.path.startswith('/hrms/my-payroll') %}active{% endif %}">
-                    My Payroll
-                </a>
+<a href="/hrms/leave"
+class="{% if request.path.startswith('/hrms/leave') %}active{% endif %}">
+Leave
+</a>
 
-            {% endif %}
+<a href="{{ url_for('payroll.my_payroll') }}"
+class="{% if request.path.startswith('/hrms/my-payroll') %}active{% endif %}">
+My Payroll
+</a>
 
-            <!-- ================= HR & ADMIN ================= -->
-            {% if session.get("role") in ["HR","Admin"] %}
+{% endif %}
 
-                <a href="/hrms/leave/manage"
-                   class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
-                    Manage Leave
-                </a>
+<!-- ================= HR / ADMIN ================= -->
 
-                <a href="/hrms/payroll/"
-                   class="{% if request.path.startswith('/hrms/payroll') %}active{% endif %}">
-                    Payroll
-                </a>
+{% if session.get("role") in ["HR","Admin"] %}
 
-                <a href="/assign-salary"
-                   class="{% if request.path.startswith('/assign-salary') %}active{% endif %}">
-                    Assign Salary
-                </a>
+<a href="/hrms/leave/manage"
+class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
+Manage Leave
+</a>
 
-                <a href="/jobs"
-                   class="{% if request.path.startswith('/jobs') %}active{% endif %}">
-                    Manage Jobs
-                </a>
+<a href="/hrms/payroll/"
+class="{% if request.path.startswith('/hrms/payroll') %}active{% endif %}">
+Payroll
+</a>
 
-                <a href="/applications"
-                   class="{% if request.path.startswith('/applications') %}active{% endif %}">
-                    Applications
-                </a>
+<a href="/assign-salary"
+class="{% if request.path.startswith('/assign-salary') %}active{% endif %}">
+Assign Salary
+</a>
 
-                <a href="/hrms/employees/ui"
-                   class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
-                    Employees
-                </a>
+<a href="/jobs"
+class="{% if request.path.startswith('/jobs') %}active{% endif %}">
+Manage Jobs
+</a>
 
-                <a href="/hrms/roles/ui"
-                   class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
-                    Roles
-                </a>
+<a href="/applications"
+class="{% if request.path.startswith('/applications') %}active{% endif %}">
+Applications
+</a>
 
-            {% endif %}
+<a href="/hrms/employees/ui"
+class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
+Employees
+</a>
 
-            <!-- SETTINGS (ALL ROLES) -->
-            <a href="/settings"
-               class="{% if request.path.startswith('/settings') %}active{% endif %}">
-                ⚙ Settings
-            </a>
+<a href="/hrms/roles/ui"
+class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
+Roles
+</a>
 
-            <!-- LOGOUT -->
-            <a href="/logout" style="color:#ef4444; margin-top:20px;">
-                Logout
-            </a>
+{% endif %}
 
-        </nav>
+<!-- SETTINGS -->
+<a href="/settings"
+class="{% if request.path.startswith('/settings') %}active{% endif %}">
+⚙ Settings
+</a>
 
-    </aside>
+<!-- LOGOUT -->
+<a href="/logout" style="color:#ef4444; margin-top:20px;">
+Logout
+</a>
 
-    <main class="main-content">
-        {% block content %}{% endblock %}
-    </main>
+</nav>
+
+</aside>
+
+<main class="main-content">
+{% block content %}{% endblock %}
+</main>
 
 </div>
+
+<script>
+
+setTimeout(() => {
+
+let toasts = document.querySelectorAll(".toast");
+
+toasts.forEach(t => {
+
+t.style.transition = "opacity 0.5s";
+
+t.style.opacity = "0";
+
+setTimeout(()=>t.remove(),500);
+
+});
+
+},3000);
+
+</script>
 
 </body>
 </html>

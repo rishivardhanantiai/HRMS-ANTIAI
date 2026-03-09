@@ -3,8 +3,65 @@
 <head>
     <title>{{ role }} Login</title>
     <link rel="stylesheet" href="/static/css/style.css">
+
+<style>
+
+.toast-container{
+position: fixed;
+top: 25px;
+right: 25px;
+z-index: 9999;
+}
+
+.toast{
+padding:14px 18px;
+border-radius:10px;
+margin-bottom:10px;
+box-shadow:0 8px 25px rgba(0,0,0,0.4);
+animation:slideIn 0.4s ease;
+font-size:14px;
+min-width:220px;
+}
+
+.toast.error{
+background:#ef4444;
+color:white;
+}
+
+.toast.success{
+background:#22c55e;
+color:white;
+}
+
+@keyframes slideIn{
+from{
+transform:translateX(100%);
+opacity:0;
+}
+to{
+transform:translateX(0);
+opacity:1;
+}
+}
+
+</style>
+
 </head>
 <body>
+
+<!-- ================= TOAST POPUP ================= -->
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="toast-container">
+    {% for category, message in messages %}
+    <div class="toast {{category}}">
+        {{message}}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
 
 <div class="login-page">
 
@@ -54,6 +111,28 @@
     </div>
 
 </div>
+
+<!-- AUTO HIDE TOAST -->
+
+<script>
+
+setTimeout(() => {
+
+let toasts = document.querySelectorAll(".toast");
+
+toasts.forEach(t => {
+
+t.style.transition = "opacity 0.5s";
+
+t.style.opacity = "0";
+
+setTimeout(()=>t.remove(),500);
+
+});
+
+},3000);
+
+</script>
 
 </body>
 </html>

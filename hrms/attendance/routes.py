@@ -331,3 +331,35 @@ def today_status():
         })
 
     return jsonify({"status": "Not Marked"})
+
+
+# =========================================================
+# EDIT ATTENDANCE (HR / ADMIN)
+# =========================================================
+
+@attendance_bp.route("/attendance/edit/<int:employee_id>/<attendance_date>", methods=["POST"])
+@login_required
+def edit_attendance(employee_id, attendance_date):
+
+    role = session.get("role")
+
+    if role not in ["HR", "Admin"]:
+        return redirect("/dashboard")
+
+    status = request.form.get("status")
+
+    conn, cur = get_db(True)
+
+    cur.execute("""
+        UPDATE hrms_attendance
+        SET status = %s
+        WHERE employee_id = %s
+        AND attendance_date = %s
+        AND is_locked = FALSE
+    """, (status, employee_id, attendance_date))
+
+    conn.commit()
+
+    release_db(conn, cur)
+
+    return redirect("/hrms/attendance?saved=1")

@@ -1,7 +1,7 @@
 print("APP.PY LOADED")
 
 from flask import (
-    Flask, render_template, request,
+    Flask, flash, render_template, request,
     redirect, session, send_from_directory
 )
 import os
@@ -58,6 +58,7 @@ def role_select():
     return render_template("role_select.html")
 
 
+
 @app.route("/login/<role>", methods=["GET", "POST"])
 def login(role):
 
@@ -84,26 +85,25 @@ def login(role):
 
         if not user:
             release_db(conn, cur)
-            return "Invalid Email", 401
+            flash("Invalid Email or Password", "error")
+            return redirect(request.url)
 
         if not check_password_hash(user["password"], password):
             release_db(conn, cur)
-            return "Invalid Password", 401
+            flash("Invalid Email or Password", "error")
+            return redirect(request.url)
 
         if user["role_name"] != role:
             release_db(conn, cur)
-            return "Unauthorized Role Access", 403
+            flash("Unauthorized Role Access", "error")
+            return redirect(request.url)
 
-        # =========================
         # SESSION SETUP
-        # =========================
-
         session.clear()
         session["user_id"] = user["id"]
         session["employee_id"] = user["employee_id"]
         session["role"] = user["role_name"]
 
-        # Fetch employee name (only if employee)
         if user["employee_id"]:
             cur.execute(
                 "SELECT full_name FROM hrms_employees WHERE id=%s",
@@ -115,10 +115,12 @@ def login(role):
 
         release_db(conn, cur)
 
+        flash("Login Successful", "success")
         return redirect("/dashboard")
 
-    # GET request
     return render_template("login.html", role=role)
+
+        
 
 @app.route("/logout")
 def logout():
@@ -377,6 +379,5 @@ def download_salary_records():
 # RUN SERVER
 # =========================
 if __name__ == "__main__":
-    app.run(debug=True)
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)

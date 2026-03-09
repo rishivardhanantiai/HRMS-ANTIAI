@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if request.args.get("saved") %}
+<script>
+alert("Attendance Saved Successfully ✅");
+</script>
+{% endif %}
+
 <div class="hrms-wrapper">
 
     <div class="hrms-header">
