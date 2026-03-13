@@ -8,39 +8,62 @@
 <div class="card">
     <form method="POST" action="{{ url_for('payroll.generate') }}">
         <div class="form-row">
+
+            <!-- Employee Dropdown -->
             <select name="employee_id" required>
                 <option value="">Select Employee</option>
+
                 {% for emp in employees %}
                 <option value="{{ emp.id }}">
-                    #{{ emp.id }} - {{ emp.full_name }}
+                    #{{ emp.id }} - {{ emp.full_name }} ({{ emp.designation if emp.designation else "Employee" }})
                 </option>
                 {% endfor %}
+
             </select>
 
+            <!-- Month Dropdown -->
             <select name="month" required>
+
                 <option value="">Month</option>
-                {% for i in range(1,13) %}
-                <option value="{{ i }}">{{ i }}</option>
-                {% endfor %}
+
+                <option value="1">01 - January</option>
+                <option value="2">02 - February</option>
+                <option value="3">03 - March</option>
+                <option value="4">04 - April</option>
+                <option value="5">05 - May</option>
+                <option value="6">06 - June</option>
+                <option value="7">07 - July</option>
+                <option value="8">08 - August</option>
+                <option value="9">09 - September</option>
+                <option value="10">10 - October</option>
+                <option value="11">11 - November</option>
+                <option value="12">12 - December</option>
+
             </select>
 
+            <!-- Year Dropdown -->
             <select name="year" required>
+
                 {% for y in range(2024, 2031) %}
                 <option value="{{ y }}">{{ y }}</option>
                 {% endfor %}
+
             </select>
 
             <button type="submit" class="btn-primary">
                 Generate Payroll
             </button>
+
         </div>
     </form>
 </div>
+
 
 <div class="card mt-4">
     <h3>Generated Payroll Records</h3>
 
     <table class="styled-table">
+
         <thead>
             <tr>
                 <th>Employee</th>
@@ -51,57 +74,107 @@
                 <th>Actions</th>
             </tr>
         </thead>
+
         <tbody>
+
+            {% set month_names = {
+                1:'January',2:'February',3:'March',4:'April',
+                5:'May',6:'June',7:'July',8:'August',
+                9:'September',10:'October',11:'November',12:'December'
+            } %}
+
             {% for run in payroll_runs %}
+
             <tr>
+
                 <td>
                     <strong>#{{ run.employee_id }}</strong> - {{ run.full_name }}
                 </td>
-                <td>{{ run.month }}</td>
-                <td>{{ run.year }}</td>
-                <td>₹ {{ run.net_salary }}</td>
 
                 <td>
+                    {{ "%02d"|format(run.month) }} - {{ month_names[run.month] }}
+                </td>
+
+                <td>
+                    {{ run.year }}
+                </td>
+
+                <td>
+                    ₹ {{ run.net_salary }}
+                </td>
+
+                <td>
+
                     {% if run.status|upper == "DRAFT" %}
                         <span class="badge-warning">DRAFT</span>
+
                     {% elif run.status|upper == "APPROVED" %}
                         <span class="badge-info">APPROVED</span>
+
                     {% elif run.status|upper == "LOCKED" %}
                         <span class="badge-success">LOCKED</span>
+
                     {% endif %}
+
                 </td>
-                {% if run.status == "DRAFT" %}
-    <a href="/hrms/payroll/{{ run.payroll_id }}/edit" class="btn btn-warning btn-sm">Edit</a>
-{% endif %}
+
                 <td>
 
+                    {% if run.status == "DRAFT" %}
+                        <a href="/hrms/payroll/{{ run.payroll_id }}/edit"
+                           class="btn btn-warning btn-sm">
+                           Edit
+                        </a>
+                    {% endif %}
+
+
                     {% if session.get("role")|lower == "hr" and run.status|upper == "DRAFT" %}
-                        <form method="POST" action="{{ url_for('payroll.approve_payroll', id=run.payroll_id) }}">
-                            <button type="submit" class="btn-small btn-info">Approve</button>
+                        <form method="POST"
+                              action="{{ url_for('payroll.approve_payroll', id=run.payroll_id) }}">
+                            <button type="submit"
+                                    class="btn-small btn-info">
+                                    Approve
+                            </button>
                         </form>
                     {% endif %}
+
 
                     {% if session.get("role")|lower == "admin" and run.status|upper == "APPROVED" %}
-                        <form method="POST" action="{{ url_for('payroll.lock_payroll', id=run.payroll_id) }}">
-                            <button type="submit" class="btn-small btn-success">Lock</button>
+                        <form method="POST"
+                              action="{{ url_for('payroll.lock_payroll', id=run.payroll_id) }}">
+                            <button type="submit"
+                                    class="btn-small btn-success">
+                                    Lock
+                            </button>
                         </form>
                     {% endif %}
 
+
                     <!-- Payslip Button -->
+
                     <a href="{{ url_for('payroll.download_payslip', id=run.payroll_id) }}"
                        class="btn-small btn-secondary">
                        Payslip
                     </a>
 
                 </td>
+
             </tr>
+
             {% else %}
+
             <tr>
-                <td colspan="6">No payroll generated yet</td>
+                <td colspan="6">
+                    No payroll generated yet
+                </td>
             </tr>
+
             {% endfor %}
+
         </tbody>
+
     </table>
+
 </div>
 
 {% endblock %}

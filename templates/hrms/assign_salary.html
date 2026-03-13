@@ -10,16 +10,25 @@
 
         <div class="form-group">
             <label>Employee</label>
+
             <select name="employee_id" required>
+
                 {% for emp in employees %}
-                <option value="{{ emp.id }}">{{ emp.full_name }}</option>
+
+                <option value="{{ emp.id }}">
+                    #{{ emp.id }} - {{ emp.full_name }} ({{ emp.designation if emp.designation else "Employee" }})
+                </option>
+
                 {% endfor %}
+
             </select>
+
         </div>
 
         <div class="form-group">
             <label>Monthly Salary (₹)</label>
-            <input type="number" name="monthly_salary" step="0.01" required>
+            <input type="text" name="monthly_salary" placeholder="Enter salary" required>
+
         </div>
 
         <div class="form-group">

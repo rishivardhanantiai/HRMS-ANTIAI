@@ -33,8 +33,12 @@ def assign_employee_salary():
 
             return redirect("/hrms/assign-salary")
 
-        # GET
-        cur.execute("SELECT id, full_name FROM hrms_employees ORDER BY full_name")
+        # ✅ UPDATED QUERY (designation added)
+        cur.execute("""
+            SELECT id, full_name, designation
+            FROM hrms_employees
+            ORDER BY full_name
+        """)
         employees = cur.fetchall()
 
         return render_template(

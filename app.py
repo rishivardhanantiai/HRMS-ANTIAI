@@ -285,46 +285,29 @@ def serve_resume(filename):
 @app.route("/applications")
 @login_required
 def applications():
-    return render_template("applications.html")
-
-
-@app.route("/settings")
-@login_required
-def settings():
-    return render_template("settings.html")
-
-@app.route("/assign-salary", methods=["GET", "POST"])
-@login_required
-def assign_salary():
 
     conn, cur = get_db(True)
 
-    if request.method == "POST":
+    cur.execute("""
+        SELECT 
+            a.id,
+            j.title AS job_title,
+            a.applicant_name,
+            a.email,
+            a.phone,
+            a.resume_url
+        FROM applications a
+        JOIN jobs j ON a.job_id = j.id
+        ORDER BY a.id DESC
+    """)
 
-        employee_id = request.form["employee_id"]
-        structure_id = request.form["structure_id"]
-        effective_from = request.form["effective_from"]
-
-        cur.execute("""
-            INSERT INTO employee_salary
-            (employee_id, structure_id, effective_from)
-            VALUES (%s, %s, %s)
-        """, (employee_id, structure_id, effective_from))
-
-        conn.commit()
-
-    cur.execute("SELECT * FROM hrms_employees")
-    employees = cur.fetchall()
-
-    cur.execute("SELECT * FROM salary_structures")
-    structures = cur.fetchall()
+    applications = cur.fetchall()
 
     release_db(conn, cur)
 
     return render_template(
-        "assign_salary.html",
-        employees=employees,
-        structures=structures
+        "applications.html",
+        applications=applications
     )
 
 @app.route("/salary-records")

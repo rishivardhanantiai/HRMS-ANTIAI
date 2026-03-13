@@ -11,10 +11,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import units
-from flask import send_file
-import io
-
-
 
 payroll_bp = Blueprint("payroll", __name__, url_prefix="/hrms")
 
@@ -33,26 +29,30 @@ def payroll_dashboard():
 
     conn, cur = get_db(True)
 
-    # 🔥 FIXED QUERY (No id conflict now)
+    # Payroll runs
     cur.execute("""
     SELECT 
-    p.id AS payroll_id,
-    p.employee_id,
-    p.month,
-    p.year,
-    p.net_salary,
-    p.status,
-    e.full_name
-FROM payroll_runs p
-JOIN hrms_employees e
-    ON p.employee_id = e.id
-ORDER BY p.year DESC, p.month DESC
-""")
-    
+        p.id AS payroll_id,
+        p.employee_id,
+        p.month,
+        p.year,
+        p.net_salary,
+        p.status,
+        e.full_name
+    FROM payroll_runs p
+    JOIN hrms_employees e
+        ON p.employee_id = e.id
+    ORDER BY p.year DESC, p.month DESC
+    """)
 
     payroll_runs = cur.fetchall()
-    print("DEBUG PAYROLL RUNS RAW:", payroll_runs)
-    cur.execute("SELECT id, full_name FROM hrms_employees ORDER BY full_name")
+
+    # ✅ UPDATED EMPLOYEE QUERY (designation added)
+    cur.execute("""
+        SELECT id, full_name, designation
+        FROM hrms_employees
+        ORDER BY full_name
+    """)
     employees = cur.fetchall()
 
     release_db(conn, cur)
@@ -62,6 +62,7 @@ ORDER BY p.year DESC, p.month DESC
         payroll_runs=payroll_runs,
         employees=employees
     )
+
 
 # ===============================
 # GENERATE
@@ -88,6 +89,7 @@ def generate():
 
     return redirect("/hrms/payroll/")
 
+
 # ===============================
 # APPROVE
 # ===============================
@@ -107,7 +109,7 @@ def approve_payroll(id):
     if not payroll or payroll["status"] != PAYROLL_STATUS["DRAFT"]:
         release_db(conn, cur)
         return "Invalid action"
-    print("detect change")
+
     cur.execute("""
         UPDATE payroll_runs
         SET status=%s,
@@ -123,6 +125,7 @@ def approve_payroll(id):
     release_db(conn, cur)
 
     return redirect("/hrms/payroll/")
+
 
 # ===============================
 # LOCK
@@ -160,6 +163,7 @@ def lock_payroll(id):
 
     return redirect("/hrms/payroll/")
 
+
 # ===============================
 # DELETE
 # ===============================
@@ -188,9 +192,9 @@ def delete_payroll(id):
     return redirect("/hrms/payroll/")
 
 
-
-        
-
+# ===============================
+# DOWNLOAD PAYSLIP
+# ===============================
 
 @payroll_bp.route("/payroll/<int:id>/payslip")
 @login_required
@@ -210,7 +214,6 @@ def download_payslip(id):
     if not payroll:
         return "Payslip not found"
 
-    # 🔐 Security
     if session.get("role") == "Employee":
         if payroll["employee_id"] != session.get("employee_id"):
             return "Unauthorized"
@@ -221,11 +224,9 @@ def download_payslip(id):
     elements = []
     styles = getSampleStyleSheet()
 
-    # Title
     elements.append(Paragraph("<b>Company Payroll Payslip</b>", styles["Title"]))
     elements.append(Spacer(1, 20))
 
-    # Employee Info Table
     emp_data = [
         ["Employee Name", payroll["full_name"]],
         ["Employee ID", payroll["employee_id"]],
@@ -237,13 +238,11 @@ def download_payslip(id):
     emp_table = Table(emp_data, colWidths=[150, 250])
     emp_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 1, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
     ]))
 
     elements.append(emp_table)
     elements.append(Spacer(1, 30))
 
-    # Earnings Table
     earnings_data = [
         ["Earnings", "Amount"],
         ["Gross Salary", payroll["gross_salary"]],
@@ -255,7 +254,6 @@ def download_payslip(id):
     earnings_table = Table(earnings_data, colWidths=[250, 150])
     earnings_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 1, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
     ]))
 
     elements.append(Paragraph("<b>Earnings</b>", styles["Heading2"]))
@@ -263,7 +261,6 @@ def download_payslip(id):
     elements.append(earnings_table)
     elements.append(Spacer(1, 30))
 
-    # Deductions Table
     deductions_data = [
         ["Deductions", "Amount"],
         ["Attendance Deduction", payroll["attendance_deduction"]],
@@ -274,7 +271,6 @@ def download_payslip(id):
     deductions_table = Table(deductions_data, colWidths=[250, 150])
     deductions_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 1, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
     ]))
 
     elements.append(Paragraph("<b>Deductions</b>", styles["Heading2"]))
@@ -282,7 +278,6 @@ def download_payslip(id):
     elements.append(deductions_table)
     elements.append(Spacer(1, 30))
 
-    # Net Pay Highlight
     elements.append(Paragraph(
         f"<b>Net Pay: ₹ {payroll['net_salary']}</b>",
         styles["Heading1"]
@@ -299,7 +294,12 @@ def download_payslip(id):
         download_name="payslip.pdf",
         mimetype="application/pdf"
     )
-    
+
+
+# ===============================
+# EMPLOYEE PAYROLL
+# ===============================
+
 @payroll_bp.route("/my-payroll")
 @login_required
 def my_payroll():
@@ -324,7 +324,12 @@ def my_payroll():
         "hrms/employee_payroll.html",
         payrolls=payrolls
     )
-    
+
+
+# ===============================
+# EDIT PAYROLL
+# ===============================
+
 @payroll_bp.route("/payroll/<int:id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_payroll(id):
@@ -335,6 +340,7 @@ def edit_payroll(id):
     conn, cur = get_db(True)
 
     if request.method == "POST":
+
         new_net_salary = request.form.get("net_salary")
 
         cur.execute("""
