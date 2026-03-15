@@ -310,6 +310,11 @@ def applications():
         applications=applications
     )
 
+@app.route("/settings")
+@login_required
+def settings():
+    return render_template("settings.html")
+
 @app.route("/salary-records")
 @login_required
 def salary_records():
