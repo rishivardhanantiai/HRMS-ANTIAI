@@ -142,6 +142,43 @@
     background:rgba(239,68,68,0.3);
 }
 
+@media (max-width: 768px) {
+    .hrms-wrapper{
+        padding:18px 14px;
+    }
+
+    .hrms-header{
+        flex-direction:column;
+        align-items:stretch;
+        gap:12px;
+    }
+
+    .btn-add{
+        width:100%;
+        text-align:center;
+    }
+
+    .hrms-card{
+        padding:18px 12px;
+    }
+
+    .employees-table-wrap{
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+        width:100%;
+        max-width:100%;
+    }
+
+    .employees-table-wrap .hrms-table{
+        min-width:760px;
+    }
+
+    .employees-table-wrap .hrms-table td,
+    .employees-table-wrap .hrms-table th{
+        white-space:nowrap;
+    }
+}
+
 </style>
 
 <div class="hrms-wrapper">
@@ -156,7 +193,7 @@
 
     <div class="hrms-card">
 
-        <table class="hrms-table">
+        <div class="employees-table-wrap"><table class="hrms-table">
 
             <thead>
                 <tr>
@@ -171,7 +208,7 @@
 
             <tbody id="employees-table"></tbody>
 
-        </table>
+        </table></div>
 
     </div>
 

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ title or "HR Panel" }}</title>
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -166,6 +167,12 @@ opacity:1;
 
 <div class="app-container">
 
+<button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+Menu
+</button>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
 <aside class="sidebar">
 
 <div class="logo">
@@ -288,6 +295,38 @@ setTimeout(()=>t.remove(),500);
 });
 
 },3000);
+
+const appContainer = document.querySelector(".app-container");
+const navToggle = document.getElementById("navToggle");
+const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+function closeSidebar() {
+    if (!appContainer) return;
+    appContainer.classList.remove("sidebar-open");
+    if (navToggle) {
+        navToggle.setAttribute("aria-expanded", "false");
+    }
+}
+
+function toggleSidebar() {
+    if (!appContainer || !navToggle) return;
+    const isOpen = appContainer.classList.toggle("sidebar-open");
+    navToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+}
+
+if (navToggle) {
+    navToggle.addEventListener("click", toggleSidebar);
+}
+
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", closeSidebar);
+}
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        closeSidebar();
+    }
+});
 
 </script>
 

@@ -1,119 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h1 class="page-title">Job Applications</h1>
-<p class="subtitle">Review and manage candidate applications</p>
-
-<!-- ================= ACTION BAR ================= -->
-<div class="action-bar" style="display:flex; gap:16px; align-items:center; margin-bottom:18px;">
-
-    <!-- SEARCH -->
-    <input type="text"
-           id="searchInput"
-           placeholder="Search applications..."
-           onkeyup="searchApplications()"
-           class="search-input"
-           style="width:220px">
-
-    <!-- DOWNLOAD BUTTONS -->
-    <div class="download-buttons" style="display:flex; gap:10px;">
-
-        <!-- Download ALL Excel -->
-        <a href="/download-excel">
-            <button type="button" class="btn btn-primary">
-                Download All Excel
-            </button>
-        </a>
-
-        <!-- Download FILTERED Excel -->
-        {% if selected_job %}
-            <a href="/download-excel?job_id={{ selected_job }}">
-                <button type="button" class="btn btn-primary">
-                    Download Filtered Excel
-                </button>
-            </a>
-        {% endif %}
-
-    </div>
-</div>
-
-<!-- ================= FILTER BAR ================= -->
-<form method="GET"
-      action="/applications"
-      class="filter-bar"
-      style="display:flex; gap:12px; align-items:center; margin-bottom:22px;">
-
-    <select name="job_id" class="select">
-        <option value="">All Jobs</option>
-        {% for job in jobs %}
-            <option value="{{ job.id }}"
-                {% if selected_job and selected_job == job.id|string %}selected{% endif %}>
-                {{ job.title }}
-            </option>
-        {% endfor %}
-    </select>
-
-    <button type="submit" class="btn btn-outline">
-        Filter
-    </button>
-
-</form>
-
-<!-- ================= APPLICATIONS TABLE ================= -->
-<div class="card">
-    <table id="applicationsTable">
-        <thead>
-            <tr>
-                <th>Job</th>
-                <th>Applicant</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Resume</th>
-            </tr>
-        </thead>
-
-        <tbody>
-        {% for app in applications %}
-            <tr>
-                <td>{{ app.job_title }}</td>
-                <td>{{ app.applicant_name }}</td>
-                <td>{{ app.email }}</td>
-                <td>{{ app.phone }}</td>
-                <td>
-                    {% if app.resume_url %}
-                        <a href="{{ app.resume_url }}" target="_blank">
-                            Open Resume
-                        </a>
-                    {% else %}
-                        <span style="opacity:0.6;">No Resume</span>
-                    {% endif %}
-                </td>
-            </tr>
-        {% else %}
-            <tr>
-                <td colspan="5" style="text-align:center; opacity:0.6;">
-                    No applications found
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<!-- ================= SEARCH SCRIPT ================= -->
-<script>
-function searchApplications() {
-    const input = document.getElementById("searchInput").value.toLowerCase();
-    document.querySelectorAll("#applicationsTable tbody tr").forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
-    });
-}
-</script>
-
-{% endblock %}
-
-<!-- ================= STYLES ================= -->
 <style>
+@media (max-width: 768px) {
+    .apps-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .apps-table-wrap table {
+        min-width: 800px;
+    }
+    .apps-table-wrap table th,
+    .apps-table-wrap table td {
+        padding: 10px 12px;
+        white-space: nowrap;
+    }
+}
+
 .search-input{
     padding:10px 14px;
     background:#0f0f0f;
@@ -159,3 +62,110 @@ function searchApplications() {
     background:#111;
 }
 </style>
+
+<h1 class="page-title">Job Applications</h1>
+<p class="subtitle">Review and manage candidate applications</p>
+
+<!-- ================= ACTION BAR ================= -->
+<div class="action-bar" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:18px;">
+
+    <!-- SEARCH -->
+    <input type="text"
+           id="searchInput"
+           placeholder="Search applications..."
+           onkeyup="searchApplications()"
+           class="search-input"
+           style="width:220px">
+
+    <!-- DOWNLOAD BUTTONS -->
+    <div class="download-buttons" style="display:flex; gap:10px; flex-wrap:wrap;">
+
+        <!-- Download ALL Excel -->
+        <a href="/download-excel" class="download-btn">
+            Download All Excel
+        </a>
+
+        <!-- Download FILTERED Excel -->
+        {% if selected_job %}
+            <a href="/download-excel?job_id={{ selected_job }}" class="download-btn">
+                Download Filtered Excel
+            </a>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- ================= FILTER BAR ================= -->
+<form method="GET"
+      action="/applications"
+      class="filter-bar"
+      style="display:flex; gap:12px; align-items:center; margin-bottom:22px;">
+
+    <select name="job_id" class="select">
+        <option value="">All Jobs</option>
+        {% for job in jobs %}
+            <option value="{{ job.id }}"
+                {% if selected_job and selected_job == job.id|string %}selected{% endif %}>
+                {{ job.title }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-outline">
+        Filter
+    </button>
+
+</form>
+
+<!-- ================= APPLICATIONS TABLE ================= -->
+<div class="card">
+    <div class="apps-table-wrap"><table id="applicationsTable">
+        <thead>
+            <tr>
+                <th>Job</th>
+                <th>Applicant</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Resume</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        {% for app in applications %}
+            <tr>
+                <td>{{ app.job_title }}</td>
+                <td>{{ app.applicant_name }}</td>
+                <td>{{ app.email }}</td>
+                <td>{{ app.phone }}</td>
+                <td>
+                    {% if app.resume_url %}
+                        <a href="{{ app.resume_url }}" target="_blank">
+                            Open Resume
+                        </a>
+                    {% else %}
+                        <span style="opacity:0.6;">No Resume</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="5" style="text-align:center; opacity:0.6;">
+                    No applications found
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+</div>
+
+<!-- ================= SEARCH SCRIPT ================= -->
+<script>
+function searchApplications() {
+    const input = document.getElementById("searchInput").value.toLowerCase();
+    document.querySelectorAll("#applicationsTable tbody tr").forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+    });
+}
+</script>
+
+{% endblock %}

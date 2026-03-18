@@ -1,10 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+@media (max-width: 768px) {
+    .jobs-grid {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+    .jobs-grid > .card {
+        min-width: 0;
+    }
+    .jobs-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
+    }
+    .jobs-table-wrap table {
+        min-width: 850px;
+    }
+    .jobs-table-wrap table th,
+    .jobs-table-wrap table td {
+        padding: 10px 12px;
+        white-space: nowrap;
+    }
+}
+</style>
+
 <h1 class="page-title">Manage Jobs</h1>
 <p class="subtitle">Create and manage open positions</p>
 
-<div style="display:grid; grid-template-columns: 1fr 2fr; gap:30px;">
+<div class="jobs-grid" style="display:grid; grid-template-columns: 1fr 2fr; gap:30px;">
 
     <!-- ADD JOB -->
     <div class="card">
@@ -28,7 +54,7 @@
     <div class="card">
         <h3>All Jobs</h3>
 
-        <table>
+        <div class="jobs-table-wrap"><table>
             <thead>
                 <tr>
                     <th>Title</th>
@@ -60,7 +86,7 @@
                 </tr>
             {% endfor %}
             </tbody>
-        </table>
+        </table></div>
     </div>
 </div>
 

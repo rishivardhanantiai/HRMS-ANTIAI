@@ -55,6 +55,38 @@ def employees_ui():
 
 
 # =========================
+# EMPLOYEES LIST API
+# =========================
+@employees_bp.route("/list")
+@login_required
+def employees_list():
+
+    if not hr_admin_required():
+        return {"error": "Unauthorized"}, 403
+
+    conn, cur = get_db(True)
+
+    cur.execute("""
+        SELECT
+            e.id,
+            e.full_name,
+            e.email,
+            e.department,
+            e.status,
+            r.role_name
+        FROM hrms_employees e
+        LEFT JOIN hrms_roles r ON e.role_id = r.id
+        WHERE e.status != 'Deleted'
+        ORDER BY e.id DESC
+    """)
+
+    employees = cur.fetchall()
+    release_db(conn, cur)
+
+    return jsonify({"employees": employees})
+
+
+# =========================
 # ADD EMPLOYEE UI
 # =========================
 @employees_bp.route("/add/ui")
@@ -170,6 +202,41 @@ def add_employee():
 
     release_db(conn, cur)
     return redirect("/hrms/employees/ui")
+
+
+# =========================
+# EDIT EMPLOYEE UI
+# =========================
+@employees_bp.route("/<int:employee_id>/edit", methods=["GET"])
+@login_required
+def edit_employee_ui(employee_id):
+
+    if not hr_admin_required():
+        return redirect("/dashboard")
+
+    conn, cur = get_db(True)
+
+    cur.execute("""
+        SELECT id, full_name, email, phone, department, role_id
+        FROM hrms_employees
+        WHERE id=%s AND status != 'Deleted'
+    """, (employee_id,))
+    employee = cur.fetchone()
+
+    if not employee:
+        release_db(conn, cur)
+        return "Employee not found", 404
+
+    cur.execute("SELECT id, role_name FROM hrms_roles ORDER BY role_name")
+    roles = cur.fetchall()
+
+    release_db(conn, cur)
+
+    return render_template(
+        "hrms/edit_employee.html",
+        employee=employee,
+        roles=roles
+    )
 
 
 # =========================

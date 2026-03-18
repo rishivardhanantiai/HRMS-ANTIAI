@@ -20,6 +20,7 @@ body {
 .app-container {
     display: flex;
     min-height: 100vh;
+    position: relative;
 }
 
 /* ================= SIDEBAR (PERSISTENT) ================= */
@@ -31,6 +32,8 @@ body {
     left: 0;
     top: 0;
     height: 100vh;
+    z-index: 1001;
+    transition: left 0.25s ease;
 
     border-right: 1px solid #111;
     box-shadow: 5px 0 30px rgba(0,0,0,0.6);
@@ -38,6 +41,46 @@ body {
     /*  SCROLL FIX */
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+.app-container.sidebar-open .sidebar {
+    left: 0;
+}
+
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.app-container.sidebar-open .sidebar-overlay {
+    opacity: 1;
+    visibility: visible;
+}
+
+.nav-toggle {
+    display: none;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1002;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #1f2937;
+    background: #0b0b0b;
+    color: #f9fafb;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.nav-toggle:hover {
+    background: #141414;
 }
 /* Custom Scrollbar for Sidebar */
 .sidebar::-webkit-scrollbar {
@@ -107,8 +150,30 @@ body {
 /* ================= MAIN CONTENT ================= */
 .main-content {
     margin-left: 240px;
-    padding: 60px;
+    padding: 24px;
     width: calc(100% - 240px);
+}
+
+@media (max-width: 992px) {
+    .sidebar {
+        left: -260px;
+    }
+
+    .sidebar-overlay {
+        display: block;
+    }
+
+    .nav-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .main-content {
+        margin-left: 0;
+        padding: 70px 24px 24px;
+        width: 100%;
+    }
 }
 
 /* ================= HEADINGS ================= */

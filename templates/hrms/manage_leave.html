@@ -1,9 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+@media (max-width: 768px) {
+    .leave-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+</style>
+
 <h2>Leave Requests</h2>
 
-<table class="hrms-table">
+<div class="leave-table-wrap"><table class="hrms-table">
     <tr>
         <th>Employee</th>
         <th>Type</th>
@@ -29,6 +38,6 @@
         </td>
     </tr>
     {% endfor %}
-</table>
+</table></div>
 
 {% endblock %}

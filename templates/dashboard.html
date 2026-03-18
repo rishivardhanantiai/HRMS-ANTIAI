@@ -2,11 +2,59 @@
 
 {% block content %}
 
+<style>
+.dashboard-center {
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+.dashboard-title {
+    font-size: clamp(30px, 5vw, 42px);
+}
+
+.dashboard-subtitle {
+    margin-bottom: 28px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    min-width: 0;
+}
+
+@media (max-width: 768px) {
+    .dashboard-center {
+        padding: 0 4px;
+    }
+
+    .dashboard-subtitle {
+        margin-bottom: 20px;
+    }
+
+    .stats {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .stat-card {
+        padding: 22px 20px;
+    }
+
+    .stat-card p {
+        font-size: 30px;
+    }
+}
+</style>
+
 <div class="dashboard-center">
 
-    <h1>Welcome to HRMS</h1>
+    <h1 class="dashboard-title">Welcome to HRMS</h1>
 
-    <p class="subtitle">
+    <p class="subtitle dashboard-subtitle">
         Overview of your hiring activity
     </p>
 
@@ -26,89 +74,5 @@
     </div>
 
 </div>
-
-<script>
-
-const checkInBtn = document.getElementById("checkInBtn");
-const checkOutBtn = document.getElementById("checkOutBtn");
-
-function updateStatus(text){
-    document.getElementById("attendanceStatus").innerText = text;
-}
-
-function loadTodayStatus(){
-
-    fetch("/hrms/attendance/today-status")
-    .then(res => res.json())
-    .then(data => {
-
-        if(data.status === "Checked In"){
-            updateStatus(
-                "Checked In at " + data.time +
-                " | Working: " + data.worked
-            );
-
-            checkInBtn.disabled = true;
-            checkOutBtn.disabled = false;
-        }
-
-        else if(data.status === "Checked Out"){
-            updateStatus(
-                "Checked Out ✔ | Total: " + data.worked
-            );
-
-            checkInBtn.disabled = true;
-            checkOutBtn.disabled = true;
-        }
-
-        else{
-            updateStatus("Not Marked Today");
-
-            checkInBtn.disabled = false;
-            checkOutBtn.disabled = true;
-        }
-
-    });
-
-}
-
-checkInBtn.addEventListener("click", function() {
-
-    fetch("/hrms/attendance/check-in", { method:"POST" })
-    .then(res => res.json())
-    .then(data => {
-
-        if(data.message){
-            alert(data.message);
-            loadTodayStatus();
-        }else{
-            alert(data.error);
-        }
-
-    });
-
-});
-
-checkOutBtn.addEventListener("click", function() {
-
-    fetch("/hrms/attendance/check-out", { method:"POST" })
-    .then(res => res.json())
-    .then(data => {
-
-        if(data.message){
-            alert(data.message);
-            loadTodayStatus();
-        }else{
-            alert(data.error);
-        }
-
-    });
-
-});
-
-loadTodayStatus();
-setInterval(loadTodayStatus, 60000);
-
-</script>
 
 {% endblock %}

@@ -288,18 +288,38 @@ def applications():
 
     conn, cur = get_db(True)
 
-    cur.execute("""
-        SELECT 
-            a.id,
-            j.title AS job_title,
-            a.applicant_name,
-            a.email,
-            a.phone,
-            a.resume_url
-        FROM applications a
-        JOIN jobs j ON a.job_id = j.id
-        ORDER BY a.id DESC
-    """)
+    selected_job = request.args.get("job_id")
+
+    cur.execute("SELECT id, title FROM jobs ORDER BY id DESC")
+    jobs = cur.fetchall()
+
+    if selected_job:
+        cur.execute("""
+            SELECT
+                a.id,
+                j.title AS job_title,
+                a.applicant_name,
+                a.email,
+                a.phone,
+                a.resume_url
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.id
+            WHERE a.job_id = %s
+            ORDER BY a.id DESC
+        """, (selected_job,))
+    else:
+        cur.execute("""
+            SELECT
+                a.id,
+                j.title AS job_title,
+                a.applicant_name,
+                a.email,
+                a.phone,
+                a.resume_url
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.id
+            ORDER BY a.id DESC
+        """)
 
     applications = cur.fetchall()
 
@@ -307,8 +327,43 @@ def applications():
 
     return render_template(
         "applications.html",
-        applications=applications
+        applications=applications,
+        jobs=jobs,
+        selected_job=selected_job
     )
+
+
+@app.route("/download-excel")
+@login_required
+def download_excel():
+
+    selected_job = request.args.get("job_id")
+    conn, cur = get_db()
+
+    base_query = """
+        SELECT
+            j.title AS Job,
+            a.applicant_name AS Applicant,
+            a.email AS Email,
+            a.phone AS Phone,
+            a.resume_url AS Resume_URL
+        FROM applications a
+        JOIN jobs j ON a.job_id = j.id
+    """
+
+    if selected_job:
+        query = base_query + " WHERE a.job_id = %s ORDER BY a.id DESC"
+        df = pd.read_sql(query, conn, params=(selected_job,))
+        file_path = f"applications_job_{selected_job}.xlsx"
+    else:
+        query = base_query + " ORDER BY a.id DESC"
+        df = pd.read_sql(query, conn)
+        file_path = "applications.xlsx"
+
+    df.to_excel(file_path, index=False)
+    release_db(conn, cur)
+
+    return send_file(file_path, as_attachment=True)
 
 @app.route("/settings")
 @login_required

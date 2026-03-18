@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+@media (max-width: 768px) {
+    .payroll-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .form-row {
+        flex-direction: column;
+    }
+    .form-row select, .form-row button {
+        width: 100%;
+    }
+}
+</style>
+
 <div class="page-header">
     <h2>Payroll Dashboard</h2>
 </div>
@@ -62,7 +77,7 @@
 <div class="card mt-4">
     <h3>Generated Payroll Records</h3>
 
-    <table class="styled-table">
+    <div class="payroll-table-wrap"><table class="styled-table">
 
         <thead>
             <tr>
@@ -173,7 +188,7 @@
 
         </tbody>
 
-    </table>
+    </table></div>
 
 </div>
 

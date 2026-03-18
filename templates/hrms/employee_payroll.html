@@ -1,12 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+@media (max-width: 768px) {
+    .employee-payroll-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .employee-payroll-table-wrap .styled-table {
+        min-width: 700px;
+    }
+
+    .employee-payroll-table-wrap .styled-table th,
+    .employee-payroll-table-wrap .styled-table td {
+        white-space: nowrap;
+    }
+}
+</style>
+
 <div class="page-header">
     <h2>My Payroll History</h2>
 </div>
 
 <div class="card">
-    <table class="styled-table">
+    <div class="employee-payroll-table-wrap"><table class="styled-table">
         <thead>
             <tr>
                 <th>Month</th>
@@ -50,7 +70,7 @@
         {% endfor %}
 
         </tbody>
-    </table>
+    </table></div>
 </div>
 
 {% endblock %}
