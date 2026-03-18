@@ -5,6 +5,7 @@ from flask import (
     redirect, session, send_from_directory
 )
 import os
+import tempfile
 from datetime import datetime
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash
@@ -37,7 +38,13 @@ app.register_blueprint(attendance_bp)
 app.register_blueprint(payroll_bp)
 app.register_blueprint(salary_bp)
 app.register_blueprint(leave_bp)
-UPLOAD_FOLDER = "uploads/resumes"
+
+# Vercel runtime is read-only except for /tmp, so use /tmp there.
+if os.getenv("VERCEL") == "1":
+    UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), "uploads", "resumes")
+else:
+    UPLOAD_FOLDER = os.path.join("uploads", "resumes")
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
@@ -276,7 +283,7 @@ def apply(job_id):
 # =========================
 @app.route("/uploads/resumes/<path:filename>")
 def serve_resume(filename):
-    return send_from_directory("uploads/resumes", filename)
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 
 # =========================
