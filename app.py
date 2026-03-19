@@ -108,6 +108,7 @@ def login(role):
         # SESSION SETUP
         session.clear()
         session["user_id"] = user["id"]
+        session["email"] = user["email"]
         session["employee_id"] = user["employee_id"]
         session["role"] = user["role_name"]
 
@@ -271,7 +272,8 @@ def apply(job_id):
         conn.commit()
         release_db(conn, cur)
 
-        return "Application submitted successfully!"
+        flash("Application submitted successfully!", "success")
+        return redirect("/jobs")
 
     release_db(conn, cur)
 
@@ -420,19 +422,28 @@ def settings():
             message = "Password must be at least 6 characters"
             message_type = "error"
         else:
-            # Get user from session
-            email = session.get("email")
+            user_id = session.get("user_id")
             conn, cur = get_db(True)
-            
-            cur.execute("SELECT password FROM hrms_users WHERE email = %s", (email,))
+
+            cur.execute("SELECT password, email FROM users WHERE id = %s", (user_id,))
             user = cur.fetchone()
-            
-            if user and check_password_hash(user["password"], old_password):
+
+            # Some legacy rows may store plain text; accept once and upgrade to hash.
+            is_old_password_valid = False
+            if user:
+                stored_password = user["password"] or ""
+                is_old_password_valid = (
+                    check_password_hash(stored_password, old_password)
+                    if stored_password.startswith("pbkdf2:") or stored_password.startswith("scrypt:")
+                    else stored_password == old_password
+                )
+
+            if user and is_old_password_valid:
                 # Password is correct, update it
                 hashed_password = generate_password_hash(new_password)
                 cur.execute(
-                    "UPDATE hrms_users SET password = %s WHERE email = %s",
-                    (hashed_password, email)
+                    "UPDATE users SET password = %s WHERE id = %s",
+                    (hashed_password, user_id)
                 )
                 conn.commit()
                 message = "Password updated successfully!"

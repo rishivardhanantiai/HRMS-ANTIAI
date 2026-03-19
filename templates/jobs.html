@@ -2,27 +2,133 @@
 {% block content %}
 
 <style>
+.jobs-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+}
+
+.jobs-card-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.add-job-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #232323;
+    cursor: pointer;
+    user-select: none;
+}
+
+.add-job-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.add-job-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #04120a;
+}
+
+#addJobIcon {
+    color: #94a3b8;
+    font-size: 16px;
+}
+
+.add-job-body {
+    margin-top: 16px;
+}
+
+.jobs-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+}
+
+.jobs-table-wrap table {
+    min-width: 860px;
+    margin-top: 12px;
+}
+
+.jobs-table-wrap thead th {
+    letter-spacing: 0.02em;
+    font-size: 13px;
+}
+
+.jobs-table-wrap tbody td {
+    vertical-align: middle;
+}
+
+.job-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.job-actions a {
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    color: #d1d5db;
+    transition: 0.2s ease;
+}
+
+.job-actions a:hover {
+    background: #1a1a1a;
+    border-color: #3a3a3a;
+    color: #fff;
+}
+
+.job-actions .action-apply {
+    border-color: #14532d;
+    color: #86efac;
+}
+
+.job-actions .action-apply:hover {
+    background: #0e2016;
+    border-color: #166534;
+}
+
+.job-actions .action-edit {
+    border-color: #1e3a8a;
+    color: #93c5fd;
+}
+
+.job-actions .action-edit:hover {
+    background: #121d38;
+    border-color: #1d4ed8;
+}
+
+.job-actions .action-delete {
+    border-color: #7f1d1d;
+    color: #fca5a5;
+}
+
+.job-actions .action-delete:hover {
+    background: #2a1212;
+    border-color: #991b1b;
+}
+
 @media (max-width: 768px) {
-    .jobs-grid {
-        grid-template-columns: 1fr !important;
-        gap: 20px !important;
-    }
-    .jobs-grid > .card {
-        min-width: 0;
-    }
-    .jobs-table-wrap {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        width: 100%;
-        max-width: 100%;
-    }
     .jobs-table-wrap table {
-        min-width: 850px;
-    }
-    .jobs-table-wrap table th,
-    .jobs-table-wrap table td {
-        padding: 10px 12px;
-        white-space: nowrap;
+        min-width: 760px;
     }
 }
 </style>
@@ -30,12 +136,15 @@
 <h1 class="page-title">Manage Jobs</h1>
 <p class="subtitle">Create and manage open positions</p>
 
-<div class="jobs-grid" style="display:grid; grid-template-columns: 1fr 2fr; gap:30px;">
+<div class="jobs-layout">
 
     <!-- ADD JOB -->
     <div class="card">
         <div class="add-job-header" onclick="toggleAddJob()">
-            <h3 style="margin:0;">➕ Add New Job</h3>
+            <div class="add-job-label">
+                <span class="add-job-badge">+</span>
+                <h3 class="jobs-card-title">Add New Job</h3>
+            </div>
             <span id="addJobIcon">▼</span>
         </div>
 
@@ -52,7 +161,7 @@
 
     <!-- JOBS TABLE -->
     <div class="card">
-        <h3>All Jobs</h3>
+        <h3 class="jobs-card-title">All Jobs</h3>
 
         <div class="jobs-table-wrap"><table>
             <thead>
@@ -73,9 +182,11 @@
                     <td>{{ job.job_type }}</td>
                     <td>{{ job.posted_at }}</td>
                     <td>
-                        <a href="{{ url_for('apply', job_id=job.id) }}">Apply</a> |
-                        <a href="{{ url_for('edit_job', job_id=job.id) }}">Edit</a> |
-                        <a href="{{ url_for('delete_job', job_id=job.id) }}">Delete</a>
+                        <div class="job-actions">
+                            <a class="action-apply" href="{{ url_for('apply', job_id=job.id) }}">Apply</a>
+                            <a class="action-edit" href="{{ url_for('edit_job', job_id=job.id) }}">Edit</a>
+                            <a class="action-delete" href="{{ url_for('delete_job', job_id=job.id) }}">Delete</a>
+                        </div>
                     </td>
                 </tr>
             {% else %}
