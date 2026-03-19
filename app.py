@@ -7,8 +7,10 @@ from flask import (
 import os
 import tempfile
 from datetime import datetime
+import httpx
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 import pandas as pd
 from flask import send_file
 from hrms.leave.routes import leave_bp
@@ -46,6 +48,42 @@ else:
     UPLOAD_FOLDER = os.path.join(app.root_path, "uploads", "resumes")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+SUPABASE_RESUME_BUCKET = os.getenv("SUPABASE_RESUME_BUCKET", "resumes")
+
+
+def upload_resume_to_supabase(file_storage):
+    """Upload resume file to Supabase Storage and return public URL."""
+    if not file_storage or not file_storage.filename:
+        return None
+
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    supabase_key = os.getenv("SUPABASE_KEY")
+    if not supabase_url or not supabase_key:
+        raise RuntimeError("Supabase credentials are missing")
+
+    safe_name = secure_filename(file_storage.filename)
+    timestamp = int(datetime.now().timestamp())
+    object_key = f"applications/{timestamp}_{safe_name}"
+
+    file_storage.stream.seek(0)
+    file_bytes = file_storage.read()
+    file_storage.stream.seek(0)
+
+    content_type = file_storage.mimetype or "application/octet-stream"
+    upload_url = f"{supabase_url}/storage/v1/object/{SUPABASE_RESUME_BUCKET}/{object_key}"
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": content_type,
+        "x-upsert": "false"
+    }
+
+    response = httpx.post(upload_url, content=file_bytes, headers=headers, timeout=30.0)
+    if response.status_code not in (200, 201):
+        raise RuntimeError(f"Supabase upload failed with status {response.status_code}")
+
+    return f"{supabase_url}/storage/v1/object/public/{SUPABASE_RESUME_BUCKET}/{object_key}"
 
 
 # =========================
@@ -253,9 +291,13 @@ def apply(job_id):
         resume_url = None
 
         if resume and resume.filename:
-            filename = f"{int(datetime.now().timestamp())}_{resume.filename}"
-            resume.save(os.path.join(UPLOAD_FOLDER, filename))
-            resume_url = f"/uploads/resumes/{filename}"
+            try:
+                resume_url = upload_resume_to_supabase(resume)
+            except Exception:
+                # Fallback for local/dev setups when cloud upload is unavailable.
+                filename = f"{int(datetime.now().timestamp())}_{secure_filename(resume.filename)}"
+                resume.save(os.path.join(UPLOAD_FOLDER, filename))
+                resume_url = f"/uploads/resumes/{filename}"
 
         cur.execute("""
             INSERT INTO applications
@@ -334,7 +376,6 @@ def applications():
 
     # Normalize stored resume URLs so legacy rows still resolve correctly.
     for row in applications:
-        row["resume_missing"] = False
         resume_url = row.get("resume_url")
         if not resume_url:
             continue
@@ -349,15 +390,6 @@ def applications():
         else:
             row["resume_url"] = f"/uploads/resumes/{os.path.basename(normalized)}"
 
-        # For local resume links, ensure file exists before rendering "Open Resume".
-        resolved = row.get("resume_url")
-        if isinstance(resolved, str) and resolved.startswith("/uploads/resumes/"):
-            local_filename = os.path.basename(resolved)
-            local_path = os.path.join(UPLOAD_FOLDER, local_filename)
-            if not os.path.exists(local_path):
-                row["resume_url"] = None
-                row["resume_missing"] = True
-
     release_db(conn, cur)
 
     return render_template(
@@ -366,6 +398,32 @@ def applications():
         jobs=jobs,
         selected_job=selected_job
     )
+
+
+@app.route("/applications/delete/<int:application_id>", methods=["POST"])
+@login_required
+def delete_application(application_id):
+    conn, cur = get_db(True)
+
+    cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
+    row = cur.fetchone()
+
+    if not row:
+        release_db(conn, cur)
+        flash("Application not found", "error")
+        return redirect("/applications")
+
+    cur.execute("DELETE FROM applications WHERE id=%s", (application_id,))
+    conn.commit()
+    release_db(conn, cur)
+
+    flash("Application deleted successfully", "success")
+
+    selected_job = (request.form.get("job_id") or "").strip()
+    if selected_job:
+        return redirect(f"/applications?job_id={selected_job}")
+
+    return redirect("/applications")
 
 
 @app.route("/download-excel")

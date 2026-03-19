@@ -61,6 +61,20 @@
 .btn-outline:hover{
     background:#111;
 }
+
+.btn-danger{
+    background:#b91c1c;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.btn-danger:hover{
+    background:#991b1b;
+}
 </style>
 
 <h1 class="page-title">Job Applications</h1>
@@ -127,6 +141,7 @@
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Resume</th>
+                <th>Action</th>
             </tr>
         </thead>
 
@@ -142,16 +157,25 @@
                         <a href="{{ app.resume_url }}" target="_blank">
                             Open Resume
                         </a>
-                    {% elif app.resume_missing %}
-                        <span style="opacity:0.75; color:#f59e0b;">Resume file missing</span>
                     {% else %}
                         <span style="opacity:0.6;">No Resume</span>
                     {% endif %}
                 </td>
+                <td>
+                    <form method="POST"
+                          action="/applications/delete/{{ app.id }}"
+                          onsubmit="return confirm('Delete this application?');"
+                          style="margin:0;">
+                        {% if selected_job %}
+                            <input type="hidden" name="job_id" value="{{ selected_job }}">
+                        {% endif %}
+                        <button type="submit" class="btn-danger">Delete</button>
+                    </form>
+                </td>
             </tr>
         {% else %}
             <tr>
-                <td colspan="5" style="text-align:center; opacity:0.6;">
+                <td colspan="6" style="text-align:center; opacity:0.6;">
                     No applications found
                 </td>
             </tr>
