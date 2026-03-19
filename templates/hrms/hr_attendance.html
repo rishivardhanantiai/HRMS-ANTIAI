@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% if request.args.get("saved") %}
-<script>
-alert("Attendance Saved Successfully ✅");
-</script>
-{% endif %}
-
 <div class="hrms-wrapper">
 
     <div class="hrms-header">
@@ -63,6 +57,10 @@ alert("Attendance Saved Successfully ✅");
     </div>
     {% endif %}
 
+    <div id="status-updated-msg" class="active-filter" style="display:none;">
+        Updated
+    </div>
+
     <!-- TABLE CARD -->
     <div class="hrms-card mt-4">
 
@@ -111,11 +109,15 @@ alert("Attendance Saved Successfully ✅");
                     <td>
                         {% if not a.is_locked %}
                         <form method="POST"
-                              action="/hrms/attendance/edit/{{ a.employee_id }}/{{ a.attendance_date }}">
+                            class="status-edit-form"
+                            onsubmit="return saveAttendanceStatus(event, this);"
+                            action="/hrms/attendance/edit/{{ a.id }}">
                             <select name="status">
-                                <option value="Present">Present</option>
-                                <option value="Absent">Absent</option>
-                                <option value="WFH">WFH</option>
+                                <option value="Present" {% if a.status == 'Present' %}selected{% endif %}>Present</option>
+                                <option value="Absent" {% if a.status == 'Absent' %}selected{% endif %}>Absent</option>
+                                <option value="WFH" {% if a.status == 'WFH' %}selected{% endif %}>WFH</option>
+                                <option value="Leave" {% if a.status == 'Leave' %}selected{% endif %}>Leave</option>
+                                <option value="Weekend" {% if a.status == 'Weekend' %}selected{% endif %}>Weekend</option>
                             </select>
                             <button type="submit">Save</button>
                         </form>
@@ -283,5 +285,63 @@ alert("Attendance Saved Successfully ✅");
     }
 }
 </style>
+
+<script>
+async function saveAttendanceStatus(e, form) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const statusSelect = form.querySelector('select[name="status"]');
+    if (!submitBtn || !statusSelect) return false;
+
+    const selectedStatus = statusSelect.value;
+    const oldText = submitBtn.textContent;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Failed to save status');
+        }
+
+        statusSelect.value = data.status || selectedStatus;
+        submitBtn.textContent = 'Saved';
+
+        const updatedMsg = document.getElementById('status-updated-msg');
+        if (updatedMsg) {
+            updatedMsg.style.display = 'block';
+            clearTimeout(window.__attendanceUpdatedTimer);
+            window.__attendanceUpdatedTimer = setTimeout(() => {
+                updatedMsg.style.display = 'none';
+            }, 1400);
+        }
+
+        setTimeout(() => {
+            submitBtn.textContent = oldText;
+            submitBtn.disabled = false;
+        }, 900);
+    } catch (err) {
+        submitBtn.textContent = 'Retry';
+        submitBtn.disabled = false;
+        console.error(err);
+    }
+
+    return false;
+}
+</script>
 
 {% endblock %}

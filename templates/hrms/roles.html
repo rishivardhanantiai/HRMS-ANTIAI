@@ -94,6 +94,21 @@
     background:rgba(239,68,68,0.3);
 }
 
+.btn-edit{
+    background:rgba(59,130,246,0.15);
+    color:#60a5fa;
+    border:none;
+    padding:6px 14px;
+    border-radius:7px;
+    font-size:12px;
+    transition:.3s;
+    margin-right:8px;
+}
+
+.btn-edit:hover{
+    background:rgba(59,130,246,0.3);
+}
+
 @media (max-width: 768px) {
     .hrms-wrapper{
         padding:18px 14px;
@@ -172,6 +187,11 @@
                     <td>{{ role.description or "-" }}</td>
 
                     <td style="text-align:right;">
+
+                        <a href="/hrms/roles/edit/{{ role.id }}"
+                           class="btn-edit">
+                            Edit
+                        </a>
 
                         <a href="/hrms/roles/delete/{{ role.id }}"
                            class="btn-delete">

@@ -142,6 +142,8 @@
                         <a href="{{ app.resume_url }}" target="_blank">
                             Open Resume
                         </a>
+                    {% elif app.resume_missing %}
+                        <span style="opacity:0.75; color:#f59e0b;">Resume file missing</span>
                     {% else %}
                         <span style="opacity:0.6;">No Resume</span>
                     {% endif %}

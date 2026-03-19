@@ -43,7 +43,7 @@ app.register_blueprint(leave_bp)
 if os.getenv("VERCEL") == "1":
     UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), "uploads", "resumes")
 else:
-    UPLOAD_FOLDER = os.path.join("uploads", "resumes")
+    UPLOAD_FOLDER = os.path.join(app.root_path, "uploads", "resumes")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -329,6 +329,32 @@ def applications():
         """)
 
     applications = cur.fetchall()
+
+    # Normalize stored resume URLs so legacy rows still resolve correctly.
+    for row in applications:
+        row["resume_missing"] = False
+        resume_url = row.get("resume_url")
+        if not resume_url:
+            continue
+
+        normalized = str(resume_url).strip()
+        if normalized.startswith("http://") or normalized.startswith("https://"):
+            row["resume_url"] = normalized
+        elif normalized.startswith("/uploads/resumes/"):
+            row["resume_url"] = normalized
+        elif normalized.startswith("uploads/resumes/"):
+            row["resume_url"] = f"/{normalized}"
+        else:
+            row["resume_url"] = f"/uploads/resumes/{os.path.basename(normalized)}"
+
+        # For local resume links, ensure file exists before rendering "Open Resume".
+        resolved = row.get("resume_url")
+        if isinstance(resolved, str) and resolved.startswith("/uploads/resumes/"):
+            local_filename = os.path.basename(resolved)
+            local_path = os.path.join(UPLOAD_FOLDER, local_filename)
+            if not os.path.exists(local_path):
+                row["resume_url"] = None
+                row["resume_missing"] = True
 
     release_db(conn, cur)
 

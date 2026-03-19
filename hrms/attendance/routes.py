@@ -93,38 +93,65 @@ def attendance_page():
 
     elif role in ["HR", "Admin"]:
 
-    # Fetch attendance
+        employee_filter = request.args.get("employee_id", "").strip()
+        from_date = request.args.get("from_date", "").strip()
+        to_date = request.args.get("to_date", "").strip()
+
+        conditions = []
+        params = []
+
+        if employee_filter:
+            conditions.append("a.employee_id = %s")
+            params.append(employee_filter)
+
+        if from_date:
+            conditions.append("a.attendance_date >= %s")
+            params.append(from_date)
+
+        if to_date:
+            conditions.append("a.attendance_date <= %s")
+            params.append(to_date)
+
+        where_clause = ""
+        if conditions:
+            where_clause = "WHERE " + " AND ".join(conditions)
+
+        cur.execute(
+            f"""
+            SELECT
+                a.id,
+                a.employee_id,
+                a.attendance_date,
+                a.status,
+                a.check_in_time,
+                a.check_out_time,
+                a.duration,
+                a.is_locked,
+                e.full_name
+            FROM hrms_attendance a
+            JOIN hrms_employees e ON a.employee_id = e.id
+            {where_clause}
+            ORDER BY a.attendance_date DESC, e.full_name
+            """,
+            tuple(params)
+        )
+        records = cur.fetchall()
+
+        # Fetch employees for filter dropdown
         cur.execute("""
-        SELECT 
-            a.employee_id,
-            a.attendance_date,
-            a.status,
-            a.check_in_time,
-            a.check_out_time,
-            a.duration,
-            a.is_locked,
-            e.full_name
-        FROM hrms_attendance a
-        JOIN hrms_employees e ON a.employee_id = e.id
-        ORDER BY a.attendance_date DESC
-    """)
-    records = cur.fetchall()
+            SELECT id, full_name
+            FROM hrms_employees
+            ORDER BY full_name
+        """)
+        employees = cur.fetchall()
 
-    # Fetch employees for filter dropdown
-    cur.execute("""
-        SELECT id, full_name
-        FROM hrms_employees
-        ORDER BY full_name
-    """)
-    employees = cur.fetchall()
+        release_db(conn, cur)
 
-    release_db(conn, cur)
-
-    return render_template(
-        "hrms/hr_attendance.html",
-        attendance=records,
-        employees=employees
-    )
+        return render_template(
+            "hrms/hr_attendance.html",
+            attendance=records,
+            employees=employees
+        )
 
     release_db(conn, cur)
     return redirect("/dashboard")
@@ -337,29 +364,37 @@ def today_status():
 # EDIT ATTENDANCE (HR / ADMIN)
 # =========================================================
 
-@attendance_bp.route("/attendance/edit/<int:employee_id>/<attendance_date>", methods=["POST"])
+@attendance_bp.route("/attendance/edit/<int:attendance_id>", methods=["POST"])
 @login_required
-def edit_attendance(employee_id, attendance_date):
+def edit_attendance(attendance_id):
 
     role = session.get("role")
 
     if role not in ["HR", "Admin"]:
-        return redirect("/dashboard")
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
 
-    status = request.form.get("status")
+    status = request.form.get("status", "").strip()
+
+    allowed_statuses = {"Present", "Absent", "WFH", "Weekend", "Leave"}
+    if status not in allowed_statuses:
+        return jsonify({"success": False, "message": "Invalid status"}), 400
 
     conn, cur = get_db(True)
 
     cur.execute("""
         UPDATE hrms_attendance
         SET status = %s
-        WHERE employee_id = %s
-        AND attendance_date = %s
+        WHERE id = %s
         AND is_locked = FALSE
-    """, (status, employee_id, attendance_date))
+    """, (status, attendance_id))
 
     conn.commit()
 
+    updated = cur.rowcount > 0
+
     release_db(conn, cur)
 
-    return redirect("/hrms/attendance?saved=1")
+    if not updated:
+        return jsonify({"success": False, "message": "Record not updated (locked or not found)"}), 400
+
+    return jsonify({"success": True, "status": status})
