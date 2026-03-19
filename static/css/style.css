@@ -531,3 +531,56 @@ a:hover {
     color: #aaa;
 }
 
+/* ================= TABLET LAYOUT (ALL PAGES) ================= */
+@media (min-width: 768px) and (max-width: 991px) {
+    .main-content {
+        padding: 78px 16px 20px;
+    }
+
+    .card,
+    .form-card {
+        width: 100%;
+        max-width: 100%;
+        padding: 24px 20px;
+    }
+
+    .stats {
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .stat-card {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 240px;
+        padding: 24px;
+    }
+
+    .page-header {
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-start;
+    }
+
+    .action-group {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    table,
+    .styled-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        margin-top: 16px;
+    }
+
+    thead th,
+    tbody td,
+    .styled-table th,
+    .styled-table td {
+        padding: 12px 10px;
+    }
+}
+

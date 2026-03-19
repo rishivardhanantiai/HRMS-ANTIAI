@@ -83,7 +83,7 @@
             background: #e6e6e6;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 767px) {
             .login-page {
                 min-height: 100vh;
                 display: flex;
@@ -129,6 +129,59 @@
 
             .role-btn {
                 width: 100%;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 991px) {
+            .login-page {
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                align-items: center;
+                padding: 40px 24px 34px;
+            }
+
+            .login-logo {
+                position: static;
+                top: auto;
+                transform: none;
+                margin: 0 auto 16px;
+            }
+
+            .login-logo img {
+                width: 88px;
+            }
+
+            .role-container {
+                width: min(820px, 100%);
+                margin-top: 0;
+            }
+
+            .role-title {
+                font-size: 34px;
+            }
+
+            .role-subtitle {
+                font-size: 16px;
+                margin-bottom: 26px;
+            }
+
+            .role-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(260px, 1fr));
+                gap: 20px;
+            }
+
+            .role-card {
+                width: 100%;
+                padding: 28px 22px;
+            }
+
+            .role-card:last-child {
+                grid-column: 1 / -1;
+                max-width: 360px;
+                justify-self: center;
             }
         }
     </style>
