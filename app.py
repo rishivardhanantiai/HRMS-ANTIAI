@@ -294,10 +294,9 @@ def apply(job_id):
             try:
                 resume_url = upload_resume_to_supabase(resume)
             except Exception:
-                # Fallback for local/dev setups when cloud upload is unavailable.
-                filename = f"{int(datetime.now().timestamp())}_{secure_filename(resume.filename)}"
-                resume.save(os.path.join(UPLOAD_FOLDER, filename))
-                resume_url = f"/uploads/resumes/{filename}"
+                release_db(conn, cur)
+                flash("Resume upload failed. Please try again in a moment.", "error")
+                return redirect(request.url)
 
         cur.execute("""
             INSERT INTO applications
