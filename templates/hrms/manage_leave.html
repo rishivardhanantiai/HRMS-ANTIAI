@@ -30,7 +30,7 @@
         <td>{{ r.to_date }}</td>
         <td>{{ r.status }}</td>
         <td>
-            {% if r.status == "PENDING" %}
+            {% if (r.status or '')|lower == "pending" %}
                 <a href="/hrms/leave/update/{{ r.id }}/approve">Approve</a>
                 |
                 <a href="/hrms/leave/update/{{ r.id }}/reject">Reject</a>

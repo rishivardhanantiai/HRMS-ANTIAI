@@ -8,7 +8,7 @@ import os
 import tempfile
 from datetime import datetime
 from dotenv import load_dotenv
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 import pandas as pd
 from flask import send_file
 from hrms.leave.routes import leave_bp
@@ -398,10 +398,52 @@ def download_excel():
 
     return send_file(file_path, as_attachment=True)
 
-@app.route("/settings")
+@app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings():
-    return render_template("settings.html")
+    message = None
+    message_type = "success"
+    
+    if request.method == "POST":
+        old_password = request.form.get("old_password", "").strip()
+        new_password = request.form.get("new_password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+        
+        # Validation
+        if not old_password or not new_password or not confirm_password:
+            message = "All fields are required"
+            message_type = "error"
+        elif new_password != confirm_password:
+            message = "New passwords do not match"
+            message_type = "error"
+        elif len(new_password) < 6:
+            message = "Password must be at least 6 characters"
+            message_type = "error"
+        else:
+            # Get user from session
+            email = session.get("email")
+            conn, cur = get_db(True)
+            
+            cur.execute("SELECT password FROM hrms_users WHERE email = %s", (email,))
+            user = cur.fetchone()
+            
+            if user and check_password_hash(user["password"], old_password):
+                # Password is correct, update it
+                hashed_password = generate_password_hash(new_password)
+                cur.execute(
+                    "UPDATE hrms_users SET password = %s WHERE email = %s",
+                    (hashed_password, email)
+                )
+                conn.commit()
+                message = "Password updated successfully!"
+                message_type = "success"
+            else:
+                message = "Old password is incorrect"
+                message_type = "error"
+            
+            release_db(conn, cur)
+    
+    return render_template("settings.html", message=message, message_type=message_type)
 
 @app.route("/salary-records")
 @login_required
@@ -412,11 +454,15 @@ def salary_records():
     cur.execute("""
         SELECT es.id,
                e.full_name AS employee_name,
-               s.name AS structure_name,
-               es.effective_from
+               CASE
+                   WHEN es.monthly_salary IS NOT NULL
+                       THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
+                   ELSE COALESCE(s.name, 'Not Assigned')
+               END AS structure_name,
+               es.effective_from::text AS effective_from
         FROM employee_salary es
         JOIN hrms_employees e ON es.employee_id = e.id
-        JOIN salary_structures s ON es.structure_id = s.id
+        LEFT JOIN salary_structures s ON es.structure_id = s.id
         ORDER BY es.effective_from DESC
     """)
 
@@ -435,11 +481,15 @@ def download_salary_records():
     query = """
         SELECT 
             e.full_name AS Employee,
-            s.name AS Salary_Structure,
-            es.effective_from AS Effective_From
+            CASE
+                WHEN es.monthly_salary IS NOT NULL
+                    THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
+                ELSE COALESCE(s.name, 'Not Assigned')
+            END AS Salary_Structure,
+            es.effective_from::text AS Effective_From
         FROM employee_salary es
         JOIN hrms_employees e ON es.employee_id = e.id
-        JOIN salary_structures s ON es.structure_id = s.id
+        LEFT JOIN salary_structures s ON es.structure_id = s.id
         ORDER BY es.effective_from DESC
     """
 

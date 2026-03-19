@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, session, redirect
+from flask import Blueprint, render_template, request, session, redirect, flash
 from utils.auth import login_required
 from services.payroll_engine import generate_payroll
 from utils.db import get_db, release_db
@@ -69,6 +69,7 @@ def payroll_dashboard():
 # ===============================
 
 @payroll_bp.route("/generate", methods=["POST"])
+@payroll_bp.route("/payroll/generate", methods=["POST"])
 @login_required
 def generate():
 
@@ -85,7 +86,10 @@ def generate():
     result = generate_payroll(employee_id, month, year, generated_by)
 
     if "error" in result:
-        return result["error"]
+        flash(result["error"], "error")
+        return redirect("/hrms/payroll/")
+
+    flash("Payroll generated successfully", "success")
 
     return redirect("/hrms/payroll/")
 

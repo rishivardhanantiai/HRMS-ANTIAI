@@ -88,11 +88,11 @@
                     <td>{{ a.attendance_date }}</td>
 
                     <td>
-                        {{ a.check_in_time.strftime("%H:%M") if a.check_in_time else "-" }}
+                        {{ a.check_in_time.strftime("%H:%M:%S IST") if a.check_in_time else "-" }}
                     </td>
 
                     <td>
-                        {{ a.check_out_time.strftime("%H:%M") if a.check_out_time else "-" }}
+                        {{ a.check_out_time.strftime("%H:%M:%S IST") if a.check_out_time else "-" }}
                     </td>
 
                     <td>

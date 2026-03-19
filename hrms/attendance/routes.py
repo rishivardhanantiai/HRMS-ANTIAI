@@ -12,6 +12,7 @@ attendance_bp = Blueprint("attendance", __name__, url_prefix="/hrms")
 # =========================================================
 
 IST = ZoneInfo("Asia/Kolkata")
+UTC = ZoneInfo("UTC")
 
 def get_ist_now():
     return datetime.now(IST)
@@ -20,10 +21,13 @@ def get_ist_today():
     return get_ist_now().date()
 
 def ensure_ist(dt):
+    # Converts to IST properly, treating naive datetimes as UTC
     if dt is None:
         return None
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=IST)
+        # Naive datetime from database - assume it's in UTC (PostgreSQL default)
+        dt = dt.replace(tzinfo=UTC)
+    # Convert to IST
     return dt.astimezone(IST)
 
 # =========================================================
@@ -73,6 +77,14 @@ def attendance_page():
         """, (employee_id, month, year))
 
         records = cur.fetchall()
+        
+        # Convert all times to IST and recalculate duration
+        for r in records:
+            if r["check_in_time"]:
+                r["check_in_time"] = ensure_ist(r["check_in_time"])
+            if r["check_out_time"]:
+                r["check_out_time"] = ensure_ist(r["check_out_time"])
+        
         attendance_map = {r["attendance_date"]: r for r in records}
         cal = calendar.monthcalendar(year, month)
         month_name = calendar.month_name[month]
@@ -136,6 +148,20 @@ def attendance_page():
             tuple(params)
         )
         records = cur.fetchall()
+        
+        # Convert all times to IST and recalculate duration dynamically
+        for r in records:
+            if r["check_in_time"]:
+                r["check_in_time"] = ensure_ist(r["check_in_time"])
+            if r["check_out_time"]:
+                r["check_out_time"] = ensure_ist(r["check_out_time"])
+            
+            # Recalculate duration based on actual check-in/out times
+            if r["check_in_time"] and r["check_out_time"]:
+                duration_delta = r["check_out_time"] - r["check_in_time"]
+                r["duration"] = int(duration_delta.total_seconds() / 60)  # in minutes
+            else:
+                r["duration"] = 0
 
         # Fetch employees for filter dropdown
         cur.execute("""
@@ -340,13 +366,17 @@ def today_status():
         return jsonify({"status": "Not Marked"})
 
     if record["check_in_time"] and not record["check_out_time"]:
+        check_in = ensure_ist(record["check_in_time"])
         worked = "-"
         return jsonify({
             "status": "Checked In",
+            "check_in_time": check_in.strftime("%H:%M") if check_in else "-",
             "worked": worked
         })
 
     if record["check_out_time"]:
+        check_in = ensure_ist(record["check_in_time"])
+        check_out = ensure_ist(record["check_out_time"])
         total_minutes = record["duration"] or 0
         hours = total_minutes // 60
         minutes = total_minutes % 60
@@ -354,6 +384,8 @@ def today_status():
 
         return jsonify({
             "status": "Checked Out",
+            "check_in_time": check_in.strftime("%H:%M") if check_in else "-",
+            "check_out_time": check_out.strftime("%H:%M") if check_out else "-",
             "worked": worked
         })
 

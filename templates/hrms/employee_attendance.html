@@ -73,8 +73,8 @@
                 <tr>
                     <td>{{ a.attendance_date.strftime("%d %b %Y") }}</td>
                     <td>{{ a.status }}</td>
-                    <td>{{ a.check_in_time.strftime("%H:%M") if a.check_in_time else "-" }}</td>
-                    <td>{{ a.check_out_time.strftime("%H:%M") if a.check_out_time else "-" }}</td>
+                    <td>{{ a.check_in_time.strftime("%H:%M:%S IST") if a.check_in_time else "-" }}</td>
+                    <td>{{ a.check_out_time.strftime("%H:%M:%S IST") if a.check_out_time else "-" }}</td>
                     <td>
                         {% if a.duration %}
                             {% set hours = a.duration // 60 %}
@@ -172,10 +172,10 @@ function loadStatus() {
             let div = document.getElementById("today-status");
 
             if (data.status === "Checked In") {
-                div.innerHTML = "🟢 Checked In<br><small>" + data.worked + "</small>";
+                div.innerHTML = "🟢 Checked In<br><small>Check-in: " + data.check_in_time + "</small><br><small>" + data.worked + "</small>";
             }
             else if (data.status === "Checked Out") {
-                div.innerHTML = "✅ Checked Out<br><small>" + data.worked + "</small>";
+                div.innerHTML = "✅ Checked Out<br><small>Check-in: " + data.check_in_time + " | Check-out: " + data.check_out_time + "</small><br><small>" + data.worked + "</small>";
             }
             else {
                 div.innerHTML = "⚪ Not Marked Today";
