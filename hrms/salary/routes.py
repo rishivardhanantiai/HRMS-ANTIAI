@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, session, flash
 from utils.auth import login_required
 from utils.db import get_db, release_db
+from utils import supabase_rest
 
 salary_bp = Blueprint("salary", __name__, url_prefix="/hrms")
 
@@ -14,9 +15,8 @@ def assign_employee_salary():
     if role not in ["HR", "Admin"]:
         return redirect("/dashboard")
 
-    conn, cur = get_db(True)
-
     try:
+        conn, cur = get_db(True)
 
         if request.method == "POST":
             employee_id = request.form.get("employee_id", "").strip()
@@ -64,5 +64,39 @@ def assign_employee_salary():
             employees=employees
         )
 
+    except Exception:
+        if request.method == "POST":
+            employee_id = request.form.get("employee_id", "").strip()
+            monthly_salary = request.form.get("monthly_salary", "").strip()
+            effective_from = request.form.get("effective_from", "").strip()
+
+            if not employee_id or not monthly_salary or not effective_from:
+                flash("Please fill all required fields.", "error")
+                return redirect("/hrms/assign-salary")
+
+            created = supabase_rest.create_salary_record(
+                employee_id=employee_id,
+                monthly_salary=monthly_salary,
+                effective_from=effective_from,
+            )
+            if created:
+                flash("Salary assigned successfully.", "success")
+            else:
+                flash("Could not assign salary. Please try again.", "error")
+            return redirect("/hrms/assign-salary")
+
+        employees = [
+            {
+                "id": e.get("id"),
+                "full_name": e.get("full_name"),
+                "designation": e.get("designation") or "Employee",
+            }
+            for e in supabase_rest.list_employees()
+        ]
+        return render_template("assign_salary.html", employees=employees)
+
     finally:
-        release_db(conn, cur)
+        try:
+            release_db(conn, cur)
+        except Exception:
+            pass

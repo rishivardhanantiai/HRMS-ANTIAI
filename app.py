@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime
 import httpx
 from dotenv import load_dotenv
+import psycopg2
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import pandas as pd
@@ -16,6 +17,7 @@ from flask import send_file
 from hrms.leave.routes import leave_bp
 from utils.auth import login_required
 from utils.db import get_db, release_db
+from utils import supabase_rest
 from hrms.attendance.routes import attendance_bp
 from hrms.payroll.routes import payroll_bp
 from hrms.salary.routes import salary_bp
@@ -50,6 +52,97 @@ else:
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 SUPABASE_RESUME_BUCKET = os.getenv("SUPABASE_RESUME_BUCKET", "resumes")
+
+
+def _supabase_headers(use_service=False):
+    key = os.getenv("SERVICE_KEY") if use_service else os.getenv("SUPABASE_KEY")
+    if not key:
+        return None
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+
+def _supabase_rest_base_url():
+    url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    return f"{url}/rest/v1" if url else None
+
+
+def _supabase_auth_base_url():
+    url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    return f"{url}/auth/v1" if url else None
+
+
+def _fallback_login_via_supabase(email, password, role):
+    """Fallback login when DATABASE_URL is missing/unreachable.
+    Validates email/password with Supabase Auth and reads role from employees+roles.
+    """
+    auth_base = _supabase_auth_base_url()
+    rest_base = _supabase_rest_base_url()
+    anon_headers = _supabase_headers(use_service=False)
+    service_headers = _supabase_headers(use_service=True)
+
+    if not auth_base or not rest_base or not anon_headers or not service_headers:
+        return None
+
+    # 1) Validate password against Supabase Auth
+    token_url = f"{auth_base}/token?grant_type=password"
+    token_resp = httpx.post(
+        token_url,
+        headers=anon_headers,
+        json={"email": email, "password": password},
+        timeout=20.0,
+    )
+    if token_resp.status_code != 200:
+        return None
+
+    # 2) Fetch employee row by email
+    emp_url = f"{rest_base}/employees"
+    emp_resp = httpx.get(
+        emp_url,
+        headers=service_headers,
+        params={"select": "id,first_name,last_name,email,role_id", "email": f"eq.{email}"},
+        timeout=20.0,
+    )
+    if emp_resp.status_code != 200:
+        return None
+    employees = emp_resp.json() or []
+    if not employees:
+        return None
+
+    emp = employees[0]
+    role_id = emp.get("role_id")
+    if not role_id:
+        return None
+
+    # 3) Resolve role name
+    role_url = f"{rest_base}/roles"
+    role_resp = httpx.get(
+        role_url,
+        headers=service_headers,
+        params={"select": "name", "id": f"eq.{role_id}"},
+        timeout=20.0,
+    )
+    if role_resp.status_code != 200:
+        return None
+    roles = role_resp.json() or []
+    if not roles:
+        return None
+
+    role_name = str(roles[0].get("name") or "").strip()
+    if role_name.lower() != role.lower():
+        return {"error": "Unauthorized Role Access"}
+
+    full_name = f"{(emp.get('first_name') or '').strip()} {(emp.get('last_name') or '').strip()}".strip()
+    return {
+        "id": emp.get("id"),
+        "email": emp.get("email"),
+        "employee_id": emp.get("id"),
+        "role_name": role_name,
+        "employee_name": full_name or None,
+    }
 
 
 def upload_resume_to_supabase(file_storage):
@@ -112,57 +205,86 @@ def login(role):
         email = request.form["email"].strip().lower()
         password = request.form["password"]
 
-        conn, cur = get_db(True)
+        # Primary login path (legacy schema): users + system_roles
+        try:
+            conn, cur = get_db(True)
 
-        cur.execute("""
-            SELECT u.id,
-                   u.email,
-                   u.employee_id,
-                   u.password,
-                   r.role_name
-            FROM users u
-            JOIN system_roles r
-              ON u.system_role_id = r.id
-            WHERE u.email=%s
-        """, (email,))
+            cur.execute("""
+                SELECT u.id,
+                       u.email,
+                       u.employee_id,
+                       u.password,
+                       r.role_name
+                FROM users u
+                JOIN system_roles r
+                  ON u.system_role_id = r.id
+                WHERE u.email=%s
+            """, (email,))
 
-        user = cur.fetchone()
+            user = cur.fetchone()
 
-        if not user:
-            release_db(conn, cur)
-            flash("Invalid Email or Password", "error")
-            return redirect(request.url)
+            if not user:
+                release_db(conn, cur)
+                flash("Invalid Email or Password", "error")
+                return redirect(request.url)
 
-        if not check_password_hash(user["password"], password):
-            release_db(conn, cur)
-            flash("Invalid Email or Password", "error")
-            return redirect(request.url)
-
-        if user["role_name"] != role:
-            release_db(conn, cur)
-            flash("Unauthorized Role Access", "error")
-            return redirect(request.url)
-
-        # SESSION SETUP
-        session.clear()
-        session["user_id"] = user["id"]
-        session["email"] = user["email"]
-        session["employee_id"] = user["employee_id"]
-        session["role"] = user["role_name"]
-
-        if user["employee_id"]:
-            cur.execute(
-                "SELECT full_name FROM hrms_employees WHERE id=%s",
-                (user["employee_id"],)
+            stored_password = user["password"] or ""
+            password_ok = (
+                check_password_hash(stored_password, password)
+                if stored_password.startswith("pbkdf2:") or stored_password.startswith("scrypt:")
+                else stored_password == password
             )
-            emp = cur.fetchone()
-            if emp:
-                session["employee_name"] = emp["full_name"]
 
-        release_db(conn, cur)
+            if not password_ok:
+                release_db(conn, cur)
+                flash("Invalid Email or Password", "error")
+                return redirect(request.url)
 
-        flash("Login Successful", "success")
-        return redirect("/dashboard")
+            if str(user["role_name"]).lower() != role.lower():
+                release_db(conn, cur)
+                flash("Unauthorized Role Access", "error")
+                return redirect(request.url)
+
+            # SESSION SETUP
+            session.clear()
+            session["user_id"] = user["id"]
+            session["email"] = user["email"]
+            session["employee_id"] = user["employee_id"]
+            session["role"] = user["role_name"]
+
+            if user["employee_id"]:
+                cur.execute(
+                    "SELECT full_name FROM hrms_employees WHERE id=%s",
+                    (user["employee_id"],)
+                )
+                emp = cur.fetchone()
+                if emp:
+                    session["employee_name"] = emp["full_name"]
+
+            release_db(conn, cur)
+            flash("Login Successful", "success")
+            return redirect("/dashboard")
+
+        except psycopg2.OperationalError:
+            # Fallback for projects using only Supabase REST/Auth + new schema
+            fallback_user = _fallback_login_via_supabase(email, password, role)
+            if not fallback_user:
+                flash("Invalid Email or Password", "error")
+                return redirect(request.url)
+            if fallback_user.get("error"):
+                flash(fallback_user["error"], "error")
+                return redirect(request.url)
+
+            session.clear()
+            session["user_id"] = fallback_user["id"]
+            session["email"] = fallback_user["email"]
+            session["employee_id"] = fallback_user["employee_id"]
+            session["role"] = fallback_user["role_name"]
+            if fallback_user.get("employee_name"):
+                session["employee_name"] = fallback_user["employee_name"]
+
+            flash("Login Successful", "success")
+            return redirect("/dashboard")
 
     return render_template("login.html", role=role)
 
@@ -186,15 +308,23 @@ def dashboard():
     if role == "Employee":
         return render_template("employee_dashboard.html")
 
-    conn, cur = get_db(True)
+    total_jobs = 0
+    total_applications = 0
 
-    cur.execute("SELECT COUNT(*) AS total FROM jobs")
-    total_jobs = cur.fetchone()["total"]
+    try:
+        conn, cur = get_db(True)
 
-    cur.execute("SELECT COUNT(*) AS total FROM applications")
-    total_applications = cur.fetchone()["total"]
+        cur.execute("SELECT COUNT(*) AS total FROM jobs")
+        total_jobs = cur.fetchone()["total"]
 
-    release_db(conn, cur)
+        cur.execute("SELECT COUNT(*) AS total FROM applications")
+        total_applications = cur.fetchone()["total"]
+
+        release_db(conn, cur)
+    except Exception:
+        # Keep dashboard usable even when legacy tables are absent.
+        total_jobs = 0
+        total_applications = 0
 
     return render_template(
         "dashboard.html",
@@ -208,26 +338,31 @@ def dashboard():
 @app.route("/jobs", methods=["GET", "POST"])
 @login_required
 def jobs():
-    conn, cur = get_db(True)
+    try:
+        conn, cur = get_db(True)
 
-    if request.method == "POST":
-        cur.execute("""
-            INSERT INTO jobs (title, description, location, job_type)
-            VALUES (%s, %s, %s, %s)
-        """, (
-            request.form["title"],
-            request.form["description"],
-            request.form["location"],
-            request.form["job_type"]
-        ))
-        conn.commit()
+        if request.method == "POST":
+            cur.execute("""
+                INSERT INTO jobs (title, description, location, job_type)
+                VALUES (%s, %s, %s, %s)
+            """, (
+                request.form["title"],
+                request.form["description"],
+                request.form["location"],
+                request.form["job_type"]
+            ))
+            conn.commit()
 
-    cur.execute("SELECT * FROM jobs ORDER BY id DESC")
-    jobs = cur.fetchall()
+        cur.execute("SELECT * FROM jobs ORDER BY id DESC")
+        jobs = cur.fetchall()
 
-    release_db(conn, cur)
-
-    return render_template("jobs.html", jobs=jobs)
+        release_db(conn, cur)
+        return render_template("jobs.html", jobs=jobs)
+    except Exception:
+        # Without legacy jobs table, render an empty list instead of crashing.
+        if request.method == "POST":
+            flash("Jobs module is not configured in the new schema yet.", "error")
+        return render_template("jobs.html", jobs=[])
 
 
 @app.route("/delete-job/<int:job_id>")
@@ -336,42 +471,47 @@ def serve_resume(filename):
 @login_required
 def applications():
 
-    conn, cur = get_db(True)
-
     selected_job = request.args.get("job_id")
 
-    cur.execute("SELECT id, title FROM jobs ORDER BY id DESC")
-    jobs = cur.fetchall()
+    try:
+        conn, cur = get_db(True)
 
-    if selected_job:
-        cur.execute("""
-            SELECT
-                a.id,
-                j.title AS job_title,
-                a.applicant_name,
-                a.email,
-                a.phone,
-                a.resume_url
-            FROM applications a
-            JOIN jobs j ON a.job_id = j.id
-            WHERE a.job_id = %s
-            ORDER BY a.id DESC
-        """, (selected_job,))
-    else:
-        cur.execute("""
-            SELECT
-                a.id,
-                j.title AS job_title,
-                a.applicant_name,
-                a.email,
-                a.phone,
-                a.resume_url
-            FROM applications a
-            JOIN jobs j ON a.job_id = j.id
-            ORDER BY a.id DESC
-        """)
+        cur.execute("SELECT id, title FROM jobs ORDER BY id DESC")
+        jobs = cur.fetchall()
 
-    applications = cur.fetchall()
+        if selected_job:
+            cur.execute("""
+                SELECT
+                    a.id,
+                    j.title AS job_title,
+                    a.applicant_name,
+                    a.email,
+                    a.phone,
+                    a.resume_url
+                FROM applications a
+                JOIN jobs j ON a.job_id = j.id
+                WHERE a.job_id = %s
+                ORDER BY a.id DESC
+            """, (selected_job,))
+        else:
+            cur.execute("""
+                SELECT
+                    a.id,
+                    j.title AS job_title,
+                    a.applicant_name,
+                    a.email,
+                    a.phone,
+                    a.resume_url
+                FROM applications a
+                JOIN jobs j ON a.job_id = j.id
+                ORDER BY a.id DESC
+            """)
+
+        applications = cur.fetchall()
+        release_db(conn, cur)
+    except Exception:
+        jobs = []
+        applications = []
 
     # Normalize stored resume URLs so legacy rows still resolve correctly.
     for row in applications:
@@ -388,8 +528,6 @@ def applications():
             row["resume_url"] = f"/{normalized}"
         else:
             row["resume_url"] = f"/uploads/resumes/{os.path.basename(normalized)}"
-
-    release_db(conn, cur)
 
     return render_template(
         "applications.html",
@@ -516,27 +654,28 @@ def settings():
 @app.route("/salary-records")
 @login_required
 def salary_records():
+    try:
+        conn, cur = get_db(True)
 
-    conn, cur = get_db(True)
+        cur.execute("""
+            SELECT es.id,
+                   e.full_name AS employee_name,
+                   CASE
+                       WHEN es.monthly_salary IS NOT NULL
+                           THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
+                       ELSE COALESCE(s.name, 'Not Assigned')
+                   END AS structure_name,
+                   es.effective_from::text AS effective_from
+            FROM employee_salary es
+            JOIN hrms_employees e ON es.employee_id = e.id
+            LEFT JOIN salary_structures s ON es.structure_id = s.id
+            ORDER BY es.effective_from DESC
+        """)
 
-    cur.execute("""
-        SELECT es.id,
-               e.full_name AS employee_name,
-               CASE
-                   WHEN es.monthly_salary IS NOT NULL
-                       THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
-                   ELSE COALESCE(s.name, 'Not Assigned')
-               END AS structure_name,
-               es.effective_from::text AS effective_from
-        FROM employee_salary es
-        JOIN hrms_employees e ON es.employee_id = e.id
-        LEFT JOIN salary_structures s ON es.structure_id = s.id
-        ORDER BY es.effective_from DESC
-    """)
-
-    records = cur.fetchall()
-
-    release_db(conn, cur)
+        records = cur.fetchall()
+        release_db(conn, cur)
+    except Exception:
+        records = supabase_rest.list_salary_records()
 
     return render_template("salary_records.html", records=records)
 
