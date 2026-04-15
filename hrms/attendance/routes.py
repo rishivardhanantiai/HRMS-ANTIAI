@@ -25,11 +25,36 @@ def ensure_ist(dt):
     # Converts to IST properly, treating naive datetimes as UTC
     if dt is None:
         return None
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        except Exception:
+            return None
     if dt.tzinfo is None:
         # Naive datetime from database - assume it's in UTC (PostgreSQL default)
         dt = dt.replace(tzinfo=UTC)
     # Convert to IST
     return dt.astimezone(IST)
+
+
+def parse_attendance_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except Exception:
+        return None
+
+
+def normalize_attendance_record(record):
+    record["attendance_date"] = parse_attendance_date(record.get("attendance_date"))
+    record["check_in_time"] = ensure_ist(record.get("check_in_time"))
+    record["check_out_time"] = ensure_ist(record.get("check_out_time"))
+    return record
 
 # =========================================================
 # MAIN ATTENDANCE PAGE
@@ -84,10 +109,7 @@ def attendance_page():
 
             records = cur.fetchall()
             for r in records:
-                if r["check_in_time"]:
-                    r["check_in_time"] = ensure_ist(r["check_in_time"])
-                if r["check_out_time"]:
-                    r["check_out_time"] = ensure_ist(r["check_out_time"])
+                normalize_attendance_record(r)
 
             attendance_map = {r["attendance_date"]: r for r in records}
             cal = calendar.monthcalendar(year, month)
@@ -150,10 +172,7 @@ def attendance_page():
 
             records = cur.fetchall()
             for r in records:
-                if r["check_in_time"]:
-                    r["check_in_time"] = ensure_ist(r["check_in_time"])
-                if r["check_out_time"]:
-                    r["check_out_time"] = ensure_ist(r["check_out_time"])
+                normalize_attendance_record(r)
                 if r["check_in_time"] and r["check_out_time"]:
                     duration_delta = r["check_out_time"] - r["check_in_time"]
                     r["duration"] = int(duration_delta.total_seconds() / 60)
@@ -182,6 +201,8 @@ def attendance_page():
     except Exception:
         # Supabase REST fallback for new schema
         records = supabase_rest.list_attendance()
+        for r in records:
+            normalize_attendance_record(r)
         employees = [
             {"id": e.get("id"), "full_name": e.get("full_name")}
             for e in supabase_rest.list_employees()
