@@ -95,15 +95,37 @@ def _fallback_login_via_supabase(email, password, role):
         json={"email": email, "password": password},
         timeout=20.0,
     )
+
+    # If Auth user is missing/out-of-sync, allow login using hrms_users password hash.
     if token_resp.status_code != 200:
-        return None
+        users_url = f"{rest_base}/hrms_users"
+        user_resp = httpx.get(
+            users_url,
+            headers=service_headers,
+            params={"select": "id,email,password", "email": f"eq.{email}", "limit": "1"},
+            timeout=20.0,
+        )
+        if user_resp.status_code != 200:
+            return None
+        user_rows = user_resp.json() or []
+        if not user_rows:
+            return None
+
+        stored_password = str(user_rows[0].get("password") or "")
+        password_ok = (
+            check_password_hash(stored_password, password)
+            if stored_password.startswith("pbkdf2:") or stored_password.startswith("scrypt:")
+            else stored_password == password
+        )
+        if not password_ok:
+            return None
 
     # 2) Fetch employee row by email
-    emp_url = f"{rest_base}/employees"
+    emp_url = f"{rest_base}/hrms_employees"
     emp_resp = httpx.get(
         emp_url,
         headers=service_headers,
-        params={"select": "id,first_name,last_name,email,role_id", "email": f"eq.{email}"},
+        params={"select": "id,full_name,email,role_id", "email": f"eq.{email}"},
         timeout=20.0,
     )
     if emp_resp.status_code != 200:
@@ -118,11 +140,11 @@ def _fallback_login_via_supabase(email, password, role):
         return None
 
     # 3) Resolve role name
-    role_url = f"{rest_base}/roles"
+    role_url = f"{rest_base}/hrms_roles"
     role_resp = httpx.get(
         role_url,
         headers=service_headers,
-        params={"select": "name", "id": f"eq.{role_id}"},
+        params={"select": "role_name", "id": f"eq.{role_id}"},
         timeout=20.0,
     )
     if role_resp.status_code != 200:
@@ -131,11 +153,11 @@ def _fallback_login_via_supabase(email, password, role):
     if not roles:
         return None
 
-    role_name = str(roles[0].get("name") or "").strip()
+    role_name = str(roles[0].get("role_name") or "").strip()
     if role_name.lower() != role.lower():
         return {"error": "Unauthorized Role Access"}
 
-    full_name = f"{(emp.get('first_name') or '').strip()} {(emp.get('last_name') or '').strip()}".strip()
+    full_name = str(emp.get("full_name") or "").strip()
     return {
         "id": emp.get("id"),
         "email": emp.get("email"),
@@ -205,7 +227,7 @@ def login(role):
         email = request.form["email"].strip().lower()
         password = request.form["password"]
 
-        # Primary login path (legacy schema): users + system_roles
+                # Primary login path: HRMS users + roles
         try:
             conn, cur = get_db(True)
 
@@ -215,9 +237,9 @@ def login(role):
                        u.employee_id,
                        u.password,
                        r.role_name
-                FROM users u
-                JOIN system_roles r
-                  ON u.system_role_id = r.id
+                                FROM hrms_users u
+                                JOIN hrms_roles r
+                                    ON u.role_id = r.id
                 WHERE u.email=%s
             """, (email,))
 
@@ -322,9 +344,10 @@ def dashboard():
 
         release_db(conn, cur)
     except Exception:
-        # Keep dashboard usable even when legacy tables are absent.
-        total_jobs = 0
-        total_applications = 0
+        jobs_rows = supabase_rest.get_rows("jobs", {"select": "id"})
+        app_rows = supabase_rest.get_rows("applications", {"select": "id"})
+        total_jobs = len(jobs_rows)
+        total_applications = len(app_rows)
 
     return render_template(
         "dashboard.html",
@@ -343,63 +366,104 @@ def jobs():
 
         if request.method == "POST":
             cur.execute("""
-                INSERT INTO jobs (title, description, location, job_type)
+                INSERT INTO jobs (title, description, location, department)
                 VALUES (%s, %s, %s, %s)
             """, (
                 request.form["title"],
                 request.form["description"],
                 request.form["location"],
-                request.form["job_type"]
+                request.form.get("department", "").strip() or None
             ))
             conn.commit()
 
-        cur.execute("SELECT * FROM jobs ORDER BY id DESC")
+        cur.execute("SELECT * FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
 
         release_db(conn, cur)
         return render_template("jobs.html", jobs=jobs)
     except Exception:
-        # Without legacy jobs table, render an empty list instead of crashing.
         if request.method == "POST":
-            flash("Jobs module is not configured in the new schema yet.", "error")
-        return render_template("jobs.html", jobs=[])
+            created = supabase_rest.insert_row(
+                "jobs",
+                {
+                    "title": request.form.get("title"),
+                    "description": request.form.get("description"),
+                    "location": request.form.get("location"),
+                    "department": request.form.get("department", "").strip() or None,
+                },
+            )
+            if not created:
+                flash("Could not create job. Please try again.", "error")
+
+        jobs = supabase_rest.get_rows(
+            "jobs",
+            {
+                "select": "id,title,description,location,department,created_at",
+                "order": "created_at.desc",
+            },
+        )
+        return render_template("jobs.html", jobs=jobs)
 
 
-@app.route("/delete-job/<int:job_id>")
+@app.route("/delete-job/<job_id>")
 @login_required
 def delete_job(job_id):
-    conn, cur = get_db()
-    cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
-    conn.commit()
-    release_db(conn, cur)
+    try:
+        conn, cur = get_db()
+        cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
+        conn.commit()
+        release_db(conn, cur)
+    except Exception:
+        supabase_rest.delete_rows("jobs", {"id": f"eq.{job_id}"})
     return redirect("/jobs")
 
 
-@app.route("/edit-job/<int:job_id>", methods=["GET", "POST"])
+@app.route("/edit-job/<job_id>", methods=["GET", "POST"])
 @login_required
 def edit_job(job_id):
-    conn, cur = get_db(True)
+    try:
+        conn, cur = get_db(True)
 
-    if request.method == "POST":
-        cur.execute("""
-            UPDATE jobs
-            SET title=%s, description=%s, location=%s, job_type=%s
-            WHERE id=%s
-        """, (
-            request.form["title"],
-            request.form["description"],
-            request.form["location"],
-            request.form["job_type"],
-            job_id
-        ))
-        conn.commit()
+        if request.method == "POST":
+            cur.execute("""
+                UPDATE jobs
+                SET title=%s, description=%s, location=%s, department=%s
+                WHERE id=%s
+            """, (
+                request.form["title"],
+                request.form["description"],
+                request.form["location"],
+                request.form.get("department", "").strip() or None,
+                job_id
+            ))
+            conn.commit()
+            release_db(conn, cur)
+            return redirect("/jobs")
+
+        cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
+        job = cur.fetchone()
+
         release_db(conn, cur)
-        return redirect("/jobs")
+    except Exception:
+        if request.method == "POST":
+            rows = supabase_rest.update_rows(
+                "jobs",
+                {"id": f"eq.{job_id}"},
+                {
+                    "title": request.form.get("title"),
+                    "description": request.form.get("description"),
+                    "location": request.form.get("location"),
+                    "department": request.form.get("department", "").strip() or None,
+                },
+            )
+            if not rows:
+                flash("Could not update job.", "error")
+            return redirect("/jobs")
 
-    cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
-    job = cur.fetchone()
-
-    release_db(conn, cur)
+        job = supabase_rest.get_first_row(
+            "jobs",
+            {"select": "id,title,description,location,department,created_at", "id": f"eq.{job_id}"},
+        )
 
     if not job:
         return "Job not found", 404
@@ -410,48 +474,84 @@ def edit_job(job_id):
 # =========================
 # JOB APPLICATION
 # =========================
-@app.route("/apply/<int:job_id>", methods=["GET", "POST"])
+@app.route("/apply/<job_id>", methods=["GET", "POST"])
 def apply(job_id):
-    conn, cur = get_db(True)
+    job = None
+    try:
+        conn, cur = get_db(True)
 
-    cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
-    job = cur.fetchone()
+        cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
+        job = cur.fetchone()
 
-    if not job:
+        if not job:
+            release_db(conn, cur)
+            return "Job not found", 404
+
+        if request.method == "POST":
+            resume = request.files.get("resume")
+            resume_url = None
+
+            if resume and resume.filename:
+                try:
+                    resume_url = upload_resume_to_supabase(resume)
+                except Exception:
+                    release_db(conn, cur)
+                    flash("Resume upload failed. Please try again in a moment.", "error")
+                    return redirect(request.url)
+
+            cur.execute("""
+                INSERT INTO applications
+                (job_id, name, email, phone, resume_url)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                job_id,
+                request.form["name"],
+                request.form["email"],
+                request.form["phone"],
+                resume_url
+            ))
+
+            conn.commit()
+            release_db(conn, cur)
+
+            flash("Application submitted successfully!", "success")
+            return redirect("/jobs")
+
         release_db(conn, cur)
-        return "Job not found", 404
+    except Exception:
+        job = supabase_rest.get_first_row(
+            "jobs",
+            {"select": "id,title,description,location,department,created_at", "id": f"eq.{job_id}"},
+        )
+        if not job:
+            return "Job not found", 404
 
-    if request.method == "POST":
-        resume = request.files.get("resume")
-        resume_url = None
+        if request.method == "POST":
+            resume = request.files.get("resume")
+            resume_url = None
+            if resume and resume.filename:
+                try:
+                    resume_url = upload_resume_to_supabase(resume)
+                except Exception:
+                    flash("Resume upload failed. Please try again in a moment.", "error")
+                    return redirect(request.url)
 
-        if resume and resume.filename:
-            try:
-                resume_url = upload_resume_to_supabase(resume)
-            except Exception:
-                release_db(conn, cur)
-                flash("Resume upload failed. Please try again in a moment.", "error")
+            created = supabase_rest.insert_row(
+                "applications",
+                {
+                    "job_id": job_id,
+                    "name": request.form.get("name"),
+                    "email": request.form.get("email"),
+                    "phone": request.form.get("phone"),
+                    "resume_url": resume_url,
+                },
+            )
+            if not created:
+                flash("Could not submit application. Please try again.", "error")
                 return redirect(request.url)
 
-        cur.execute("""
-            INSERT INTO applications
-            (job_id, applicant_name, email, phone, resume_url)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            job_id,
-            request.form["name"],
-            request.form["email"],
-            request.form["phone"],
-            resume_url
-        ))
-
-        conn.commit()
-        release_db(conn, cur)
-
-        flash("Application submitted successfully!", "success")
-        return redirect("/jobs")
-
-    release_db(conn, cur)
+            flash("Application submitted successfully!", "success")
+            return redirect("/jobs")
 
     return render_template("apply.html", job=job)
 
@@ -476,7 +576,7 @@ def applications():
     try:
         conn, cur = get_db(True)
 
-        cur.execute("SELECT id, title FROM jobs ORDER BY id DESC")
+        cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
 
         if selected_job:
@@ -484,34 +584,52 @@ def applications():
                 SELECT
                     a.id,
                     j.title AS job_title,
-                    a.applicant_name,
+                    a.name AS applicant_name,
                     a.email,
                     a.phone,
                     a.resume_url
                 FROM applications a
                 JOIN jobs j ON a.job_id = j.id
                 WHERE a.job_id = %s
-                ORDER BY a.id DESC
+                ORDER BY a.created_at DESC
             """, (selected_job,))
         else:
             cur.execute("""
                 SELECT
                     a.id,
                     j.title AS job_title,
-                    a.applicant_name,
+                    a.name AS applicant_name,
                     a.email,
                     a.phone,
                     a.resume_url
                 FROM applications a
                 JOIN jobs j ON a.job_id = j.id
-                ORDER BY a.id DESC
+                ORDER BY a.created_at DESC
             """)
 
         applications = cur.fetchall()
         release_db(conn, cur)
     except Exception:
-        jobs = []
-        applications = []
+        jobs = supabase_rest.get_rows(
+            "jobs",
+            {"select": "id,title", "order": "created_at.desc"},
+        )
+        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
+        if selected_job:
+            selected_filter["job_id"] = f"eq.{selected_job}"
+        app_rows = supabase_rest.get_rows("applications", selected_filter)
+        job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
+        applications = [
+            {
+                "id": a.get("id"),
+                "job_title": job_lookup.get(str(a.get("job_id")), "-"),
+                "applicant_name": a.get("name"),
+                "email": a.get("email"),
+                "phone": a.get("phone"),
+                "resume_url": a.get("resume_url"),
+            }
+            for a in app_rows
+        ]
 
     # Normalize stored resume URLs so legacy rows still resolve correctly.
     for row in applications:
@@ -537,22 +655,29 @@ def applications():
     )
 
 
-@app.route("/applications/delete/<int:application_id>", methods=["POST"])
+@app.route("/applications/delete/<application_id>", methods=["POST"])
 @login_required
 def delete_application(application_id):
-    conn, cur = get_db(True)
+    try:
+        conn, cur = get_db(True)
 
-    cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
-    row = cur.fetchone()
+        cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
+        row = cur.fetchone()
 
-    if not row:
+        if not row:
+            release_db(conn, cur)
+            flash("Application not found", "error")
+            return redirect("/applications")
+
+        cur.execute("DELETE FROM applications WHERE id=%s", (application_id,))
+        conn.commit()
         release_db(conn, cur)
-        flash("Application not found", "error")
-        return redirect("/applications")
-
-    cur.execute("DELETE FROM applications WHERE id=%s", (application_id,))
-    conn.commit()
-    release_db(conn, cur)
+    except Exception:
+        row = supabase_rest.get_first_row("applications", {"select": "id", "id": f"eq.{application_id}"})
+        if not row:
+            flash("Application not found", "error")
+            return redirect("/applications")
+        supabase_rest.delete_rows("applications", {"id": f"eq.{application_id}"})
 
     flash("Application deleted successfully", "success")
 
@@ -568,30 +693,51 @@ def delete_application(application_id):
 def download_excel():
 
     selected_job = request.args.get("job_id")
-    conn, cur = get_db()
+    try:
+        conn, cur = get_db()
 
-    base_query = """
-        SELECT
-            j.title AS Job,
-            a.applicant_name AS Applicant,
-            a.email AS Email,
-            a.phone AS Phone,
-            a.resume_url AS Resume_URL
-        FROM applications a
-        JOIN jobs j ON a.job_id = j.id
-    """
+        base_query = """
+            SELECT
+                j.title AS Job,
+                a.name AS Applicant,
+                a.email AS Email,
+                a.phone AS Phone,
+                a.resume_url AS Resume_URL
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.id
+        """
 
-    if selected_job:
-        query = base_query + " WHERE a.job_id = %s ORDER BY a.id DESC"
-        df = pd.read_sql(query, conn, params=(selected_job,))
-        file_path = f"applications_job_{selected_job}.xlsx"
-    else:
-        query = base_query + " ORDER BY a.id DESC"
-        df = pd.read_sql(query, conn)
-        file_path = "applications.xlsx"
+        if selected_job:
+            query = base_query + " WHERE a.job_id = %s ORDER BY a.created_at DESC"
+            df = pd.read_sql(query, conn, params=(selected_job,))
+            file_path = f"applications_job_{selected_job}.xlsx"
+        else:
+            query = base_query + " ORDER BY a.created_at DESC"
+            df = pd.read_sql(query, conn)
+            file_path = "applications.xlsx"
 
-    df.to_excel(file_path, index=False)
-    release_db(conn, cur)
+        df.to_excel(file_path, index=False)
+        release_db(conn, cur)
+    except Exception:
+        jobs = supabase_rest.get_rows("jobs", {"select": "id,title"})
+        apps_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
+        if selected_job:
+            apps_filter["job_id"] = f"eq.{selected_job}"
+        apps = supabase_rest.get_rows("applications", apps_filter)
+        job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
+        records = [
+            {
+                "Job": job_lookup.get(str(a.get("job_id")), "-"),
+                "Applicant": a.get("name"),
+                "Email": a.get("email"),
+                "Phone": a.get("phone"),
+                "Resume_URL": a.get("resume_url"),
+            }
+            for a in apps
+        ]
+        df = pd.DataFrame(records)
+        file_path = f"applications_job_{selected_job}.xlsx" if selected_job else "applications.xlsx"
+        df.to_excel(file_path, index=False)
 
     return send_file(file_path, as_attachment=True)
 
@@ -620,7 +766,7 @@ def settings():
             user_id = session.get("user_id")
             conn, cur = get_db(True)
 
-            cur.execute("SELECT password, email FROM users WHERE id = %s", (user_id,))
+            cur.execute("SELECT password, email FROM hrms_users WHERE id = %s", (user_id,))
             user = cur.fetchone()
 
             # Some legacy rows may store plain text; accept once and upgrade to hash.
@@ -637,7 +783,7 @@ def settings():
                 # Password is correct, update it
                 hashed_password = generate_password_hash(new_password)
                 cur.execute(
-                    "UPDATE users SET password = %s WHERE id = %s",
+                    "UPDATE hrms_users SET password = %s WHERE id = %s",
                     (hashed_password, user_id)
                 )
                 conn.commit()

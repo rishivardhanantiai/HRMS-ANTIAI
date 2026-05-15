@@ -136,12 +136,12 @@ def create_auth_user(email, password):
 
 
 def list_roles():
-    rows = get_rows("roles", {"select": "id,name", "order": "name.asc"})
+    rows = get_rows("hrms_roles", {"select": "id,role_name,description", "order": "role_name.asc"})
     return [
         {
             "id": r.get("id"),
-            "role_name": r.get("name"),
-            "description": "",
+            "role_name": r.get("role_name"),
+            "description": r.get("description") or "",
         }
         for r in rows
     ]
@@ -159,27 +159,27 @@ def get_role_by_name(role_name):
     if not target:
         return None
 
-    for row in get_rows("roles", {"select": "id,name"}):
-        if str(row.get("name") or "").strip().lower() == target:
+    for row in get_rows("hrms_roles", {"select": "id,role_name"}):
+        if str(row.get("role_name") or "").strip().lower() == target:
             return row
     return None
 
 
 def get_role_by_id(role_id):
-    return get_first_row("roles", {"select": "id,name", "id": f"eq.{role_id}"})
+    return get_first_row("hrms_roles", {"select": "id,role_name,description", "id": f"eq.{role_id}"})
 
 
 def create_role(role_name, description=""):
-    return insert_row("roles", {"name": role_name})
+    return insert_row("hrms_roles", {"role_name": role_name, "description": description})
 
 
 def update_role(role_id, role_name):
-    rows = update_rows("roles", {"id": f"eq.{role_id}"}, {"name": role_name})
+    rows = update_rows("hrms_roles", {"id": f"eq.{role_id}"}, {"role_name": role_name})
     return rows[0] if rows else None
 
 
 def delete_role(role_id):
-    return delete_rows("roles", {"id": f"eq.{role_id}"})
+    return delete_rows("hrms_roles", {"id": f"eq.{role_id}"})
 
 
 def _full_name(first_name, last_name):
@@ -201,25 +201,23 @@ def _split_full_name(full_name):
 def list_employees():
     role_lookup = roles_map()
     rows = get_rows(
-        "employees",
+        "hrms_employees",
         {
-            "select": "id,employee_number,first_name,last_name,email,phone,role_id,status,metadata",
+            "select": "id,employee_code,full_name,email,phone,department,role_id,status,joining_date",
             "order": "created_at.desc",
         },
     )
 
     employees = []
     for r in rows:
-        metadata = r.get("metadata") or {}
-        department = metadata.get("department") if isinstance(metadata, dict) else None
         employees.append(
             {
                 "id": r.get("id"),
-                "employee_code": r.get("employee_number") or "",
-                "full_name": _full_name(r.get("first_name"), r.get("last_name")),
+                "employee_code": r.get("employee_code") or "",
+                "full_name": r.get("full_name") or "-",
                 "email": r.get("email"),
                 "phone": r.get("phone"),
-                "department": department,
+                "department": r.get("department"),
                 "role_name": role_lookup.get(str(r.get("role_id"))),
                 "status": (r.get("status") or "active").capitalize(),
                 "designation": "Employee",
@@ -231,9 +229,9 @@ def list_employees():
 
 def get_employee_by_id(employee_id):
     row = get_first_row(
-        "employees",
+        "hrms_employees",
         {
-            "select": "id,employee_number,first_name,last_name,email,phone,role_id,status,metadata",
+            "select": "id,employee_code,full_name,email,phone,department,role_id,status,joining_date",
             "id": f"eq.{employee_id}",
         },
     )
@@ -241,15 +239,13 @@ def get_employee_by_id(employee_id):
         return None
 
     role_lookup = roles_map()
-    metadata = row.get("metadata") or {}
-    department = metadata.get("department") if isinstance(metadata, dict) else None
     return {
         "id": row.get("id"),
-        "employee_code": row.get("employee_number") or "",
-        "full_name": _full_name(row.get("first_name"), row.get("last_name")),
+        "employee_code": row.get("employee_code") or "",
+        "full_name": row.get("full_name") or "-",
         "email": row.get("email"),
         "phone": row.get("phone"),
-        "department": department,
+        "department": row.get("department"),
         "role_id": row.get("role_id"),
         "role_name": role_lookup.get(str(row.get("role_id"))),
         "status": (row.get("status") or "active").capitalize(),
@@ -258,54 +254,50 @@ def get_employee_by_id(employee_id):
 
 
 def get_employee_by_email(email):
-    return get_first_row("employees", {"select": "id,email", "email": f"eq.{email}"})
+    return get_first_row("hrms_employees", {"select": "id,email", "email": f"eq.{email}"})
 
 
 def create_employee(employee_code, full_name, email, phone, department, role_id):
-    first_name, last_name = _split_full_name(full_name)
     payload = {
-        "employee_number": employee_code,
-        "first_name": first_name,
-        "last_name": last_name,
+        "employee_code": employee_code,
+        "full_name": full_name,
         "email": email,
         "phone": phone,
+        "department": department,
         "role_id": role_id,
         "status": "active",
-        "hire_date": str(date.today()),
-        "metadata": {"department": department} if department else {},
+        "joining_date": str(date.today()),
     }
-    return insert_row("employees", payload)
+    return insert_row("hrms_employees", payload)
 
 
 def update_employee(employee_id, full_name, email, phone, department, role_id):
-    first_name, last_name = _split_full_name(full_name)
     rows = update_rows(
-        "employees",
+        "hrms_employees",
         {"id": f"eq.{employee_id}"},
         {
-            "first_name": first_name,
-            "last_name": last_name,
+            "full_name": full_name,
             "email": email,
             "phone": phone,
             "role_id": role_id,
-            "metadata": {"department": department} if department else {},
+            "department": department,
         },
     )
     return rows[0] if rows else None
 
 
 def update_employee_status(employee_id, status):
-    rows = update_rows("employees", {"id": f"eq.{employee_id}"}, {"status": status.lower()})
+    rows = update_rows("hrms_employees", {"id": f"eq.{employee_id}"}, {"status": status.lower()})
     return rows[0] if rows else None
 
 
 def soft_delete_employee(employee_id):
-    rows = update_rows("employees", {"id": f"eq.{employee_id}"}, {"status": "deleted"})
+    rows = update_rows("hrms_employees", {"id": f"eq.{employee_id}"}, {"status": "deleted"})
     return rows[0] if rows else None
 
 
 def reassign_role(old_role_id, new_role_id):
-    update_rows("employees", {"role_id": f"eq.{old_role_id}"}, {"role_id": new_role_id})
+    update_rows("hrms_employees", {"role_id": f"eq.{old_role_id}"}, {"role_id": new_role_id})
 
 
 def _safe_parse_iso(dt_str):
@@ -321,14 +313,14 @@ def list_attendance():
     employees = list_employees()
     employee_lookup = {str(e.get("id")): e for e in employees}
     rows = get_rows(
-        "attendance",
-        {"select": "id,employee_id,day,check_in,check_out,status", "order": "day.desc"},
+        "hrms_attendance",
+        {"select": "id,employee_id,attendance_date,check_in_time,check_out_time,status", "order": "attendance_date.desc"},
     )
 
     result = []
     for r in rows:
-        check_in = _safe_parse_iso(r.get("check_in"))
-        check_out = _safe_parse_iso(r.get("check_out"))
+        check_in = _safe_parse_iso(r.get("check_in_time"))
+        check_out = _safe_parse_iso(r.get("check_out_time"))
         duration_minutes = 0
         if check_in and check_out:
             duration_minutes = max(0, int((check_out - check_in).total_seconds() // 60))
@@ -338,7 +330,7 @@ def list_attendance():
             {
                 "id": r.get("id"),
                 "employee_id": r.get("employee_id"),
-                "attendance_date": r.get("day"),
+                "attendance_date": r.get("attendance_date"),
                 "status": (r.get("status") or "Present").capitalize(),
                 "check_in_time": check_in,
                 "check_out_time": check_out,
@@ -353,11 +345,11 @@ def list_attendance():
 
 def get_attendance_by_employee_day(employee_id, day_text):
     return get_first_row(
-        "attendance",
+        "hrms_attendance",
         {
-            "select": "id,employee_id,day,check_in,check_out,status",
+            "select": "id,employee_id,attendance_date,check_in_time,check_out_time,status",
             "employee_id": f"eq.{employee_id}",
-            "day": f"eq.{day_text}",
+            "attendance_date": f"eq.{day_text}",
         },
     )
 
@@ -365,23 +357,24 @@ def get_attendance_by_employee_day(employee_id, day_text):
 def check_in(employee_id, day_text, now_iso):
     existing = get_attendance_by_employee_day(employee_id, day_text)
     if existing:
-        if existing.get("check_in"):
+        if existing.get("check_in_time"):
             return False, "Already checked in today."
         rows = update_rows(
-            "attendance",
+            "hrms_attendance",
             {"id": f"eq.{existing.get('id')}"},
-            {"check_in": now_iso},
+            {"check_in_time": now_iso},
         )
         return (bool(rows), None if rows else "Could not update check-in")
 
     status = "weekend" if date.fromisoformat(day_text).weekday() == 6 else "present"
     row = insert_row(
-        "attendance",
+        "hrms_attendance",
         {
             "employee_id": employee_id,
-            "day": day_text,
+            "attendance_date": day_text,
             "status": status,
-            "check_in": now_iso,
+            "check_in_time": now_iso,
+            "is_locked": False,
         },
     )
     return (row is not None, None if row else "Could not create attendance record")
@@ -391,21 +384,21 @@ def check_out(employee_id, day_text, now_iso):
     existing = get_attendance_by_employee_day(employee_id, day_text)
     if not existing:
         return False, "Check-in not found."
-    if not existing.get("check_in"):
+    if not existing.get("check_in_time"):
         return False, "You haven't checked in."
-    if existing.get("check_out"):
+    if existing.get("check_out_time"):
         return False, "Already checked out."
 
     rows = update_rows(
-        "attendance",
+        "hrms_attendance",
         {"id": f"eq.{existing.get('id')}"},
-        {"check_out": now_iso},
+        {"check_out_time": now_iso},
     )
     return (bool(rows), None if rows else "Could not update check-out")
 
 
 def update_attendance_status(attendance_id, status):
-    rows = update_rows("attendance", {"id": f"eq.{attendance_id}"}, {"status": status.lower()})
+    rows = update_rows("hrms_attendance", {"id": f"eq.{attendance_id}"}, {"status": status.lower()})
     return rows[0] if rows else None
 
 
@@ -413,36 +406,25 @@ def list_payrolls():
     employees = list_employees()
     employee_lookup = {str(e.get("id")): e for e in employees}
     rows = get_rows(
-        "payrolls",
+        "payroll_runs",
         {
-            "select": "id,employee_id,period_start,gross_pay,net_pay,status",
-            "order": "period_start.desc",
+            "select": "id,employee_id,month,year,gross_salary,net_salary,status",
+            "order": "year.desc,month.desc",
         },
     )
 
     result = []
     for r in rows:
-        period_start = str(r.get("period_start") or "")
-        month = 0
-        year = 0
-        if len(period_start) >= 7:
-            try:
-                year = int(period_start[:4])
-                month = int(period_start[5:7])
-            except Exception:
-                month = 0
-                year = 0
-
         emp = employee_lookup.get(str(r.get("employee_id")), {})
         result.append(
             {
                 "id": r.get("id"),
                 "payroll_id": r.get("id"),
                 "employee_id": r.get("employee_id"),
-                "month": month,
-                "year": year,
-                "gross_salary": r.get("gross_pay") or 0,
-                "net_salary": r.get("net_pay") or 0,
+                "month": r.get("month") or 0,
+                "year": r.get("year") or 0,
+                "gross_salary": r.get("gross_salary") or 0,
+                "net_salary": r.get("net_salary") or 0,
                 "status": str(r.get("status") or "draft").upper(),
                 "full_name": emp.get("full_name") or "-",
             }
@@ -459,9 +441,9 @@ def _month_range(year, month):
 
 def _latest_salary_for_employee(employee_id, up_to_date_text):
     rows = get_rows(
-        "salaries",
+        "employee_salary",
         {
-            "select": "id,base_amount,effective_from",
+            "select": "id,monthly_salary,structure_id,effective_from",
             "employee_id": f"eq.{employee_id}",
             "effective_from": f"lte.{up_to_date_text}",
             "order": "effective_from.desc",
@@ -473,9 +455,9 @@ def _latest_salary_for_employee(employee_id, up_to_date_text):
 
     # Fallback: latest salary regardless of effective date.
     fallback = get_rows(
-        "salaries",
+        "employee_salary",
         {
-            "select": "id,base_amount,effective_from",
+            "select": "id,monthly_salary,structure_id,effective_from",
             "employee_id": f"eq.{employee_id}",
             "order": "effective_from.desc",
             "limit": "1",
@@ -487,11 +469,12 @@ def _latest_salary_for_employee(employee_id, up_to_date_text):
 def create_payroll_run(employee_id, month, year):
     period_start, period_end = _month_range(year, month)
     existing = get_first_row(
-        "payrolls",
+        "payroll_runs",
         {
             "select": "id,status",
             "employee_id": f"eq.{employee_id}",
-            "period_start": f"eq.{period_start}",
+            "month": f"eq.{month}",
+            "year": f"eq.{year}",
         },
     )
     if existing:
@@ -499,21 +482,45 @@ def create_payroll_run(employee_id, month, year):
 
     salary = _latest_salary_for_employee(employee_id, str(period_end))
     if not salary:
+        # If a default monthly salary is configured via env, create a salary record
+        # so payroll generation can proceed. Otherwise, fail with a clear error.
+        default_salary = os.getenv("DEFAULT_MONTHLY_SALARY")
+        if default_salary:
+            try:
+                monthly = float(default_salary)
+                created = insert_row(
+                    "employee_salary",
+                    {
+                        "employee_id": employee_id,
+                        "monthly_salary": monthly,
+                        "effective_from": str(period_end),
+                    },
+                )
+                if created:
+                    salary = created
+            except Exception:
+                salary = None
+
+    if not salary:
         return {"error": "Salary record not found for employee."}
 
-    gross = float(salary.get("base_amount") or 0)
+    gross = float(salary.get("monthly_salary") or 0)
     payload = {
         "employee_id": employee_id,
-        "period_start": str(period_start),
-        "period_end": str(period_end),
-        "gross_pay": gross,
-        "net_pay": gross,
-        "tax_amount": 0,
-        "deductions": {},
-        "additions": {},
+        "month": month,
+        "year": year,
+        "gross_salary": gross,
+        "attendance_deduction": 0,
+        "pf": 0,
+        "variable_pay": 0,
+        "bonus": 0,
+        "reimbursements": 0,
+        "net_salary": gross,
         "status": "draft",
+        "generated_at": datetime.now().isoformat(),
+        "financial_year": f"{year-1}-{year}" if month >= 4 else f"{year}-{year+1}",
     }
-    row = insert_row("payrolls", payload)
+    row = insert_row("payroll_runs", payload)
     if not row:
         return {"error": "Could not generate payroll."}
     return {"success": True, "net_salary": gross, "id": row.get("id")}
@@ -521,24 +528,14 @@ def create_payroll_run(employee_id, month, year):
 
 def get_payroll_by_id(payroll_id):
     row = get_first_row(
-        "payrolls",
+        "payroll_runs",
         {
-            "select": "id,employee_id,period_start,period_end,gross_pay,net_pay,status,tax_amount,deductions,additions",
+            "select": "id,employee_id,month,year,gross_salary,attendance_deduction,pf,variable_pay,bonus,reimbursements,net_salary,status,financial_year,generated_at,generated_by",
             "id": f"eq.{payroll_id}",
         },
     )
     if not row:
         return None
-
-    period_start = str(row.get("period_start") or "")
-    month = 0
-    year = 0
-    if len(period_start) >= 7:
-        try:
-            year = int(period_start[:4])
-            month = int(period_start[5:7])
-        except Exception:
-            pass
 
     employee = get_employee_by_id(row.get("employee_id")) or {}
     return {
@@ -546,37 +543,37 @@ def get_payroll_by_id(payroll_id):
         "employee_id": row.get("employee_id"),
         "full_name": employee.get("full_name") or "-",
         "designation": employee.get("designation") or "Employee",
-        "month": month,
-        "year": year,
-        "gross_salary": row.get("gross_pay") or 0,
-        "net_salary": row.get("net_pay") or 0,
+        "month": row.get("month") or 0,
+        "year": row.get("year") or 0,
+        "gross_salary": row.get("gross_salary") or 0,
+        "net_salary": row.get("net_salary") or 0,
         "status": str(row.get("status") or "draft").upper(),
-        "financial_year": f"{year-1}-{year}" if month and month < 4 else f"{year}-{year+1}" if year else "-",
-        "variable_pay": 0,
-        "bonus": 0,
-        "reimbursements": 0,
-        "attendance_deduction": 0,
-        "pf": 0,
-        "tax": row.get("tax_amount") or 0,
+        "financial_year": row.get("financial_year") or "-",
+        "variable_pay": row.get("variable_pay") or 0,
+        "bonus": row.get("bonus") or 0,
+        "reimbursements": row.get("reimbursements") or 0,
+        "attendance_deduction": row.get("attendance_deduction") or 0,
+        "pf": row.get("pf") or 0,
+        "tax": 0,
     }
 
 
 def update_payroll_status(payroll_id, status):
-    rows = update_rows("payrolls", {"id": f"eq.{payroll_id}"}, {"status": status.lower()})
+    rows = update_rows("payroll_runs", {"id": f"eq.{payroll_id}"}, {"status": status.lower()})
     return rows[0] if rows else None
 
 
 def update_payroll_net(payroll_id, new_net_salary):
     rows = update_rows(
-        "payrolls",
+        "payroll_runs",
         {"id": f"eq.{payroll_id}", "status": "eq.draft"},
-        {"net_pay": float(new_net_salary)},
+        {"net_salary": float(new_net_salary)},
     )
     return rows[0] if rows else None
 
 
 def delete_payroll_if_draft(payroll_id):
-    return delete_rows("payrolls", {"id": f"eq.{payroll_id}", "status": "eq.draft"})
+    return delete_rows("payroll_runs", {"id": f"eq.{payroll_id}", "status": "eq.draft"})
 
 
 def list_my_payrolls(employee_id):
@@ -588,12 +585,14 @@ def list_leaves_manage():
     employees = list_employees()
     employee_lookup = {str(e.get("id")): e for e in employees}
     rows = get_rows(
-        "leaves",
+        "leave_applications",
         {
-            "select": "id,employee_id,leave_type,start_date,end_date,status",
-            "order": "start_date.desc",
+            "select": "id,employee_id,leave_type_id,from_date,to_date,status",
+            "order": "from_date.desc",
         },
     )
+
+    leave_types = {str(x.get("id")): x.get("name") for x in list_leave_types()}
 
     result = []
     for r in rows:
@@ -602,9 +601,9 @@ def list_leaves_manage():
             {
                 "id": r.get("id"),
                 "full_name": emp.get("full_name") or "-",
-                "type": r.get("leave_type") or "Leave",
-                "from_date": r.get("start_date"),
-                "to_date": r.get("end_date"),
+                "type": leave_types.get(str(r.get("leave_type_id")), "Leave"),
+                "from_date": r.get("from_date"),
+                "to_date": r.get("to_date"),
                 "status": (r.get("status") or "pending").capitalize(),
             }
         )
@@ -613,31 +612,34 @@ def list_leaves_manage():
 
 
 def list_leave_types():
-    rows = get_rows("leaves", {"select": "leave_type"})
-    values = {str(r.get("leave_type") or "").strip() for r in rows}
-    values = {v for v in values if v}
-    if not values:
-        values = {"Casual", "Sick", "Paid"}
-    return [{"id": v, "name": v} for v in sorted(values)]
+    rows = get_rows("leave_types", {"select": "id,name", "order": "name.asc"})
+    if rows:
+        return [{"id": r.get("id"), "name": r.get("name")} for r in rows]
+    return [
+        {"id": "casual", "name": "Casual"},
+        {"id": "sick", "name": "Sick"},
+        {"id": "paid", "name": "Paid"},
+    ]
 
 
 def list_employee_leaves(employee_id):
     rows = get_rows(
-        "leaves",
+        "leave_applications",
         {
-            "select": "id,leave_type,start_date,end_date,status",
+            "select": "id,leave_type_id,from_date,to_date,status",
             "employee_id": f"eq.{employee_id}",
-            "order": "start_date.desc",
+            "order": "from_date.desc",
         },
     )
+    leave_types = {str(x.get("id")): x.get("name") for x in list_leave_types()}
     result = []
     for r in rows:
         result.append(
             {
                 "id": r.get("id"),
-                "leave_type": r.get("leave_type") or "Leave",
-                "from_date": r.get("start_date"),
-                "to_date": r.get("end_date"),
+                "leave_type": leave_types.get(str(r.get("leave_type_id")), "Leave"),
+                "from_date": r.get("from_date"),
+                "to_date": r.get("to_date"),
                 "status": (r.get("status") or "pending").capitalize(),
             }
         )
@@ -652,14 +654,39 @@ def create_leave_request(employee_id, leave_type, from_date, to_date, reason):
     except Exception:
         days = 1
 
+    # Resolve leave_type to an id suitable for the DB. If a non-UUID (e.g., "casual")
+    # is provided, try to find a matching leave_types row by name; if not found,
+    # create one and use its id. This allows legacy string identifiers to work.
+    resolved_leave_type = leave_type
+    try:
+        import uuid
+
+        # If this parses as a UUID, use as-is
+        uuid.UUID(str(leave_type))
+    except Exception:
+        # Try to find a leave type by name
+        candidates = get_rows("leave_types", {"select": "id,name"})
+        match_id = None
+        for c in candidates:
+            if str(c.get("name") or "").strip().lower() == str(leave_type).strip().lower():
+                match_id = c.get("id")
+                break
+
+        if match_id:
+            resolved_leave_type = match_id
+        else:
+            # Create a new leave type row and use its id if creation succeeds
+            created = insert_row("leave_types", {"name": leave_type})
+            if created and isinstance(created, dict) and created.get("id"):
+                resolved_leave_type = created.get("id")
+
     return insert_row(
-        "leaves",
+        "leave_applications",
         {
             "employee_id": employee_id,
-            "leave_type": leave_type,
-            "start_date": from_date,
-            "end_date": to_date,
-            "days": days,
+            "leave_type_id": resolved_leave_type,
+            "from_date": from_date,
+            "to_date": to_date,
             "reason": reason,
             "status": "pending",
         },
@@ -667,7 +694,7 @@ def create_leave_request(employee_id, leave_type, from_date, to_date, reason):
 
 
 def update_leave_status(leave_id, status):
-    rows = update_rows("leaves", {"id": f"eq.{leave_id}"}, {"status": status.lower()})
+    rows = update_rows("leave_applications", {"id": f"eq.{leave_id}"}, {"status": status.lower()})
     return rows[0] if rows else None
 
 
@@ -675,12 +702,14 @@ def list_salary_records():
     employees = list_employees()
     employee_lookup = {str(e.get("id")): e for e in employees}
     rows = get_rows(
-        "salaries",
+        "employee_salary",
         {
-            "select": "id,employee_id,base_amount,effective_from",
+            "select": "id,employee_id,structure_id,monthly_salary,effective_from",
             "order": "effective_from.desc",
         },
     )
+
+    structures = {str(x.get("id")): x.get("name") for x in get_rows("salary_structures", {"select": "id,name"})}
 
     result = []
     for r in rows:
@@ -689,7 +718,7 @@ def list_salary_records():
             {
                 "id": r.get("id"),
                 "employee_name": emp.get("full_name") or "-",
-                "structure_name": f"Manual Salary ({r.get('base_amount') or 0})",
+                "structure_name": structures.get(str(r.get("structure_id")), f"Manual Salary ({r.get('monthly_salary') or 0})"),
                 "effective_from": r.get("effective_from"),
             }
         )
@@ -699,10 +728,10 @@ def list_salary_records():
 
 def create_salary_record(employee_id, monthly_salary, effective_from):
     return insert_row(
-        "salaries",
+        "employee_salary",
         {
             "employee_id": employee_id,
-            "base_amount": float(monthly_salary),
+            "monthly_salary": float(monthly_salary),
             "effective_from": effective_from,
         },
     )

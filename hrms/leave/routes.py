@@ -65,10 +65,9 @@ def employee_leave():
             to_date = request.form["to_date"]
             reason = request.form["reason"]
 
-            leave_types_fallback = supabase_rest.list_leave_types()
-            leave_type_lookup = {str(x.get("id")): x.get("name") for x in leave_types_fallback}
-            final_leave_type = leave_type_lookup.get(str(leave_type), leave_type)
-            supabase_rest.create_leave_request(employee_id, final_leave_type, from_date, to_date, reason)
+            # Keep the submitted leave_type id as-is for Supabase fallback.
+            # Previously we converted id->name which created mismatched leave_type_id values.
+            supabase_rest.create_leave_request(employee_id, leave_type, from_date, to_date, reason)
 
         leave_types = supabase_rest.list_leave_types()
         leaves = supabase_rest.list_employee_leaves(employee_id)
