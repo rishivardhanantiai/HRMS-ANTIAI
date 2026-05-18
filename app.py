@@ -4,6 +4,7 @@ from flask import (
     Flask, flash, render_template, request,
     redirect, session, send_from_directory
 )
+from io import BytesIO
 import os
 import tempfile
 from datetime import datetime
@@ -52,6 +53,19 @@ else:
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 SUPABASE_RESUME_BUCKET = os.getenv("SUPABASE_RESUME_BUCKET", "resumes")
+
+
+def _send_excel_dataframe(df, filename):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 def _supabase_headers(use_service=False):
@@ -693,6 +707,8 @@ def delete_application(application_id):
 def download_excel():
 
     selected_job = request.args.get("job_id")
+    conn = None
+    cur = None
     try:
         conn, cur = get_db()
 
@@ -710,14 +726,12 @@ def download_excel():
         if selected_job:
             query = base_query + " WHERE a.job_id = %s ORDER BY a.created_at DESC"
             df = pd.read_sql(query, conn, params=(selected_job,))
-            file_path = f"applications_job_{selected_job}.xlsx"
+            filename = f"applications_job_{selected_job}.xlsx"
         else:
             query = base_query + " ORDER BY a.created_at DESC"
             df = pd.read_sql(query, conn)
-            file_path = "applications.xlsx"
+            filename = "applications.xlsx"
 
-        df.to_excel(file_path, index=False)
-        release_db(conn, cur)
     except Exception:
         jobs = supabase_rest.get_rows("jobs", {"select": "id,title"})
         apps_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
@@ -736,10 +750,12 @@ def download_excel():
             for a in apps
         ]
         df = pd.DataFrame(records)
-        file_path = f"applications_job_{selected_job}.xlsx" if selected_job else "applications.xlsx"
-        df.to_excel(file_path, index=False)
+        filename = f"applications_job_{selected_job}.xlsx" if selected_job else "applications.xlsx"
+    finally:
+        if conn and cur:
+            release_db(conn, cur)
 
-    return send_file(file_path, as_attachment=True)
+    return _send_excel_dataframe(df, filename)
 
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
@@ -828,30 +844,44 @@ def salary_records():
 @app.route("/download-salary-records")
 @login_required
 def download_salary_records():
+    conn = None
+    cur = None
+    try:
+        conn, cur = get_db()
 
-    conn, _ = get_db()
+        query = """
+            SELECT 
+                e.full_name AS Employee,
+                CASE
+                    WHEN es.monthly_salary IS NOT NULL
+                        THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
+                    ELSE COALESCE(s.name, 'Not Assigned')
+                END AS Salary_Structure,
+                es.effective_from::text AS Effective_From
+            FROM employee_salary es
+            JOIN hrms_employees e ON es.employee_id = e.id
+            LEFT JOIN salary_structures s ON es.structure_id = s.id
+            ORDER BY es.effective_from DESC
+        """
 
-    query = """
-        SELECT 
-            e.full_name AS Employee,
-            CASE
-                WHEN es.monthly_salary IS NOT NULL
-                    THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
-                ELSE COALESCE(s.name, 'Not Assigned')
-            END AS Salary_Structure,
-            es.effective_from::text AS Effective_From
-        FROM employee_salary es
-        JOIN hrms_employees e ON es.employee_id = e.id
-        LEFT JOIN salary_structures s ON es.structure_id = s.id
-        ORDER BY es.effective_from DESC
-    """
+        df = pd.read_sql(query, conn)
+    except Exception:
+        records = supabase_rest.list_salary_records()
+        df = pd.DataFrame(
+            [
+                {
+                    "Employee": record.get("employee_name"),
+                    "Salary_Structure": record.get("structure_name"),
+                    "Effective_From": record.get("effective_from"),
+                }
+                for record in records
+            ]
+        )
+    finally:
+        if conn and cur:
+            release_db(conn, cur)
 
-    df = pd.read_sql(query, conn)
-
-    file_path = "salary_records.xlsx"
-    df.to_excel(file_path, index=False)
-
-    return send_file(file_path, as_attachment=True)
+    return _send_excel_dataframe(df, "salary_records.xlsx")
 
 
 # =========================
