@@ -4,7 +4,9 @@ from flask import (
     Flask, flash, render_template, request,
     redirect, session, send_from_directory
 )
+import csv
 from io import BytesIO
+from io import StringIO
 import os
 import tempfile
 from datetime import datetime
@@ -17,6 +19,7 @@ import pandas as pd
 from flask import send_file
 from hrms.leave.routes import leave_bp
 from utils.auth import login_required
+from utils.auth import role_required
 from utils.db import get_db, release_db
 from utils import supabase_rest
 from hrms.attendance.routes import attendance_bp
@@ -583,6 +586,7 @@ def serve_resume(filename):
 # =========================
 @app.route("/applications")
 @login_required
+@role_required(["HR", "Admin"])
 def applications():
 
     selected_job = request.args.get("job_id")
@@ -669,8 +673,147 @@ def applications():
     )
 
 
+@app.route("/applications/import-csv", methods=["POST"])
+@login_required
+@role_required(["HR", "Admin"])
+def import_applications_csv():
+    selected_job = (request.form.get("job_id") or request.args.get("job_id") or "").strip()
+    csv_file = request.files.get("csv_file")
+
+    if not csv_file or not csv_file.filename:
+        flash("Please choose a CSV file to upload.", "error")
+        return redirect(f"/applications?job_id={selected_job}" if selected_job else "/applications")
+
+    raw_content = csv_file.read().decode("utf-8-sig")
+    reader = csv.DictReader(StringIO(raw_content))
+
+    if not reader.fieldnames:
+        flash("The uploaded CSV file has no headers.", "error")
+        return redirect(f"/applications?job_id={selected_job}" if selected_job else "/applications")
+
+    rows = list(reader)
+
+    def parse_row(row):
+        name = (row.get("name") or row.get("applicant_name") or row.get("full_name") or "").strip()
+        email = (row.get("email") or "").strip()
+        phone = (row.get("phone") or "").strip() or None
+        resume_url = (row.get("resume_url") or row.get("resume") or "").strip() or None
+        cover_letter = (row.get("cover_letter") or "").strip() or None
+        row_job_id = (
+            row.get("job_id")
+            or row.get("job")
+            or row.get("job_title")
+            or selected_job
+            or ""
+        ).strip()
+        return name, email, phone, resume_url, cover_letter, row_job_id
+
+    conn = None
+    cur = None
+
+    try:
+        conn, cur = get_db(True)
+        cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
+        jobs = cur.fetchall()
+        job_lookup_by_id = {str(job.get("id")): job.get("id") for job in jobs}
+        job_lookup_by_title = {str(job.get("title") or "").strip().lower(): job.get("id") for job in jobs}
+
+        inserted = 0
+        skipped = 0
+
+        for row in rows:
+            name, email, phone, resume_url, cover_letter, row_job_id = parse_row(row)
+
+            resolved_job_id = job_lookup_by_id.get(row_job_id)
+            if not resolved_job_id and row_job_id:
+                resolved_job_id = job_lookup_by_title.get(row_job_id.lower())
+
+            if not name or not email or not resolved_job_id:
+                skipped += 1
+                continue
+
+            cur.execute(
+                """
+                INSERT INTO applications (job_id, name, email, phone, resume_url, cover_letter)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (resolved_job_id, name, email, phone, resume_url, cover_letter),
+            )
+            inserted += 1
+
+        conn.commit()
+
+        if inserted:
+            flash(f"Imported {inserted} applicant(s) from CSV.", "success")
+        if skipped:
+            flash(f"Skipped {skipped} row(s) because they were missing a job, name, or email.", "error")
+    except Exception:
+        try:
+            jobs = supabase_rest.get_rows("jobs", {"select": "id,title", "order": "created_at.desc"})
+            job_lookup_by_id = {str(job.get("id")): job.get("id") for job in jobs}
+            job_lookup_by_title = {str(job.get("title") or "").strip().lower(): job.get("id") for job in jobs}
+            inserted = 0
+            skipped = 0
+
+            for row in rows:
+                name, email, phone, resume_url, cover_letter, row_job_id = parse_row(row)
+
+                resolved_job_id = job_lookup_by_id.get(row_job_id)
+                if not resolved_job_id and row_job_id:
+                    resolved_job_id = job_lookup_by_title.get(row_job_id.lower())
+
+                if not name or not email or not resolved_job_id:
+                    skipped += 1
+                    continue
+
+                created = supabase_rest.insert_row(
+                    "applications",
+                    {
+                        "job_id": resolved_job_id,
+                        "name": name,
+                        "email": email,
+                        "phone": phone,
+                        "resume_url": resume_url,
+                        "cover_letter": cover_letter,
+                    },
+                )
+                if created:
+                    inserted += 1
+                else:
+                    skipped += 1
+
+            if inserted:
+                flash(f"Imported {inserted} applicant(s) from CSV.", "success")
+            if skipped:
+                flash(f"Skipped {skipped} row(s) because they were missing a job, name, or email.", "error")
+        except Exception:
+            flash("CSV import failed. Please check the file format and try again.", "error")
+    finally:
+        if conn and cur:
+            release_db(conn, cur)
+
+    return redirect(f"/applications?job_id={selected_job}" if selected_job else "/applications")
+
+
+@app.route("/applications/csv-template")
+@login_required
+@role_required(["HR", "Admin"])
+def download_applications_csv_template():
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["job_id", "job_title", "name", "email", "phone", "resume_url", "cover_letter"])
+    output.seek(0)
+    return send_file(
+        BytesIO(output.getvalue().encode("utf-8")),
+        as_attachment=True,
+        download_name="applications_template.csv",
+        mimetype="text/csv",
+    )
+
+
 @app.route("/applications/delete/<application_id>", methods=["POST"])
 @login_required
+@role_required(["HR", "Admin"])
 def delete_application(application_id):
     try:
         conn, cur = get_db(True)
@@ -704,6 +847,7 @@ def delete_application(application_id):
 
 @app.route("/download-excel")
 @login_required
+@role_required(["HR", "Admin"])
 def download_excel():
 
     selected_job = request.args.get("job_id")
