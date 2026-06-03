@@ -300,14 +300,15 @@ def apply(job_id):
 
         cur.execute("""
             INSERT INTO applications
-            (job_id, applicant_name, email, phone, resume_url)
-            VALUES (%s, %s, %s, %s, %s)
+            (job_id, applicant_name, email, phone, resume_url, cover_letter)
+            VALUES (%s, %s, %s, %s, %s, %s)
         """, (
             job_id,
             request.form["name"],
             request.form["email"],
             request.form["phone"],
-            resume_url
+            resume_url,
+            request.form.get("cover_letter", "").strip()
         ))
 
         conn.commit()
@@ -348,10 +349,12 @@ def applications():
             SELECT
                 a.id,
                 j.title AS job_title,
+                a.applied_at,
                 a.applicant_name,
                 a.email,
                 a.phone,
-                a.resume_url
+                a.resume_url,
+                a.cover_letter
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
             WHERE a.job_id = %s
@@ -362,10 +365,12 @@ def applications():
             SELECT
                 a.id,
                 j.title AS job_title,
+                a.applied_at,
                 a.applicant_name,
                 a.email,
                 a.phone,
-                a.resume_url
+                a.resume_url,
+                a.cover_letter
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
             ORDER BY a.id DESC
@@ -435,10 +440,12 @@ def download_excel():
     base_query = """
         SELECT
             j.title AS Job,
+            a.applied_at AS Applied_At,
             a.applicant_name AS Applicant,
             a.email AS Email,
             a.phone AS Phone,
-            a.resume_url AS Resume_URL
+            a.resume_url AS Resume_URL,
+            a.cover_letter AS Cover_Letter
         FROM applications a
         JOIN jobs j ON a.job_id = j.id
     """
