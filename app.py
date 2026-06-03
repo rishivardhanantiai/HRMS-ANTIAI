@@ -354,7 +354,8 @@ def applications():
                 a.email,
                 a.phone,
                 a.resume_url,
-                a.cover_letter
+                a.cover_letter,
+                a.status
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
             WHERE a.job_id = %s
@@ -370,7 +371,8 @@ def applications():
                 a.email,
                 a.phone,
                 a.resume_url,
-                a.cover_letter
+                a.cover_letter,
+                a.status
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
             ORDER BY a.id DESC
@@ -430,6 +432,34 @@ def delete_application(application_id):
     return redirect("/applications")
 
 
+@app.route("/applications/update-status/<int:application_id>", methods=["POST"])
+@login_required
+def update_application_status(application_id):
+    data = request.get_json() or {}
+    status = data.get("status")
+    
+    valid_statuses = ["Selected", "Rejected", "Backup", "Future Reference", "Pending", "Pending (Default)", ""]
+    if status not in valid_statuses:
+        return {"error": "Invalid status value"}, 400
+        
+    conn, cur = get_db(True)
+    cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
+    row = cur.fetchone()
+    
+    if not row:
+        release_db(conn, cur)
+        return {"error": "Application not found"}, 404
+        
+    cur.execute(
+        "UPDATE applications SET status = %s WHERE id = %s",
+        (status, application_id)
+    )
+    conn.commit()
+    release_db(conn, cur)
+    
+    return {"message": "Status updated successfully"}, 200
+
+
 @app.route("/download-excel")
 @login_required
 def download_excel():
@@ -445,7 +475,8 @@ def download_excel():
             a.email AS Email,
             a.phone AS Phone,
             a.resume_url AS Resume_URL,
-            a.cover_letter AS Cover_Letter
+            a.cover_letter AS Cover_Letter,
+            a.status AS Status
         FROM applications a
         JOIN jobs j ON a.job_id = j.id
     """

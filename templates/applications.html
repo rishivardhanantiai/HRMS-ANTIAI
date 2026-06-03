@@ -22,7 +22,7 @@
 #applicationsTable td {
     padding: 14px 16px;
     white-space: nowrap; /* Keeps all fields clean on a single line */
-    text-align: left;
+    text-align: center;
 }
 
 /* Glassmorphism Modal Styles */
@@ -182,6 +182,36 @@
 .btn-danger:hover{
     background:#991b1b;
 }
+
+.status-select {
+    padding: 0 30px 0 12px;
+    background: #0f0f0f url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 10px center;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    outline: none;
+    height: 32px;
+    box-sizing: border-box;
+    min-width: 160px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+.status-select:focus {
+    border-color: #38bdf8;
+}
+.status-select.success {
+    border-color: #22c55e !important;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+.status-select.error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
 </style>
 
 <h1 class="page-title">Job Applications</h1>
@@ -296,15 +326,25 @@
                         <span style="opacity:0.4;">No Resume</span>
                     {% endif %}
                 </td>
-                <td>
+                <td style="display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <select class="status-select" 
+                            data-app-id="{{ app.id }}" 
+                            onchange="updateStatus(this)">
+                        <option value="Pending" {% if not app.status or app.status == 'Pending' or app.status == '' %}selected{% endif %}>Pending</option>
+                        <option value="Selected" {% if app.status == 'Selected' %}selected{% endif %}>Selected</option>
+                        <option value="Rejected" {% if app.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+                        <option value="Backup" {% if app.status == 'Backup' %}selected{% endif %}>Backup</option>
+                        <option value="Future Reference" {% if app.status == 'Future Reference' %}selected{% endif %}>Future Reference</option>
+                    </select>
+
                     <form method="POST"
                           action="/applications/delete/{{ app.id }}"
                           onsubmit="return confirm('Delete this application?');"
-                          style="margin:0;">
+                          style="margin:0; display:inline-block;">
                         {% if selected_job %}
                             <input type="hidden" name="job_id" value="{{ selected_job }}">
                         {% endif %}
-                        <button type="submit" class="btn-danger" style="margin:0; padding:6px 12px; font-size:12px;">Delete</button>
+                        <button type="submit" class="btn-danger" style="margin:0; padding:0 12px; font-size:12px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">Delete</button>
                     </form>
                 </td>
             </tr>
@@ -358,6 +398,39 @@ function closeLetter() {
     const modal = document.getElementById('coverLetterModal');
     modal.classList.remove('active');
     document.body.style.overflow = '';
+}
+
+async function updateStatus(selectElement) {
+    const appId = selectElement.getAttribute('data-app-id');
+    const newStatus = selectElement.value;
+    
+    selectElement.disabled = true;
+    
+    try {
+        const response = await fetch(`/applications/update-status/${appId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        if (response.ok) {
+            selectElement.classList.add('success');
+            setTimeout(() => selectElement.classList.remove('success'), 1500);
+        } else {
+            selectElement.classList.add('error');
+            setTimeout(() => selectElement.classList.remove('error'), 1500);
+            alert('Failed to update status. Please try again.');
+        }
+    } catch (err) {
+        console.error(err);
+        selectElement.classList.add('error');
+        setTimeout(() => selectElement.classList.remove('error'), 1500);
+        alert('An error occurred. Please try again.');
+    } finally {
+        selectElement.disabled = false;
+    }
 }
 </script>
 
