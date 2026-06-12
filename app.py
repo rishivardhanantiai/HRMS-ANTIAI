@@ -1787,58 +1787,6 @@ def applications():
             for a in app_rows
         ]
 
-        if selected_job:
-            cur.execute("""
-                SELECT
-                    a.id,
-                    j.title AS job_title,
-                    a.name AS applicant_name,
-                    a.email,
-                    a.phone,
-                    a.resume_url
-                FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                WHERE a.job_id = %s
-                ORDER BY a.created_at DESC
-            """, (selected_job,))
-        else:
-            cur.execute("""
-                SELECT
-                    a.id,
-                    j.title AS job_title,
-                    a.name AS applicant_name,
-                    a.email,
-                    a.phone,
-                    a.resume_url
-                FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                ORDER BY a.created_at DESC
-            """)
-
-        applications = cur.fetchall()
-        release_db(conn, cur)
-    except Exception:
-        jobs = supabase_rest.get_rows(
-            "jobs",
-            {"select": "id,title", "order": "created_at.desc"},
-        )
-        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
-        if selected_job:
-            selected_filter["job_id"] = f"eq.{selected_job}"
-        app_rows = supabase_rest.get_rows("applications", selected_filter)
-        job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
-        applications = [
-            {
-                "id": a.get("id"),
-                "job_title": job_lookup.get(str(a.get("job_id")), "-"),
-                "applicant_name": a.get("name"),
-                "email": a.get("email"),
-                "phone": a.get("phone"),
-                "resume_url": a.get("resume_url"),
-            }
-            for a in app_rows
-        ]
-
     # Normalize stored resume URLs so legacy rows still resolve correctly.
     for row in applications:
         resume_url = row.get("resume_url")
@@ -2253,5 +2201,7 @@ def download_salary_records():
 # RUN SERVER
 # =========================
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
