@@ -602,6 +602,67 @@ def applications():
                 SELECT
                     a.id,
                     j.title AS job_title,
+                    a.applied_at,
+                    a.applicant_name,
+                    a.email,
+                    a.phone,
+                    a.resume_url,
+                    a.cover_letter,
+                    a.status
+                FROM applications a
+                JOIN jobs j ON a.job_id = j.id
+                WHERE a.job_id = %s
+                ORDER BY a.id DESC
+            """, (selected_job,))
+        else:
+            cur.execute("""
+                SELECT
+                    a.id,
+                    j.title AS job_title,
+                    a.applied_at,
+                    a.applicant_name,
+                    a.email,
+                    a.phone,
+                    a.resume_url,
+                    a.cover_letter,
+                    a.status
+                FROM applications a
+                JOIN jobs j ON a.job_id = j.id
+                ORDER BY a.id DESC
+            """)
+
+        applications = cur.fetchall()
+        release_db(conn, cur)
+    except Exception:
+        jobs = supabase_rest.get_rows(
+            "jobs",
+            {"select": "id,title", "order": "created_at.desc"},
+        )
+        selected_filter = {"select": "id,job_id,applicant_name,email,phone,resume_url,applied_at,cover_letter,status", "order": "created_at.desc"}
+        if selected_job:
+            selected_filter["job_id"] = f"eq.{selected_job}"
+        app_rows = supabase_rest.get_rows("applications", selected_filter)
+        job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
+        applications = [
+            {
+                "id": a.get("id"),
+                "job_title": job_lookup.get(str(a.get("job_id")), "-"),
+                "applicant_name": a.get("applicant_name"),
+                "applied_at": a.get("applied_at"),
+                "email": a.get("email"),
+                "phone": a.get("phone"),
+                "resume_url": a.get("resume_url"),
+                "cover_letter": a.get("cover_letter"),
+                "status": a.get("status")
+            }
+            for a in app_rows
+        ]
+
+        if selected_job:
+            cur.execute("""
+                SELECT
+                    a.id,
+                    j.title AS job_title,
                     a.name AS applicant_name,
                     a.email,
                     a.phone,
@@ -845,6 +906,34 @@ def delete_application(application_id):
     return redirect("/applications")
 
 
+@app.route("/applications/update-status/<int:application_id>", methods=["POST"])
+@login_required
+def update_application_status(application_id):
+    data = request.get_json() or {}
+    status = data.get("status")
+    
+    valid_statuses = ["Selected", "Rejected", "Backup", "Future Reference", "Pending", "Pending (Default)", ""]
+    if status not in valid_statuses:
+        return {"error": "Invalid status value"}, 400
+        
+    conn, cur = get_db(True)
+    cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
+    row = cur.fetchone()
+    
+    if not row:
+        release_db(conn, cur)
+        return {"error": "Application not found"}, 404
+        
+    cur.execute(
+        "UPDATE applications SET status = %s WHERE id = %s",
+        (status, application_id)
+    )
+    conn.commit()
+    release_db(conn, cur)
+    
+    return {"message": "Status updated successfully"}, 200
+
+
 @app.route("/download-excel")
 @login_required
 @role_required(["HR", "Admin"])
@@ -859,10 +948,13 @@ def download_excel():
         base_query = """
             SELECT
                 j.title AS Job,
-                a.name AS Applicant,
+                a.applied_at AS Applied_At,
+                a.applicant_name AS Applicant,
                 a.email AS Email,
                 a.phone AS Phone,
-                a.resume_url AS Resume_URL
+                a.resume_url AS Resume_URL,
+                a.cover_letter AS Cover_Letter,
+                a.status AS Status
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
         """
