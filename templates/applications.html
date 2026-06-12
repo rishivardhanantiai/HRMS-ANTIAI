@@ -265,6 +265,10 @@
     <button type="submit" class="btn btn-outline">
         Filter
     </button>
+    
+    <a href="/applications" class="btn btn-outline" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">
+        Refresh
+    </a>
 
 </form>
 
@@ -273,6 +277,7 @@
     <div class="apps-table-wrap"><table id="applicationsTable">
         <thead>
             <tr>
+                <th>S.No</th>
                 <th>Job</th>
                 <th>Timestamp</th>
                 <th>Applicant</th>
@@ -287,6 +292,7 @@
         <tbody>
         {% for app in applications %}
             <tr>
+                <td>{{ loop.index }}</td>
                 <td>{{ app.job_title }}</td>
                 <td>
                     {% if app.applied_at %}
@@ -350,7 +356,7 @@
             </tr>
         {% else %}
             <tr>
-                <td colspan="8" style="text-align:center; opacity:0.6;">
+                <td colspan="9" style="text-align:center; opacity:0.6;">
                     No applications found
                 </td>
             </tr>
