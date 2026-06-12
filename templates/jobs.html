@@ -153,7 +153,7 @@
                 <input type="text" name="title" placeholder="Job Title" required>
                 <textarea name="description" placeholder="Job Description" required></textarea>
                 <input type="text" name="location" placeholder="Location" required>
-                <input type="text" name="job_type" placeholder="Job Type (Intern / Full-time)" required>
+                <input type="text" name="department" placeholder="Department (optional)">
                 <button type="submit">Add Job</button>
             </form>
         </div>
@@ -167,8 +167,8 @@
             <thead>
                 <tr>
                     <th>Title</th>
+                    <th>Department</th>
                     <th>Location</th>
-                    <th>Type</th>
                     <th>Date Posted</th>
                     <th>Actions</th>
                 </tr>
@@ -178,9 +178,9 @@
             {% for job in jobs %}
                 <tr>
                     <td>{{ job.title }}</td>
+                    <td>{{ job.department or '-' }}</td>
                     <td>{{ job.location }}</td>
-                    <td>{{ job.job_type }}</td>
-                    <td>{{ job.posted_at }}</td>
+                    <td>{{ job.created_at }}</td>
                     <td>
                         <div class="job-actions">
                             <a class="action-apply" href="{{ url_for('apply', job_id=job.id) }}">Apply</a>

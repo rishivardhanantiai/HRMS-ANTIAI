@@ -9,7 +9,7 @@
         <input type="text" name="title" value="{{ job.title }}" required>
         <textarea name="description" required>{{ job.description }}</textarea>
         <input type="text" name="location" value="{{ job.location }}" required>
-        <input type="text" name="job_type" value="{{ job.job_type }}" required>
+        <input type="text" name="department" value="{{ job.department or '' }}" placeholder="Department (optional)">
 
         <button type="submit">Update Job</button>
     </form>
