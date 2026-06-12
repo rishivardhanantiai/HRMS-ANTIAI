@@ -1129,6 +1129,22 @@
 
 print("APP.PY LOADED")
 
+
+def _parse_iso_datetime(value):
+    """Parse an ISO-format timestamp string (as returned by Supabase REST)
+    into a datetime object. Returns None if value is falsy or unparseable."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        # Supabase returns e.g. "2026-06-12T10:15:30.123456+00:00" or with "Z"
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+
 from flask import (
     Flask, flash, render_template, request,
     redirect, session, send_from_directory
@@ -1777,7 +1793,7 @@ def applications():
                 "id": a.get("id"),
                 "job_title": job_lookup.get(str(a.get("job_id")), "-"),
                 "applicant_name": a.get("applicant_name"),
-                "applied_at": a.get("applied_at"),
+                "applied_at": _parse_iso_datetime(a.get("applied_at")),
                 "email": a.get("email"),
                 "phone": a.get("phone"),
                 "resume_url": a.get("resume_url"),
@@ -2201,7 +2217,5 @@ def download_salary_records():
 # RUN SERVER
 # =========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
