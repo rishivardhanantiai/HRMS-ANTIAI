@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+print("DEBUG DB HOST:", DATABASE_URL.split('@')[-1] if DATABASE_URL else "NONE")
 
 db_pool = None
 
