@@ -44,7 +44,7 @@ The application is built to work with a local PostgreSQL database and also inclu
 - Resume uploads go to Supabase Storage
 - Excel downloads are generated in memory, which avoids filesystem issues on read-only deployments
 
-## Environment Variables
+## Environment Variables of project
 
 - `SECRET_KEY`
 - `DATABASE_URL`
