@@ -179,9 +179,12 @@ body {
 /* ================= HEADINGS ================= */
 h1 {
     font-size: 42px;
-    text-align: center;
     letter-spacing: 2px;
     margin-bottom: 10px;
+}
+
+.center-title {
+    text-align: center;
 }
 
 .subtitle {
@@ -322,6 +325,7 @@ a:hover {
 }
 
 .login-title {
+    text-align: center;
     margin-bottom: 30px;
     letter-spacing: 4px;
 }

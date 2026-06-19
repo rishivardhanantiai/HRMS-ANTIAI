@@ -20,6 +20,7 @@ def assign_employee_salary():
 
         if request.method == "POST":
             employee_id = request.form.get("employee_id", "").strip()
+            structure_id = request.form.get("structure_id", "").strip()
             monthly_salary = request.form.get("monthly_salary", "").strip()
             effective_from = request.form.get("effective_from", "").strip()
 
@@ -36,35 +37,61 @@ def assign_employee_salary():
                 return redirect("/hrms/assign-salary")
 
             try:
+                # Check if a salary assignment already exists for this employee on this date
                 cur.execute("""
-                    INSERT INTO employee_salary
-                    (employee_id, monthly_salary, effective_from)
-                    VALUES (%s, %s, %s)
-                """, (employee_id, monthly_salary, effective_from))
+                    SELECT id FROM employee_salary 
+                    WHERE employee_id = %s AND effective_from = %s
+                """, (employee_id, effective_from))
+                existing = cur.fetchone()
+
+                if existing:
+                    cur.execute("""
+                        UPDATE employee_salary
+                        SET monthly_salary = %s, structure_id = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s
+                    """, (monthly_salary, structure_id if structure_id else None, existing["id"]))
+                else:
+                    cur.execute("""
+                        INSERT INTO employee_salary
+                        (employee_id, monthly_salary, effective_from, structure_id)
+                        VALUES (%s, %s, %s, %s)
+                    """, (employee_id, monthly_salary, effective_from, structure_id if structure_id else None))
 
                 conn.commit()
                 flash("Salary assigned successfully.", "success")
 
-            except Exception:
+            except Exception as e:
                 conn.rollback()
+                print("Error saving salary:", e)
                 flash("Could not assign salary. Please try again.", "error")
 
             return redirect("/hrms/assign-salary")
 
-        # ✅ UPDATED QUERY (designation added)
+        # Fetch employees
         cur.execute("""
             SELECT id, full_name, designation
             FROM hrms_employees
+            WHERE status != 'Deleted'
             ORDER BY full_name
         """)
         employees = cur.fetchall()
 
+        # Fetch salary structures
+        cur.execute("""
+            SELECT id, name
+            FROM salary_structures
+            ORDER BY name
+        """)
+        structures = cur.fetchall()
+
         return render_template(
             "assign_salary.html",
-            employees=employees
+            employees=employees,
+            salary_structures=structures
         )
 
-    except Exception:
+    except Exception as e:
+        print("Salary assignment DB failure, trying fallback:", e)
         if request.method == "POST":
             employee_id = request.form.get("employee_id", "").strip()
             monthly_salary = request.form.get("monthly_salary", "").strip()
@@ -93,7 +120,7 @@ def assign_employee_salary():
             }
             for e in supabase_rest.list_employees()
         ]
-        return render_template("assign_salary.html", employees=employees)
+        return render_template("assign_salary.html", employees=employees, salary_structures=[])
 
     finally:
         try:

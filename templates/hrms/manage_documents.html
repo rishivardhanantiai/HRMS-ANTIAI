@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+/* Reuse styles from my_documents.html */
+.docs-wrapper {
+    padding: 35px 45px;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+.docs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+}
+
+.docs-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.docs-card {
+    background: #0f111a;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+.docs-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.docs-table th {
+    text-align: left;
+    color: #d1d5db;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid #374151;
+}
+
+.docs-table td {
+    padding: 16px;
+    border-bottom: 1px solid #1f2937;
+    color: #9ca3af;
+    font-size: 14px;
+    vertical-align: top;
+}
+
+.docs-table tr:hover {
+    background-color: #1f2937;
+}
+
+.badge-status {
+    padding: 4px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.status-verified { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.status-rejected { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+.btn-attachment {
+    display: inline-block;
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    padding: 4px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    transition: all 0.2s;
+}
+
+.btn-attachment:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 10px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #f3f4f6;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.btn-verify { background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.btn-reject { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+
+.btn-verify:hover { background: #059669; }
+.btn-reject:hover { background: #dc2626; }
+
+.audit-trail {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #374151;
+}
+
+@media (max-width: 768px) {
+    .docs-wrapper { padding: 15px; }
+    .docs-table { display: block; overflow-x: auto; }
+}
+</style>
+
+<div class="docs-wrapper">
+    <div class="docs-header">
+        <div class="docs-title">Documents Verification: {{ employee.full_name }}</div>
+        <a href="/hrms/employees/ui" style="color: #9ca3af; text-decoration: none;">&larr; Back to Employees</a>
+    </div>
+
+    <div class="docs-card">
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type & Title</th>
+                    <th>Attachment</th>
+                    <th>Current Status</th>
+                    <th style="width: 250px;">Verification Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td>{{ doc.created_at.strftime('%m/%d/%y') if doc.created_at else '-' }}</td>
+                    <td>
+                        <strong style="color: #e5e7eb;">{{ doc.document_title }}</strong><br>
+                        <span style="font-size: 12px;">{{ doc.document_type }}</span>
+                        {% if doc.description %}
+                        <div style="font-size: 12px; margin-top: 4px; color: #6b7280;">Desc: {{ doc.description }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/hrms/employees/documents/{{ doc.id }}/view" target="_blank" class="btn-attachment">View / Download</a>
+                        <div style="font-size: 11px; margin-top: 4px; color: #6b7280;">{{ (doc.file_size / 1024)|round(1) }} KB</div>
+                    </td>
+                    <td>
+                        <span class="badge-status status-{{ doc.verification_status|lower }}">
+                            {{ doc.verification_status }}
+                        </span>
+                        {% if doc.remarks %}
+                            <div style="font-size: 11px; margin-top: 6px; color: #f87171;">Remarks: {{ doc.remarks }}</div>
+                        {% endif %}
+                        <div class="audit-trail">
+                            <div>Uploaded by: {{ doc.uploaded_by_name or 'System' }}</div>
+                            {% if doc.verified_by_name %}
+                            <div>Verified by: {{ doc.verified_by_name }}<br>On: {{ doc.verified_at.strftime('%m/%d/%y %H:%M') }}</div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <form action="/hrms/employees/documents/{{ doc.id }}/verify" method="POST">
+                            <input type="text" name="remarks" class="form-control" placeholder="Add remarks (optional)" value="{{ doc.remarks or '' }}">
+                            <div style="display: flex; gap: 8px;">
+                                <button type="submit" name="status" value="Verified" class="btn-verify">Approve</button>
+                                <button type="submit" name="status" value="Rejected" class="btn-reject">Reject</button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center;">No documents uploaded by this employee.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

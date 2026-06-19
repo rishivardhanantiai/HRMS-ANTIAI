@@ -735,3 +735,26 @@ def create_salary_record(employee_id, monthly_salary, effective_from):
             "effective_from": effective_from,
         },
     )
+
+def upload_file_bytes(file_bytes, object_key, content_type="application/pdf"):
+    supabase_url = _supabase_url()
+    service_key = os.getenv("SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+    bucket = os.getenv("SUPABASE_RESUME_BUCKET", "resumes")
+    if not supabase_url or not service_key:
+        return None
+
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": content_type,
+    }
+    
+    upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{object_key}"
+    try:
+        response = httpx.post(upload_url, content=file_bytes, headers=headers, timeout=30.0)
+        if response.status_code in (200, 201):
+            return f"{supabase_url}/storage/v1/object/public/{bucket}/{object_key}"
+        return None
+    except Exception as e:
+        print("Error uploading to supabase:", e)
+        return None

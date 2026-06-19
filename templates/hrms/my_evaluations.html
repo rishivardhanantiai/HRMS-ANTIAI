@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.eval-wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+.header h1 {
+    color: #fff;
+    margin: 0;
+}
+.card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.table th, .table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #1f2937;
+    color: #d1d5db;
+}
+.table th {
+    color: #9ca3af;
+    font-weight: 500;
+}
+.grade-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+}
+.btn-view {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+.btn-view:hover {
+    background: #38bdf8;
+    color: #fff;
+}
+</style>
+
+<div class="eval-wrapper">
+    <div class="header">
+        <h1>My Performance Evaluations</h1>
+    </div>
+
+    {% if evals %}
+        <div class="card">
+            <h3 style="color:#9ca3af; margin-top:0;">Performance Trend</h3>
+            <canvas id="trendChart" height="80"></canvas>
+        </div>
+
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table class="table">
+                <thead style="background:#1f2937;">
+                    <tr>
+                        <th>Cycle</th>
+                        <th>Date</th>
+                        <th>Evaluator</th>
+                        <th>Score</th>
+                        <th>Grade</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ev in evals %}
+                    <tr>
+                        <td>{{ ev.evaluation_month }}/{{ ev.evaluation_year }} (Cycle {{ ev.evaluation_cycle }})</td>
+                        <td>{{ ev.evaluation_date }}</td>
+                        <td>{{ ev.evaluator_name or 'System' }}</td>
+                        <td style="font-weight:bold;">{{ ev.final_score }}%</td>
+                        <td>
+                            <span class="grade-badge" style="background: rgba(255,255,255,0.1);">{{ ev.grade }}</span>
+                        </td>
+                        <td>{{ ev.status }}</td>
+                        <td>
+                            <a href="/hrms/performance/view/{{ ev.id }}" class="btn-view">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="card" style="text-align:center; padding:50px;">
+            <div style="font-size:40px; margin-bottom:15px;">📊</div>
+            <h3 style="color:#fff; margin:0 0 10px 0;">No Evaluations Yet</h3>
+            <p style="color:#9ca3af; margin:0;">You have not received any performance evaluations.</p>
+        </div>
+    {% endif %}
+
+</div>
+
+{% if evals %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('trendChart').getContext('2d');
+const labels = [{% for ev in evals|reverse %}'{{ ev.evaluation_month }}/{{ ev.evaluation_year }}',{% endfor %}];
+const data = [{% for ev in evals|reverse %}{{ ev.final_score }},{% endfor %}];
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Score (%)',
+            data: data,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            borderWidth: 2,
+            tension: 0.3,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } },
+            x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+        }
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

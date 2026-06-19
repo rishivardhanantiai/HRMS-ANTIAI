@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.te-container { max-width:1000px; margin:0 auto; padding:20px; color:#e5e7eb; }
+.te-card { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:20px; }
+.form-group { margin-bottom:15px; }
+.form-group label { display:block; font-size:0.85rem; color:#9ca3af; margin-bottom:5px; }
+.form-control { width:100%; padding:10px; background:#030712; border:1px solid #374151; color:#fff; border-radius:6px; box-sizing:border-box; }
+select.form-control { appearance:none; background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239ca3af%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat:no-repeat; background-position:right 10px top 50%; background-size:10px auto; }
+.action-box { background:#1e293b; border-radius:8px; padding:20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; text-decoration:none; color:#fff; border:1px solid #334155; transition:0.2s; }
+.action-box:hover { background:#334155; }
+.action-icon { background:#3b82f6; color:#fff; width:32px; height:32px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.btn-primary { background:#3b82f6; color:#fff; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+.btn-primary:hover { background:#2563eb; }
+.btn-danger { background:#ef4444; color:#fff; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+.btn-danger:hover { background:#dc2626; }
+.btn-success { background:#10b981; color:#fff; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+.info-box { background:#1e293b; padding:15px; border-radius:6px; border:1px solid #334155; font-size:0.85rem; line-height:1.6; color:#cbd5e1; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; }
+.modal-content { background:#1f2937; color:#e5e7eb; width:700px; max-height:85vh; overflow-y:auto; border-radius:8px; padding:25px; position:relative; }
+.modal-close { position:absolute; top:10px; right:15px; font-size:24px; cursor:pointer; color:#9ca3af; }
+.modal-close:hover { color:#fff; }
+</style>
+
+<div class="te-container">
+    <div class="letters-tabs" style="display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #1f2937; padding-bottom: 15px;">
+        <a href="/hrms/letters/generator" style="padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 500; color: #9ca3af; background: rgba(255,255,255,0.02);">Generate Letter</a>
+        <a href="/hrms/letters/history" style="padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 500; color: #9ca3af; background: rgba(255,255,255,0.02);">Document History</a>
+        <a href="/hrms/letters/templates" style="padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 600; background: #3b82f6; color: white;">Template Editor</a>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #fff;">Template Editor</h2>
+        <button class="btn-primary" onclick="openAddModal()" style="display: inline-flex; align-items: center; gap: 6px;">➕ Add New Template</button>
+    </div>
+
+    <!-- Template selector -->
+    <div class="te-card" style="margin-bottom:20px;">
+        <div class="form-group">
+            <label>Select Template to Edit *</label>
+            <select id="doc-select" class="form-control" style="background-color:#1e3a8a; border-color:#3b82f6;" onchange="loadTemplateForEditing()">
+                <option value="">Choose a template...</option>
+                {% for t in templates %}
+                <option value="{{ t.id }}" data-name="{{ t.template_name }}">{{ t.template_name }}{% if t.updated_by %} (last edited by {{ t.updated_by }}){% endif %}</option>
+                {% endfor %}
+            </select>
+            {% for t in templates %}
+            <input type="hidden" id="tpl_content_{{ t.id }}" value="{{ t.template_content | forceescape }}">
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Placeholder Reference -->
+    <div class="info-box" style="margin-bottom:20px;">
+        <strong>Placeholder Reference:</strong> Use <code style="color:#60a5fa;">[placeholder_name]</code> in your template. These are auto-filled when generating a letter:<br>
+        <span style="color:#60a5fa; font-weight:600;">
+        [Employee_Name] [Employee_ID] [Designation] [Department] [Joining_Date] [Last_Working_Date]
+        [Company_Name] [HR_Name] [Date_of_issue] [Settlement_Date]
+        [Pending_Salary] [Leave_Encashment] [Bonus] [Reimbursements] [Deductions] [FNF_Amount]
+        [Key_Skills] [Projects]
+        </span>
+    </div>
+
+    <!-- Editor area (hidden until template selected) -->
+    <div id="editor-section" class="te-card" style="display:none;">
+        <form action="/hrms/letters/templates/save" method="POST" id="edit-form">
+            <div class="form-group">
+                <label>Template Name</label>
+                <input type="text" name="template_name" id="edit-template-name" class="form-control" readonly style="background:#1f2937;">
+            </div>
+            <div class="form-group">
+                <label>Template Content (HTML)</label>
+                <textarea name="template_content" id="edit-template-content" class="form-control" rows="22" style="font-family:'Courier New',monospace; font-size:13px; line-height:1.6;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 10px;">
+                <button type="submit" class="btn-primary">💾 Save Template</button>
+                <button type="button" class="btn-success" onclick="previewTemplate()">👁 Preview</button>
+                <button type="button" class="btn-danger" id="btn-delete" onclick="deleteTemplate()">🗑 Delete Template</button>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn-primary" style="background:#8b5cf6;" onclick="showVersionHistory()">📜 Version History</button>
+                <button type="button" class="btn-primary" style="background:#f59e0b;" onclick="duplicateTemplate()">📋 Duplicate Template</button>
+            </div>
+        </form>
+        
+        <!-- Version History Modal -->
+        <div id="versions-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 600px;">
+                <span class="modal-close" onclick="closeVersionsModal()">&times;</span>
+                <h3 style="margin-top:0;">Version History</h3>
+                <div id="versions-list" style="margin-top:20px;"></div>
+            </div>
+        </div>
+        <form id="delete-form" method="POST" style="display:none;"></form>
+    </div>
+
+    <!-- Live preview area -->
+    <div id="preview-area" class="te-card" style="display:none; margin-top:20px;">
+        <h4 style="margin-bottom:10px; color:#60a5fa;">Template Preview</h4>
+        <div id="template-preview-body" style="background:#fff; color:#000; padding:20px; border-radius:6px; min-height:300px; font-family:Arial,sans-serif;">
+        </div>
+    </div>
+</div>
+
+<!-- Add Template Modal -->
+<div class="modal-overlay" id="add-modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeAddModal()">&times;</span>
+        <h3 style="margin-bottom:15px; border-bottom:1px solid #374151; padding-bottom:10px;">Add New Letter Template</h3>
+        <form action="/hrms/letters/templates/save" method="POST" onsubmit="return validateAddForm()">
+            <div class="form-group">
+                <label>Template Name *</label>
+                <input type="text" name="template_name" id="add-tpl-name" class="form-control" required placeholder="e.g. Offer Letter, Warning Letter">
+            </div>
+            <div class="form-group">
+                <label>Template Content (HTML) *</label>
+                <textarea name="template_content" id="add-tpl-content" class="form-control" rows="15" required style="font-family:'Courier New',monospace; font-size:13px;" placeholder="<h3>Your Letter Title</h3>&#10;<p>Dear [Employee_Name],</p>&#10;<p>This is to inform you...</p>"></textarea>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn-primary">💾 Save Template</button>
+                <button type="button" class="btn-success" onclick="previewAddTemplate()">👁 Preview</button>
+            </div>
+        </form>
+        <div id="add-preview-area" style="display:none; margin-top:15px; background:#fff; color:#000; padding:15px; border-radius:6px; max-height:300px; overflow-y:auto; font-family:Arial,sans-serif;"></div>
+    </div>
+</div>
+
+<script>
+function unescapeHTML(str) {
+    if (!str) return "";
+    const doc = new DOMParser().parseFromString(str, "text/html");
+    return doc.documentElement.textContent;
+}
+
+function loadTemplateForEditing() {
+    const sel = document.getElementById("doc-select");
+    const tid = sel.value;
+    if (!tid) {
+        document.getElementById("editor-section").style.display = "none";
+        document.getElementById("preview-area").style.display = "none";
+        return;
+    }
+
+    const btnDelete = document.getElementById("btn-delete");
+    const tName = sel.options[sel.selectedIndex].getAttribute("data-name");
+    if (["Experience Letter", "FNF Letter", "LOR"].includes(tName)) {
+        btnDelete.style.display = "none";
+    } else {
+        btnDelete.style.display = "inline-block";
+    }
+
+    const hiddenTpl = document.getElementById("tpl_content_" + tid);
+    document.getElementById("edit-template-name").value = tName;
+    document.getElementById("edit-template-name").readOnly = true;
+    document.getElementById("edit-template-content").value = hiddenTpl ? unescapeHTML(hiddenTpl.value) : "";
+    document.getElementById("editor-section").style.display = "block";
+    document.getElementById("preview-area").style.display = "none";
+}
+
+function previewTemplate() {
+    const content = document.getElementById("edit-template-content").value;
+    document.getElementById("template-preview-body").innerHTML = content;
+    document.getElementById("preview-area").style.display = "block";
+}
+
+function deleteTemplate() {
+    const sel = document.getElementById("doc-select");
+    const name = sel.options[sel.selectedIndex].getAttribute("data-name");
+    if (confirm("Are you sure you want to delete \"" + name + "\"? This cannot be undone.")) {
+        const form = document.getElementById("delete-form");
+        form.action = "/hrms/letters/templates/delete/" + sel.value;
+        form.submit();
+    }
+}
+
+function openAddModal() {
+    document.getElementById("add-modal").style.display = "flex";
+}
+function closeAddModal() {
+    document.getElementById("add-modal").style.display = "none";
+}
+
+function validateAddForm() {
+    const name = document.getElementById("add-tpl-name").value.trim();
+    const content = document.getElementById("add-tpl-content").value.trim();
+    if (!name || !content) {
+        alert("Both Template Name and Content are required.");
+        return false;
+    }
+    return true;
+}
+
+function previewAddTemplate() {
+    const content = document.getElementById("add-tpl-content").value;
+    const area = document.getElementById("add-preview-area");
+    area.innerHTML = content;
+    area.style.display = "block";
+}
+
+// Auto-open Add modal if ?add=true
+document.addEventListener("DOMContentLoaded", () => {
+    if (new URLSearchParams(window.location.search).get("add") === "true") {
+        openAddModal();
+    }
+});
+
+function duplicateTemplate() {
+    const sel = document.getElementById("doc-select");
+    const tName = sel.options[sel.selectedIndex].getAttribute("data-name");
+    
+    // Instead of using the edit modal, let's open the Add modal with pre-filled content
+    const content = document.getElementById("edit-template-content").value;
+    
+    openAddModal();
+    document.getElementById("add-tpl-name").value = tName + " (Copy)";
+    document.getElementById("add-tpl-content").value = content;
+}
+
+async function showVersionHistory() {
+    const tid = document.getElementById("doc-select").value;
+    if (!tid) return;
+    
+    try {
+        const res = await fetch("/hrms/letters/templates/api/versions/" + tid);
+        const versions = await res.json();
+        
+        const list = document.getElementById("versions-list");
+        list.innerHTML = "";
+        
+        if (versions.length === 0) {
+            list.innerHTML = "<p>No version history available.</p>";
+        } else {
+            versions.forEach(v => {
+                list.innerHTML += `
+                    <div style="background:#111827; padding:15px; border-radius:6px; border:1px solid #374151; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong style="color:#60a5fa;">Version ${v.version_number}</strong><br>
+                            <span style="font-size:0.8rem; color:#9ca3af;">Saved on ${v.created_at} by ${v.created_by || 'System'}</span>
+                        </div>
+                        <form action="/hrms/letters/templates/restore/${v.id}" method="POST" style="margin:0;">
+                            <button type="submit" class="btn-success" style="padding:6px 12px; font-size:12px;" onclick="return confirm('Restore this version?')">Restore</button>
+                        </form>
+                    </div>
+                `;
+            });
+        }
+        
+        document.getElementById("versions-modal").style.display = "flex";
+    } catch (err) {
+        console.error(err);
+        alert("Error fetching versions.");
+    }
+}
+
+function closeVersionsModal() {
+    document.getElementById("versions-modal").style.display = "none";
+}
+</script>
+{% endblock %}

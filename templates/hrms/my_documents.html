@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+/* ===== WRAPPER ===== */
+.docs-wrapper {
+    padding: 35px 45px;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* ===== HEADER ===== */
+.docs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+}
+
+.docs-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+/* ===== TABLE SECTION ===== */
+.docs-card {
+    background: #0f111a;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.docs-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.docs-table th {
+    text-align: left;
+    color: #d1d5db;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid #374151;
+}
+
+.docs-table td {
+    padding: 16px;
+    border-bottom: 1px solid #1f2937;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.docs-table tr:hover {
+    background-color: #1f2937;
+}
+
+.badge-status {
+    padding: 4px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-pending { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.status-verified { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.status-rejected { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 16px;
+    transition: color 0.2s;
+}
+
+.btn-icon:hover {
+    color: #f87171;
+}
+
+.btn-attachment {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    padding: 4px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    transition: all 0.2s;
+}
+
+.btn-attachment:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+
+/* ===== FORM SECTION ===== */
+.upload-section {
+    background: #0f111a;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #1f2937;
+}
+
+.upload-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 16px;
+    color: #e5e7eb;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #9ca3af;
+    font-size: 13px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #f3f4f6;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+select.form-control {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+}
+
+.file-upload-wrapper {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+    width: 100%;
+}
+
+.file-upload-wrapper input[type=file] {
+    font-size: 100px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.btn-upload {
+    display: inline-block;
+    background: #3b82f6;
+    color: white;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-upload:hover {
+    background: #2563eb;
+}
+
+.filters-wrapper {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.filters-wrapper input, .filters-wrapper select {
+    max-width: 200px;
+}
+
+@media (max-width: 768px) {
+    .docs-wrapper {
+        padding: 15px;
+    }
+    .filters-wrapper {
+        flex-direction: column;
+    }
+    .filters-wrapper input, .filters-wrapper select {
+        max-width: 100%;
+    }
+    .docs-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+</style>
+
+<div class="docs-wrapper">
+
+    <div class="docs-header">
+        <div class="docs-title">Documents ({{ employee_name }})</div>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="padding: 12px; margin-bottom: 20px; border-radius: 6px; 
+              {% if category == 'error' %}background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);
+              {% else %}background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2);{% endif %}">
+              {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="docs-card">
+        <div class="filters-wrapper">
+            <input type="text" id="searchFilter" class="form-control" placeholder="Search Title or Description...">
+            <select id="typeFilter" class="form-control">
+                <option value="">All Types</option>
+                <option value="Aadhaar">Aadhaar</option>
+                <option value="PAN Card">PAN Card</option>
+                <option value="Bank Account Details">Bank Account Details</option>
+                <option value="Professional Documents">Professional Documents</option>
+                <option value="Employment Contract">Employment Contract</option>
+                <option value="Other">Other</option>
+            </select>
+            <select id="statusFilter" class="form-control">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Verified">Verified</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+
+        <table class="docs-table" id="docsTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th>Attachment(s)</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr class="doc-row" data-type="{{ doc.document_type }}" data-status="{{ doc.verification_status }}">
+                    <td style="white-space: nowrap;">{{ doc.created_at.strftime('%m/%d/%y') if doc.created_at else '-' }}</td>
+                    <td>{{ doc.document_type }}</td>
+                    <td class="doc-title">{{ doc.document_title }}</td>
+                    <td class="doc-desc">{{ doc.description or '-' }}</td>
+                    <td>
+                        <span class="badge-status status-{{ doc.verification_status|lower }}">
+                            {{ doc.verification_status }}
+                        </span>
+                    </td>
+                    <td style="font-size: 12px;">{{ doc.remarks or '-' }}</td>
+                    <td>
+                        <a href="/hrms/employees/documents/{{ doc.id }}/view" target="_blank" class="btn-attachment">View</a>
+                        <div style="font-size: 11px; margin-top: 4px; color: #6b7280;">{{ (doc.file_size / 1024)|round(1) }} KB</div>
+                    </td>
+                    <td>
+                        <form action="/hrms/employees/documents/{{ doc.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this document?');">
+                            <button type="submit" class="btn-icon" title="Delete">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center;">No documents uploaded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="upload-section">
+        <h3>Upload new documents (* is mandatory)</h3>
+        <form action="/hrms/employees/documents/upload" method="POST" enctype="multipart/form-data">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Document Type *</label>
+                    <select name="document_type" class="form-control" required>
+                        <option value="">Please pick a type</option>
+                        <option value="Aadhaar">Aadhaar</option>
+                        <option value="PAN Card">PAN Card</option>
+                        <option value="Bank Account Details">Bank Account Details</option>
+                        <option value="Professional Documents">Professional Documents</option>
+                        <option value="Employment Contract">Employment Contract</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Document Title *</label>
+                    <input type="text" name="document_title" class="form-control" placeholder="E.g., Senior Secondary Education" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" class="form-control" placeholder="Optional details...">
+            </div>
+
+            <div class="form-group file-upload-wrapper">
+                <label class="form-label" style="color: #f87171;">Images or documents (maximum 5 MB each) *</label>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: #1f2937; border: 1px solid #374151; padding: 10px 20px; border-radius: 6px; position: relative; width: max-content; color: #60a5fa; font-weight: 500;">
+                        <span>📤 Choose a file...</span>
+                        <input type="file" name="file_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required onchange="document.getElementById('fileName').textContent = this.files[0]?.name || 'No file chosen'">
+                    </div>
+                    <span id="fileName" style="color: #9ca3af; font-size: 14px;">No file chosen</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-upload">Upload Document(s)</button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+    // Filtering Logic
+    const searchInput = document.getElementById('searchFilter');
+    const typeSelect = document.getElementById('typeFilter');
+    const statusSelect = document.getElementById('statusFilter');
+    const rows = document.querySelectorAll('.doc-row');
+
+    function filterRows() {
+        const term = searchInput.value.toLowerCase();
+        const type = typeSelect.value;
+        const status = statusSelect.value;
+
+        rows.forEach(row => {
+            const rowTitle = row.querySelector('.doc-title').textContent.toLowerCase();
+            const rowDesc = row.querySelector('.doc-desc').textContent.toLowerCase();
+            const rowType = row.getAttribute('data-type');
+            const rowStatus = row.getAttribute('data-status');
+
+            let matchesSearch = !term || rowTitle.includes(term) || rowDesc.includes(term);
+            let matchesType = !type || rowType === type;
+            let matchesStatus = !status || rowStatus === status;
+
+            if (matchesSearch && matchesType && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    searchInput.addEventListener('input', filterRows);
+    typeSelect.addEventListener('change', filterRows);
+    statusSelect.addEventListener('change', filterRows);
+</script>
+
+{% endblock %}

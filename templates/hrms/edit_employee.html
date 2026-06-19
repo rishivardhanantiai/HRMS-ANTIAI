@@ -1,62 +1,118 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container mt-4">
+<style>
+.edit-container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 30px;
+    color: #e5e7eb;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+.form-group {
+    margin-bottom: 20px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d1d5db;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.form-control {
+    width: 100%;
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #f3f4f6;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+}
+.btn-submit {
+    background: #10b981;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    margin-right: 10px;
+    font-size: 0.95rem;
+}
+.btn-submit:hover { background: #059669; }
+.btn-cancel {
+    background: #374151;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 0.95rem;
+    text-align: center;
+}
+.btn-cancel:hover { background: #4b5563; }
+</style>
 
-<div class="card shadow p-4" style="background:#0b0f19; border-radius:15px;">
-<h3 class="text-white mb-4">✏ Edit Employee</h3>
+<div class="edit-container">
+    <h3 style="color: #fff; margin-top: 0; margin-bottom: 25px;">✏ Edit Employee</h3>
 
-<form method="POST"
-      action="/hrms/employees/{{ employee.id }}/edit">
+    <form method="POST" action="/hrms/employees/{{ employee.id }}/edit">
+        <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" name="full_name" value="{{ employee.full_name }}" class="form-control" required>
+        </div>
 
-<div class="mb-3">
-<label class="text-white">Full Name</label>
-<input type="text" name="full_name"
-       value="{{ employee.full_name }}"
-       class="form-control" required>
-</div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" value="{{ employee.email }}" class="form-control" required>
+        </div>
 
-<div class="mb-3">
-<label class="text-white">Email</label>
-<input type="email" name="email"
-       value="{{ employee.email }}"
-       class="form-control" required>
-</div>
+        <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input type="text" name="phone" value="{{ employee.phone or '' }}" class="form-control">
+        </div>
 
-<div class="mb-3">
-<label class="text-white">Phone</label>
-<input type="text" name="phone"
-       value="{{ employee.phone }}"
-       class="form-control">
-</div>
+        <div class="form-group">
+            <label class="form-label">Department</label>
+            <input type="text" name="department" value="{{ employee.department or '' }}" class="form-control">
+        </div>
 
-<div class="mb-3">
-<label class="text-white">Department</label>
-<input type="text" name="department"
-       value="{{ employee.department }}"
-       class="form-control">
-</div>
+        <div class="form-group">
+            <label class="form-label">Role</label>
+            <select name="role_id" class="form-control" style="appearance: none; -webkit-appearance: none;">
+                {% for role in roles %}
+                <option value="{{ role.id }}" {% if role.id == employee.role_id %}selected{% endif %}>
+                    {{ role.role_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
 
-<div class="mb-3">
-<label class="text-white">Role</label>
-<select name="role_id" class="form-control">
+        {% if session.get("role") == "Admin" %}
+        <div class="form-group" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #374151;">
+            <label class="form-label" style="color: #60a5fa;">Reset Password (Admin Only)</label>
+            <input type="text" name="password" class="form-control" placeholder="Leave blank to keep current password">
+            <small style="color: #9ca3af; font-size: 12px; margin-top: 5px; display: block;">Entering a value here will immediately overwrite the user's login password.</small>
+        </div>
+        {% endif %}
 
-{% for role in roles %}
-<option value="{{ role.id }}"
-{% if role.id == employee.role_id %}selected{% endif %}>
-{{ role.role_name }}
-</option>
-{% endfor %}
-
-</select>
-</div>
-
-<button class="btn btn-success">Update Employee</button>
-<a href="/hrms/employees/ui" class="btn btn-secondary">Cancel</a>
-
-</form>
-
-</div>
+        <div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+            <button class="btn-submit">Update Employee</button>
+            <a href="/hrms/employees/ui" class="btn-cancel">Cancel</a>
+        </div>
+    </form>
 </div>
 
 {% endblock %}

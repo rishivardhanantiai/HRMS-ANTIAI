@@ -2,6 +2,178 @@
 {% block content %}
 
 <style>
+/* ===== FILTER ROW ALIGNMENT ===== */
+.form-row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.form-row select {
+    flex: 1;
+    min-width: 180px;
+    margin-bottom: 0 !important;
+}
+
+.form-row button {
+    margin-bottom: 0 !important;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== TABLE STYLING ===== */
+.styled-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 15px;
+}
+
+.styled-table th {
+    background: #020617 !important;
+    border-bottom: 1px solid #1e293b !important;
+    padding: 14px 16px !important;
+    font-weight: 600 !important;
+    color: #94a3b8 !important;
+}
+
+.styled-table td {
+    padding: 14px 16px !important;
+    border-bottom: 1px solid #1e293b !important;
+    vertical-align: middle;
+}
+
+.styled-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* ===== BADGES ===== */
+.badge-warning {
+    background: rgba(234, 179, 8, 0.15) !important;
+    color: #facc15 !important;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-info {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #60a5fa !important;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34d399 !important;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* ===== ACTIONS ALIGNMENT ===== */
+.actions-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.actions-cell form {
+    display: inline-flex;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.btn-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 4px 12px !important;
+    border-radius: 6px !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    border: none !important;
+    transition: all 0.2s ease !important;
+    height: 30px !important;
+    line-height: normal !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.btn-edit {
+    background: rgba(234, 179, 8, 0.15) !important;
+    color: #facc15 !important;
+    border: 1px solid rgba(234, 179, 8, 0.3) !important;
+}
+
+.btn-edit:hover {
+    background: rgba(234, 179, 8, 0.3) !important;
+    color: #facc15 !important;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.3) !important;
+}
+
+.btn-delete {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+.btn-delete:hover {
+    background: rgba(239, 68, 68, 0.3) !important;
+    color: #f87171 !important;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
+}
+
+.btn-approve {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-approve:hover {
+    background: rgba(16, 185, 129, 0.3) !important;
+    color: #34d399 !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3) !important;
+}
+
+.btn-lock {
+    background: rgba(59, 130, 246, 0.15) !important;
+    color: #60a5fa !important;
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+
+.btn-lock:hover {
+    background: rgba(59, 130, 246, 0.3) !important;
+    color: #60a5fa !important;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3) !important;
+}
+
+.btn-payslip {
+    background: rgba(148, 163, 184, 0.15) !important;
+    color: #cbd5e1 !important;
+    border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+.btn-payslip:hover {
+    background: rgba(148, 163, 184, 0.3) !important;
+    color: #cbd5e1 !important;
+    box-shadow: 0 0 10px rgba(148, 163, 184, 0.3) !important;
+}
+
 @media (max-width: 768px) {
     .payroll-table-wrap {
         overflow-x: auto;
@@ -9,9 +181,13 @@
     }
     .form-row {
         flex-direction: column;
+        align-items: stretch;
     }
     .form-row select, .form-row button {
         width: 100%;
+    }
+    .form-row button {
+        margin-top: 8px;
     }
 }
 </style>
@@ -134,44 +310,40 @@
                 </td>
 
                 <td>
+                    <div class="actions-cell">
+                        {% if run.status == "DRAFT" %}
+                            <a href="/hrms/payroll/{{ run.payroll_id }}/edit"
+                               class="btn-action btn-edit">
+                               Edit
+                            </a>
+                            <form method="POST" action="/hrms/payroll/{{ run.payroll_id }}/delete" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this draft payroll?');">
+                                <button type="submit" class="btn-action btn-delete">
+                                   Delete
+                                </button>
+                            </form>
+                        {% endif %}
 
-                    {% if run.status == "DRAFT" %}
-                        <a href="/hrms/payroll/{{ run.payroll_id }}/edit"
-                           class="btn btn-warning btn-sm">
-                           Edit
-                        </a>
-                    {% endif %}
-
-
-                    {% if session.get("role")|lower == "hr" and run.status|upper == "DRAFT" %}
-                        <form method="POST"
-                              action="{{ url_for('payroll.approve_payroll', id=run.payroll_id) }}">
-                            <button type="submit"
-                                    class="btn-small btn-info">
+                        {% if session.get("role")|lower == "hr" and run.status|upper == "DRAFT" %}
+                            <form method="POST" action="{{ url_for('payroll.approve_payroll', id=run.payroll_id) }}" style="display:inline;">
+                                <button type="submit" class="btn-action btn-approve">
                                     Approve
-                            </button>
-                        </form>
-                    {% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
 
-
-                    {% if session.get("role")|lower == "admin" and run.status|upper == "APPROVED" %}
-                        <form method="POST"
-                              action="{{ url_for('payroll.lock_payroll', id=run.payroll_id) }}">
-                            <button type="submit"
-                                    class="btn-small btn-success">
+                        {% if session.get("role")|lower == "admin" and run.status|upper == "APPROVED" %}
+                            <form method="POST" action="{{ url_for('payroll.lock_payroll', id=run.payroll_id) }}" style="display:inline;">
+                                <button type="submit" class="btn-action btn-lock">
                                     Lock
-                            </button>
-                        </form>
-                    {% endif %}
+                                </button>
+                            </form>
+                        {% endif %}
 
-
-                    <!-- Payslip Button -->
-
-                    <a href="{{ url_for('payroll.download_payslip', id=run.payroll_id) }}"
-                       class="btn-small btn-secondary">
-                       Payslip
-                    </a>
-
+                        <a href="{{ url_for('payroll.download_payslip', id=run.payroll_id) }}"
+                           class="btn-action btn-payslip">
+                           Payslip
+                        </a>
+                    </div>
                 </td>
 
             </tr>

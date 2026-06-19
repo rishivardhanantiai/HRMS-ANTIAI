@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-    const statusText = document.querySelector(".attendance-status");
+    // Rename class selector to prevent conflict with newer page-specific attendance logic
+    const statusText = document.querySelector(".legacy-attendance-status");
     const checkInBtn = document.querySelector("#checkInBtn");
     const checkOutBtn = document.querySelector("#checkOutBtn");
 

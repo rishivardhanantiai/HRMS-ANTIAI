@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .profile-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .profile-header {
+        background: #111827;
+        border-radius: 12px;
+        padding: 30px;
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        border: 1px solid #1f2937;
+        margin-bottom: 20px;
+    }
+
+    .avatar-large {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid #374151;
+    }
+
+    .profile-info h1 {
+        margin: 0 0 5px 0;
+        color: #fff;
+        font-size: 2rem;
+    }
+
+    .profile-info p {
+        margin: 0;
+        color: #9ca3af;
+        font-size: 1.1rem;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #1f2937;
+        padding-bottom: 10px;
+    }
+
+    .tab-btn {
+        background: transparent;
+        color: #9ca3af;
+        border: none;
+        padding: 10px 20px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: 0.3s;
+    }
+
+    .tab-btn:hover {
+        background: #1f2937;
+        color: #fff;
+    }
+
+    .tab-btn.active {
+        background: #3b82f6;
+        color: #fff;
+    }
+
+    .tab-content {
+        display: none;
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 25px;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table th,
+    .table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #1f2937;
+        color: #d1d5db;
+    }
+
+    .table th {
+        color: #9ca3af;
+        font-weight: 500;
+    }
+
+    .grade-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+</style>
+
+<div class="profile-wrapper">
+    <div style="margin-bottom: 20px;">
+        <a href="/hrms/employees/ui" style="color: #9ca3af; text-decoration: none; font-size: 0.95rem;">← Back to
+            Directory</a>
+    </div>
+    <div class="profile-header">
+        {% if emp.profile_photo_url %}
+        <img src="{{ emp.profile_photo_url }}" class="avatar-large">
+        {% else %}
+        <div class="avatar-large"
+            style="background:#374151; display:flex; align-items:center; justify-content:center; font-size:40px; color:#fff; font-weight:bold;">
+            {{ emp.full_name[0] | upper }}
+        </div>
+        {% endif %}
+        <div class="profile-info">
+            <h1>{{ emp.full_name }}</h1>
+            <p>{{ emp.designation }} | {{ emp.department }}</p>
+            <p style="font-size: 0.9rem; margin-top:5px;">Employee ID: {{ emp.employee_code }} • Joined: {{
+                emp.joining_date }}</p>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab(event, 'tab-profile')">Profile</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-docs')">Documents</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-leaves')">Leaves</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-salary')">Salary</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-performance')">Performance</button>
+    </div>
+
+    <div id="tab-profile" class="tab-content active">
+        <h2 style="color:#fff; margin-top:0;">Basic Information</h2>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; color:#d1d5db;">
+            <div><strong>Email:</strong> {{ emp.email }}</div>
+            <div><strong>Phone:</strong> {{ emp.phone or 'N/A' }}</div>
+            <div><strong>Gender:</strong> {{ emp.gender or 'N/A' }}</div>
+            <div><strong>Date of Birth:</strong> {{ emp.date_of_birth or 'N/A' }}</div>
+            <div><strong>Office Location:</strong> {{ emp.office_location or 'N/A' }}</div>
+            <div><strong>Status:</strong> {{ emp.status }}</div>
+        </div>
+    </div>
+
+    <div id="tab-docs" class="tab-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="color:#fff; margin-top:0;">Documents</h2>
+            <a href="/hrms/employees/{{ emp.id }}/documents" class="btn btn-blue" style="text-decoration:none;">Manage Documents</a>
+        </div>
+        {% if documents %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Document Name</th>
+                    <th>Type</th>
+                    <th>Uploaded On</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td>{{ doc.document_title }}</td>
+                    <td>{{ doc.document_type }}</td>
+                    <td>{{ doc.created_at.strftime('%Y-%m-%d') if doc.created_at else 'N/A' }}</td>
+                    <td>
+                        <span class="grade-badge" style="background: rgba(255,255,255,0.1); color: #fff;">{{
+                            doc.verification_status or 'Pending' }}</span>
+                    </td>
+                    <td class="text-end">
+                        <a href="/hrms/employees/documents/{{ doc.id }}/view" target="_blank" class="btn-small"
+                            style="background: rgba(56,189,248,0.1); color:#38bdf8; border: 1px solid rgba(56,189,248,0.3); padding: 4px 10px; border-radius: 6px; text-decoration:none; font-size:12px; white-space: nowrap;">View
+                            Document</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#9ca3af; text-align:center; padding:20px;">No documents added.</p>
+        {% endif %}
+    </div>
+
+    <div id="tab-leaves" class="tab-content">
+        <h2 style="color:#fff; margin-top:0;">Leave History</h2>
+        {% if leaves %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Leave Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Status</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leave in leaves %}
+                <tr>
+                    <td>{{ leave.leave_type }}</td>
+                    <td>{{ leave.from_date }}</td>
+                    <td>{{ leave.to_date }}</td>
+                    <td>
+                        <span class="grade-badge" style="background: rgba(255,255,255,0.1); color: #fff;">{{
+                            leave.status }}</span>
+                    </td>
+                    <td>{{ leave.reason or 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#9ca3af; text-align:center; padding:20px;">No leaves taken.</p>
+        {% endif %}
+    </div>
+
+    <div id="tab-salary" class="tab-content">
+        <h2 style="color:#fff; margin-top:0;">Salary Details</h2>
+        {% if salary %}
+        <div
+            style="display:grid; grid-template-columns:1fr 1fr; gap:20px; color:#d1d5db; background:#1f2937; padding:20px; border-radius:8px;">
+            <div><strong>Monthly Salary:</strong> ₹{{ salary.monthly_salary or 0 }}</div>
+            <div><strong>Annual CTC:</strong> ₹{{ salary.annual_ctc or 0 }}</div>
+            <div><strong>Effective From:</strong> {{ salary.effective_from or 'N/A' }}</div>
+            <div><strong>Status:</strong> <span style="color:#22c55e;">Active</span></div>
+        </div>
+        {% else %}
+        <p style="color:#9ca3af; text-align:center; padding:20px;">No salary details found.</p>
+        {% endif %}
+    </div>
+
+    <div id="tab-performance" class="tab-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="color:#fff; margin:0;">Performance History</h2>
+            <a href="/hrms/performance/start/{{ emp.id }}"
+                style="background:#3b82f6; color:#fff; padding:8px 16px; border-radius:6px; text-decoration:none;">+
+                Start Evaluation</a>
+        </div>
+
+        {% if evals %}
+        <div style="margin-bottom: 30px;">
+            <canvas id="performanceChart" height="80"></canvas>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Evaluation Date</th>
+                    <th>Cycle/Month</th>
+                    <th>Evaluation Type</th>
+                    <th>Evaluator</th>
+                    <th>Score</th>
+                    <th>Grade</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for eval in evals %}
+                <tr>
+                    <td>{{ eval.evaluation_date }}</td>
+                    <td>Cycle {{ eval.evaluation_cycle }} ({{ eval.evaluation_month }}/{{ eval.evaluation_year }})</td>
+                    <td>{{ eval.evaluation_type }}</td>
+                    <td>{{ eval.evaluator_name }}</td>
+                    <td><strong>{{ eval.final_score }}%</strong></td>
+                    <td>
+                        <span class="grade-badge" style="background: rgba(255,255,255,0.1); color: #fff;">{{ eval.grade
+                            }}</span>
+                    </td>
+                    <td>{{ eval.status }}</td>
+                    <td>
+                        <a href="/hrms/performance/view/{{ eval.id }}" class="btn-small"
+                            style="background: rgba(56,189,248,0.1); color:#38bdf8; border: 1px solid rgba(56,189,248,0.3); padding: 4px 10px; border-radius: 6px; text-decoration:none; font-size:12px; white-space: nowrap;">View
+                            Evaluation</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center; padding:40px; color:#9ca3af;">
+            No performance evaluations found for this employee.
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- Chart.js for Trend Graph -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function openTab(evt, tabId) {
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(tc => tc.classList.remove('active'));
+
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => btn.classList.remove('active'));
+
+        document.getElementById(tabId).classList.add('active');
+
+        if (evt) {
+            evt.currentTarget.classList.add('active');
+        } else {
+            // If called programmatically without event
+            document.querySelector(`.tab-btn[onclick*="${tabId}"]`).classList.add('active');
+        }
+    }
+
+    // Check URL for tab
+    document.addEventListener("DOMContentLoaded", function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        if (tab) {
+            openTab(null, 'tab-' + tab);
+        }
+    });
+
+    {% if evals %}
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    const labels = [{% for ev in evals | reverse %}'{{ ev.evaluation_month }}/{{ ev.evaluation_year }}', {% endfor %}];
+    const data = [{% for ev in evals | reverse %}{{ ev.final_score }}, {% endfor %}];
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Performance Score (%)',
+                data: data,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#9ca3af' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9ca3af' }
+                }
+            }
+        }
+    });
+    {% endif %}
+</script>
+{% endblock %}

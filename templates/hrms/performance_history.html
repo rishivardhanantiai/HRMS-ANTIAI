@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.perf-container {
+    max-width: 1100px;
+    margin: 40px auto;
+    font-family: 'Inter', sans-serif;
+    color: #e5e7eb;
+}
+.perf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 35px;
+}
+.perf-header h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.8rem;
+}
+.perf-header p {
+    margin: 5px 0 0 0;
+    color: #9ca3af;
+    font-size: 0.95rem;
+}
+.glass-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 30px;
+}
+.form-inline {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+}
+@media (max-width: 768px) {
+    .form-inline {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+.form-group {
+    flex: 1;
+}
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d1d5db;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.form-control, .form-select {
+    width: 100%;
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #f3f4f6;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+.form-control:focus, .form-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+.btn-primary-glow {
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.3s;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+.btn-primary-glow:hover {
+    background: #2563eb;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+}
+.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.styled-table th {
+    text-align: left;
+    padding: 14px 12px;
+    border-bottom: 1px solid #374151;
+    color: #9ca3af;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.styled-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid #1f2937;
+    color: #f3f4f6;
+    font-size: 0.95rem;
+}
+.score-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.score-high { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.score-mid { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.score-low { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.btn-action {
+    background: transparent;
+    border: 1px solid #374151;
+    color: #d1d5db;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: 0.2s;
+}
+.btn-action:hover {
+    border-color: #9ca3af;
+    color: #fff;
+}
+</style>
+
+<div class="perf-container">
+    <div class="perf-header">
+        <div>
+            <h2>📊 Performance Evaluations History</h2>
+            <p>Conduct employee reviews, track history, and manage Performance Improvement Plans (PIPs)</p>
+        </div>
+    </div>
+
+    <!-- Start Evaluation Dropdown Card -->
+    <div class="glass-card">
+        <h3 style="margin-top: 0; margin-bottom: 15px; color: #fff;">New Performance Evaluation</h3>
+        <div class="form-inline">
+            <div class="form-group" style="flex: 2;">
+                <label class="form-label">Select Employee</label>
+                <select id="eval-employee" class="form-select">
+                    <option value="">-- Choose Employee --</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.employee_code }}) - {{ emp.designation or 'Employee' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <button type="button" class="btn-primary-glow" onclick="startNewEvaluation()">Start Evaluation</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Evaluation History List -->
+    <div class="glass-card">
+        <h3 style="margin-top: 0; margin-bottom: 20px; color: #fff;">Evaluation Log</h3>
+        
+        <div style="overflow-x: auto;">
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Cycle</th>
+                        <th>Score</th>
+                        <th>Evaluator</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ev in evaluations %}
+                    <tr>
+                        <td>
+                            <strong>{{ ev.full_name }}</strong>
+                            <div style="font-size: 0.8rem; color: #9ca3af; margin-top: 2px;">{{ ev.employee_code }} | {{ ev.designation }}</div>
+                        </td>
+                        <td>{{ ev.evaluation_month }}/{{ ev.evaluation_year }}</td>
+                        <td>
+                            {% set score = ev.final_score | float %}
+                            {% if score >= 80 %}
+                            <span class="score-badge score-high">{{ score }}%</span>
+                            {% elif score >= 60 %}
+                            <span class="score-badge score-mid">{{ score }}%</span>
+                            {% else %}
+                            <span class="score-badge score-low">{{ score }}%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ev.evaluator_name }}</td>
+                        <td>
+                            {% if ev.status == 'Draft' %}
+                            <span style="color: #9ca3af; font-weight: 500;">Draft</span>
+                            {% elif ev.status == 'Completed' %}
+                            <span style="color: #60a5fa; font-weight: 500;">Completed</span>
+                            {% elif ev.status == 'Acknowledged' %}
+                            <span style="color: #34d399; font-weight: 500;">Acknowledged</span>
+                            {% else %}
+                            <span style="color: #f59e0b; font-weight: 500;">{{ ev.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right; white-space: nowrap;">
+                            <a href="/hrms/performance/view/{{ ev.id }}" class="btn-action">View</a>
+                            <a href="/hrms/performance/export/{{ ev.id }}" class="btn-action" style="margin-left: 5px; border-color: rgba(96, 165, 250, 0.4); color: #60a5fa;">PDF</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #9ca3af; padding: 40px;">No performance evaluations found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function startNewEvaluation() {
+    const empId = document.getElementById('eval-employee').value;
+    if (!empId) {
+        showToast("Please select an employee first.", "error");
+        return;
+    }
+    window.location.href = "/hrms/performance/start/" + empId;
+}
+</script>
+
+{% endblock %}

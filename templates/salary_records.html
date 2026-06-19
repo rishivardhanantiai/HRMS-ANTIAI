@@ -20,6 +20,8 @@
             <tr>
                 <th>Employee</th>
                 <th>Salary Structure</th>
+                <th>Monthly Salary</th>
+                <th>Annual CTC</th>
                 <th>Effective From</th>
             </tr>
         </thead>
@@ -29,6 +31,8 @@
             <tr>
                 <td>{{ record.employee_name }}</td>
                 <td>{{ record.structure_name }}</td>
+                <td>₹ {{ record.monthly_amount or 0 }}</td>
+                <td>₹ {{ record.annual_ctc or 0 }}</td>
                 <td>{{ record.effective_from }}</td>
             </tr>
             {% endfor %}

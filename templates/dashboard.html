@@ -4,75 +4,568 @@
 
 <style>
 .dashboard-center {
-    max-width: 980px;
+    max-width: 1200px;
     margin: 0 auto;
+    font-family: 'Inter', system-ui, sans-serif;
+    padding: 24px;
 }
 
-.dashboard-title {
-    font-size: clamp(30px, 5vw, 42px);
-}
-
-.dashboard-subtitle {
-    margin-bottom: 28px;
-}
-
-.stats {
+/* Dashboard Grid */
+.dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    grid-template-columns: 1.8fr 1.2fr;
+    gap: 25px;
+}
+
+@media (max-width: 992px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.left-col, .right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* KPI Cards Row (Stretches across top) */
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
 }
 
-.stat-card {
-    min-width: 0;
+@media (max-width: 768px) {
+    .kpi-row {
+        grid-template-columns: 1fr;
+    }
 }
 
-@media (max-width: 768px) {
-    .dashboard-center {
-        padding: 0 4px;
-    }
+.kpi-card-link {
+    text-decoration: none;
+    display: block;
+    color: inherit;
+}
 
-    .dashboard-subtitle {
-        margin-bottom: 20px;
-    }
+.kpi-card {
+    background: #0b0b0b;
+    border: 1px solid #1a1a1a;
+    border-radius: 16px;
+    padding: 24px 20px;
+    text-align: center;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+}
 
-    .stats {
+.kpi-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+}
+
+.kpi-title {
+    color: #8a8a8a;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.kpi-val {
+    color: #fff;
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+/* Performance Overview Wrapper Card */
+.perf-overview {
+    background: #0b0b0b;
+    border: 1px solid #1a1a1a;
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.perf-header {
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.perf-stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 500px) {
+    .perf-stats-row {
         grid-template-columns: 1fr;
-        gap: 14px;
     }
+}
 
-    .stat-card {
-        padding: 22px 20px;
-    }
+.perf-stat-card {
+    background: #050505;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+    transition: border-color 0.2s ease;
+}
 
-    .stat-card p {
-        font-size: 30px;
+.perf-stat-card:hover {
+    border-color: #3b82f6;
+}
+
+.perf-stat-title {
+    color: #8a8a8a;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.perf-stat-val-green { color: #10b981; font-size: 1.6rem; font-weight: 700; }
+.perf-stat-val-orange { color: #f97316; font-size: 1.6rem; font-weight: 700; }
+.perf-stat-val-blue { color: #3b82f6; font-size: 1.6rem; font-weight: 700; }
+
+/* Performance Lists Grid */
+.perf-lists-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 600px) {
+    .perf-lists-row {
+        grid-template-columns: 1fr;
     }
+}
+
+.perf-list-card {
+    background: #050505;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 18px;
+}
+
+.perf-list-header {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.header-green { color: #10b981; }
+.header-red { color: #f87171; }
+
+.perf-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    background: #0b0b0b;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #1a1a1a;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.perf-list-item:hover {
+    background: #111;
+    border-color: #333;
+}
+
+/* Right Column Widgets */
+.right-card {
+    background: #0b0b0b;
+    border: 1px solid #1a1a1a;
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.right-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1a1a1a;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.right-card-title {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+/* Badges */
+.badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+.badge-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-orange { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+.badge-purple { background: rgba(168, 85, 247, 0.15); color: #a78bfa; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+/* Documents and Items */
+.doc-item {
+    background: #050505;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.doc-item:hover {
+    border-color: #3b82f6;
+}
+
+.doc-title {
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.doc-subtitle {
+    color: #8a8a8a;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.doc-item-body {
+    flex-grow: 1;
+}
+
+.doc-item-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+    .doc-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .doc-item-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* Buttons */
+.btn-blue {
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-blue:hover {
+    background: #2563eb;
+}
+
+.btn-dark {
+    display: block;
+    width: 100%;
+    background: #111;
+    color: #cbd5e1;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    margin-top: 15px;
+}
+
+.btn-dark:hover {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #333;
+}
+
+.empty-state {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.9rem;
+    padding: 24px 0;
 }
 </style>
 
 <div class="dashboard-center">
 
-    <h1 class="dashboard-title">Welcome to HRMS</h1>
+    <!-- TOP KPI ROW -->
+    <div class="kpi-row" style="margin-bottom: 25px;">
+        <a href="/hrms/employees/ui" class="kpi-card-link">
+            <div class="kpi-card">
+                <div class="kpi-title">Active Employees</div>
+                <div class="kpi-val">{{ total_employees }}</div>
+            </div>
+        </a>
+        <a href="/jobs" class="kpi-card-link">
+            <div class="kpi-card">
+                <div class="kpi-title">Total Jobs</div>
+                <div class="kpi-val">{{ total_jobs }}</div>
+            </div>
+        </a>
+        <a href="/applications" class="kpi-card-link">
+            <div class="kpi-card">
+                <div class="kpi-title">Total Applications</div>
+                <div class="kpi-val">{{ total_applications }}</div>
+            </div>
+        </a>
+    </div>
 
-    <p class="subtitle dashboard-subtitle">
-        Overview of your hiring activity
-    </p>
+    <div class="dashboard-grid">
+        <!-- LEFT COLUMN -->
+        <div class="left-col">
+            <div class="perf-overview">
+                <div class="perf-header">Performance Overview</div>
+                
+                <div class="perf-stats-row">
+                    <div class="perf-stat-card">
+                        <div class="perf-stat-title">Evaluated This Month</div>
+                        <div class="perf-stat-val-green">{{ perf_metrics.evaluated_this_month }}</div>
+                    </div>
+                    <div class="perf-stat-card">
+                        <div class="perf-stat-title">Pending Evaluations</div>
+                        <div class="perf-stat-val-orange">{{ perf_metrics.pending_this_month }}</div>
+                    </div>
+                    <div class="perf-stat-card">
+                        <div class="perf-stat-title">Avg Company Score</div>
+                        <div class="perf-stat-val-blue">{{ perf_metrics.avg_company_score }}%</div>
+                    </div>
+                </div>
 
-    <div class="stats">
+                <div class="perf-lists-row">
+                    <div class="perf-list-card">
+                        <div class="perf-list-header header-green">Top 5 Performers</div>
+                        {% if perf_metrics.top_performers %}
+                            {% for tp in perf_metrics.top_performers %}
+                            <div class="perf-list-item">
+                                <span>{{ tp.full_name }}</span>
+                                <span style="font-weight:600;">{{ tp.final_score }}%</span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">No data yet.</div>
+                        {% endif %}
+                    </div>
 
-        <div class="stat-card">
-            <span>Total Jobs</span>
-            <p>{{ total_jobs }}</p>
+                    <div class="perf-list-card">
+                        <div class="perf-list-header header-red">Needs Improvement</div>
+                        {% if perf_metrics.bottom_performers %}
+                            {% for bp in perf_metrics.bottom_performers %}
+                            <div class="perf-list-item">
+                                <span>{{ bp.full_name }}</span>
+                                <span style="font-weight:600;">{{ bp.final_score }}%</span>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">No data yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <!-- PERFORMANCE ALERTS -->
+            <div class="right-card" style="margin-top: 25px;">
+                <div class="right-card-header">
+                    <div class="right-card-title">Performance Alerts</div>
+                    {% set notif_count = notifications | length %}
+                    <div class="badge badge-purple">{{ notif_count }}</div>
+                </div>
+                {% if notifications %}
+                    {% for notif in notifications %}
+                    <div class="doc-item">
+                        <div class="doc-item-body">
+                            <div class="doc-title">{{ notif.title }}</div>
+                            <div class="doc-subtitle">{{ notif.message }}</div>
+                        </div>
+                        {% if notif.link %}
+                        <div class="doc-item-actions">
+                            <a href="{{ notif.link }}" class="btn-blue">Take Action</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">No performance alerts.</div>
+                {% endif %}
+            </div>
         </div>
 
-        <div class="stat-card">
-            <span>Total Applications</span>
-            <p>{{ total_applications }}</p>
-        </div>
+        <!-- RIGHT COLUMN -->
+        <div class="right-col">
+            <!-- PENDING LEAVES -->
+            <div class="right-card" id="pendingLeavesCard">
+                <div class="right-card-header">
+                    <div class="right-card-title">Pending Leaves</div>
+                    <div class="badge badge-red" id="pendingLeavesBadge">{{ pending_leaves }}</div>
+                </div>
+                <div id="pendingLeavesContainer">
+                    <div class="empty-state">Loading pending leaves...</div>
+                </div>
+                <a href="/hrms/leave/manage" class="btn-dark">View All Leave Requests</a>
+            </div>
 
-        
+            <!-- PENDING DOCUMENTS -->
+            <div class="right-card" id="pendingDocsCard">
+                <div class="right-card-header">
+                    <div class="right-card-title">Pending Documents</div>
+                    <div class="badge badge-orange" id="pendingDocsBadge">{{ pending_docs }}</div>
+                </div>
+                <div id="pendingDocsContainer">
+                    <div class="empty-state">Loading pending documents...</div>
+                </div>
+                <a href="/hrms/employees/ui" class="btn-dark">Go to Employees Directory</a>
+            </div>
+
+        </div>
     </div>
 
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    window.loadPendingLeaves = function() {
+        const container = document.getElementById("pendingLeavesContainer");
+        const badge = document.getElementById("pendingLeavesBadge");
+        
+        container.innerHTML = '<div class="empty-state">Loading...</div>';
+        
+        fetch("/hrms/leave/api/pending")
+            .then(res => {
+                if (!res.ok) throw new Error("API error");
+                return res.json();
+            })
+            .then(data => {
+                const requests = data.requests || [];
+                badge.textContent = requests.length;
+                
+                if (requests.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No pending requests</div>';
+                    return;
+                }
+                
+                let html = "";
+                requests.slice(0, 3).forEach(req => {
+                    html += `
+                        <div class="doc-item">
+                            <div class="doc-item-body">
+                                <div class="doc-title">${req.employee_name || "Employee"}</div>
+                                <div class="doc-subtitle">
+                                    Type: <strong>${req.leave_type || "Leave"}</strong> | Period: <strong>${req.from_date}</strong> to <strong>${req.to_date}</strong><br>
+                                    Reason: ${req.reason || "None"}
+                                </div>
+                            </div>
+                            <div class="doc-item-actions">
+                                <a href="/hrms/leave/update/${req.id}/approve" class="btn-blue" style="background:#10b981;">Approve</a>
+                                <a href="/hrms/leave/update/${req.id}/reject" class="btn-blue" style="background:#ef4444;">Reject</a>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                container.innerHTML = `
+                    <div class="empty-state" style="color:#ef4444;">
+                        Failed to load pending leaves.
+                        <button onclick="loadPendingLeaves()" class="btn-blue" style="margin-top:10px; background:#4b5563; font-size:12px; padding:4px 8px; border:none; cursor:pointer;">Retry</button>
+                    </div>
+                `;
+            });
+    };
+
+    window.loadPendingDocs = function() {
+        const container = document.getElementById("pendingDocsContainer");
+        const badge = document.getElementById("pendingDocsBadge");
+        
+        container.innerHTML = '<div class="empty-state">Loading...</div>';
+        
+        fetch("/hrms/employees/documents/api/pending")
+            .then(res => {
+                if (!res.ok) throw new Error("API error");
+                return res.json();
+            })
+            .then(data => {
+                const docs = data.documents || [];
+                badge.textContent = docs.length;
+                
+                if (docs.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No pending documents</div>';
+                    return;
+                }
+                
+                let html = "";
+                docs.slice(0, 3).forEach(doc => {
+                    html += `
+                        <div class="doc-item">
+                            <div class="doc-item-body">
+                                <div class="doc-title">${doc.full_name || "Employee"}</div>
+                                <div class="doc-subtitle">
+                                    Document: <strong>${doc.document_title || doc.document_type}</strong><br>
+                                    Uploaded: ${doc.created_at}
+                                </div>
+                            </div>
+                            <div class="doc-item-actions">
+                                <a href="/hrms/employees/${doc.employee_id}/documents" class="btn-blue">View Details</a>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                container.innerHTML = `
+                    <div class="empty-state" style="color:#ef4444;">
+                        Failed to load pending documents.
+                        <button onclick="loadPendingDocs()" class="btn-blue" style="margin-top:10px; background:#4b5563; font-size:12px; padding:4px 8px; border:none; cursor:pointer;">Retry</button>
+                    </div>
+                `;
+            });
+    };
+
+    loadPendingLeaves();
+    loadPendingDocs();
+    
+    {% if total_employees == 0 and total_jobs == 0 and total_applications == 0 %}
+        const alertHtml = `
+            <div style="background:rgba(239, 68, 68, 0.15); border:1px solid #ef4444; border-radius:8px; padding:15px; margin-bottom:20px; color:#ef4444; display:flex; justify-content:space-between; align-items:center;">
+                <span><strong>Database Connection Failure:</strong> Silently loaded with 0 values. Please retry connection.</span>
+                <button onclick="window.location.reload()" class="btn-blue" style="background:#ef4444; padding:6px 12px; border:none; cursor:pointer;">Retry Reload</button>
+            </div>
+        `;
+        document.querySelector(".dashboard-center").insertAdjacentHTML("afterbegin", alertHtml);
+    {% endif %}
+});
+</script>
 
 {% endblock %}

@@ -304,9 +304,9 @@ def download_payslip(id):
 
     deductions_data = [
         ["Deductions", "Amount"],
-        ["Attendance Deduction", payroll["attendance_deduction"]],
-        ["PF", payroll["pf"]],
-        ["Tax", payroll["tax"]],
+        ["Attendance Deduction", payroll.get("attendance_deduction", 0)],
+        ["PF", payroll.get("pf", 0)],
+        ["Tax", payroll.get("tax", 0)], 
     ]
 
     deductions_table = Table(deductions_data, colWidths=[250, 150])
