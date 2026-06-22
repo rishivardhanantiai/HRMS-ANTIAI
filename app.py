@@ -884,7 +884,7 @@ def applications():
                     a.id,
                     j.title AS job_title,
                     a.applied_at,
-                    a.candidate_name,
+                    a.applicant_name,
                     a.email,
                     a.phone,
                     a.resume_url,
@@ -901,7 +901,7 @@ def applications():
                     a.id,
                     j.title AS job_title,
                     a.applied_at,
-                    a.candidate_name,
+                    a.applicant_name,
                     a.email,
                     a.phone,
                     a.resume_url,
@@ -920,7 +920,7 @@ def applications():
             {"select": "id,title", "order": "created_at.desc"},
         )
         # Try fetching with multiple fields to handle schema differences (old vs new)
-        selected_filter = {"select": "id,job_id,candidate_name,name,email,phone,resume_url,applied_at,created_at,cover_letter,status", "order": "created_at.desc"}
+        selected_filter = {"select": "id,job_id,applicant_name,name,email,phone,resume_url,applied_at,created_at,cover_letter,status", "order": "created_at.desc"}
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         
@@ -932,7 +932,7 @@ def applications():
             {
                 "id": a.get("id"),
                 "job_title": job_lookup.get(str(a.get("job_id")), "-"),
-                "candidate_name": a.get("candidate_name") or a.get("name"),
+                "applicant_name": a.get("applicant_name") or a.get("name") or "—",
                 "applied_at": a.get("applied_at") or a.get("created_at"),
                 "email": a.get("email"),
                 "phone": a.get("phone"),
@@ -988,7 +988,7 @@ def import_applications_csv():
     rows = list(reader)
 
     def parse_row(row):
-        name = (row.get("name") or row.get("candidate_name") or row.get("full_name") or "").strip()
+        name = (row.get("name") or row.get("applicant_name") or row.get("full_name") or "").strip()
         email = (row.get("email") or "").strip()
         phone = (row.get("phone") or "").strip() or None
         resume_url = (row.get("resume_url") or row.get("resume") or "").strip() or None
@@ -1188,7 +1188,7 @@ def download_excel():
             SELECT
                 j.title AS Job,
                 a.applied_at AS Applied_At,
-                a.candidate_name AS Applicant,
+                a.applicant_name AS Applicant,
                 a.email AS Email,
                 a.phone AS Phone,
                 a.resume_url AS Resume_URL,
@@ -1429,5 +1429,5 @@ def download_salary_records():
 # RUN SERVER
 # =========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5001))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
