@@ -629,11 +629,11 @@ def dashboard():
     except Exception as e:
         print("Error fetching dashboard metrics:", e)
         try:
-            total_jobs = len(supabase_rest.get_rows("jobs", {"select": "id"}))
-            total_applications = len(supabase_rest.get_rows("applications", {"select": "id"}))
-            total_employees = len(supabase_rest.get_rows("hrms_employees", {"select": "id", "status": "in.(active,Active)"}))
-            pending_leaves = len(supabase_rest.get_rows("leave_applications", {"select": "id", "status": "eq.Pending"}))
-            pending_docs = len(supabase_rest.get_rows("employee_documents", {"select": "id", "verification_status": "eq.Pending"}))
+            total_jobs = supabase_rest.get_count("jobs")
+            total_applications = supabase_rest.get_count("applications")
+            total_employees = supabase_rest.get_count("hrms_employees", {"status": "in.(active,Active)"})
+            pending_leaves = supabase_rest.get_count("leave_applications", {"status": "eq.Pending"})
+            pending_docs = supabase_rest.get_count("employee_documents", {"verification_status": "eq.Pending"})
             
             # Simple fallback for company average
             perf_metrics["avg_company_score"] = 0
