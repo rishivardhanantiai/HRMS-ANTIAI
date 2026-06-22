@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-print("DEBUG DB HOST:", DATABASE_URL.split('@')[-1] if DATABASE_URL else "NONE")
 
 db_pool = None
 
@@ -21,7 +20,7 @@ def init_db_pool():
     if not db_pool:
         db_pool = pool.SimpleConnectionPool(
             minconn=1,
-            maxconn=5,
+            maxconn=20,
             dsn=DATABASE_URL,
             sslmode="require"
         )

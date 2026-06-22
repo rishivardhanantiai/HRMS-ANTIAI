@@ -1,143 +1,260 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="dashboard-center">
-
-    <h1>Welcome {{ session.get("employee_name") }} 👋</h1>
-    <p class="subtitle">Your personal workspace</p>
-
-    <div class="employee-stats">
-
-        <div class="stat-card">
-            <h3>📅 Attendance</h3>
-            <p>View & manage your daily attendance</p>
-            <a href="/hrms/attendance" class="btn-small">Go</a>
-        </div>
-
-        <div class="stat-card">
-            <h3>💰 Payroll</h3>
-            <p>Check your salary records</p>
-            <a href="/hrms/my-payroll" class="btn-small">View</a>
-        </div>
-
-        <div class="stat-card">
-            <h3>🏖 Leave</h3>
-            <p>Apply & track leave requests</p>
-            <a href="/hrms/leave" class="btn-small">Apply</a>
-        </div>
-
-    </div>
-
-</div>
 
 <style>
-.dashboard-center {
-    width: 100%;
-    max-width: 1100px;
-    margin: 0 auto;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.dashboard-center h1 {
-    margin: 0;
-    font-size: clamp(30px, 4vw, 42px) !important;
-    line-height: 1.2;
-    letter-spacing: 0.2px;
-}
-
-.dashboard-center .subtitle {
-    margin-top: 8px;
-    font-size: 16px;
-    color: #a3adc2;
-}
-
-.employee-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 25px;
-    margin-top: 40px;
-}
-
-.stat-card {
-    background: #111;
-    padding: 20px;
-    border-radius: 14px;
-    border: 1px solid #222;
-    transition: 0.3s;
-}
-
-.stat-card h3 {
-    font-size: 22px;
-    line-height: 1.3;
-    margin: 0 0 8px;
-}
-
-.stat-card p {
-    font-size: 18px;
-    line-height: 1.45;
-    margin: 0;
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-}
-
-.btn-small {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 6px 12px;
-    background: linear-gradient(45deg,#3b82f6,#6366f1);
-    border-radius: 6px;
-    color: white;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-@media (max-width: 992px) {
-    .employee-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 28px;
-    }
-}
-
-@media (max-width: 768px) {
-    .dashboard-center h1 {
-        font-size: 26px !important;
-        line-height: 1.25;
-    }
-
-    .dashboard-center .subtitle {
-        font-size: 14px;
-    }
-
-    .employee-stats {
-        grid-template-columns: 1fr;
-        gap: 14px;
-        margin-top: 22px;
-    }
-
-    .stat-card {
-        padding: 16px;
-    }
-
-    .stat-card h3 {
-        font-size: 18px;
-        margin-bottom: 8px;
-    }
-
-    .stat-card p {
-        font-size: 14px;
-        margin-bottom: 10px;
-    }
-
-    .btn-small {
-        width: 100%;
-        text-align: center;
-        padding: 10px 12px;
-    }
-}
+.emp-dashboard-center { max-width: 1200px; margin: 0 auto; font-family: 'Inter', sans-serif; padding: 20px; }
+.emp-dashboard-grid { display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 25px; }
+@media (max-width: 992px) { .emp-dashboard-grid { grid-template-columns: 1fr; } }
+.left-col, .right-col { display: flex; flex-direction: column; gap: 25px; }
+.welcome-header { margin-bottom: 25px; }
+.welcome-header h1 { font-size: 32px; font-weight: 700; color: #fff; margin: 0; }
+.welcome-header p { font-size: 16px; color: #9ca3af; margin: 5px 0 0 0; }
+.widget-card { background: #050505; border: 1px solid #1a1a1a; border-radius: 16px; padding: 18px; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.widget-card:hover { border-color: rgba(59, 130, 246, 0.25); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); }
+.widget-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1a1a1a; padding-bottom: 15px; margin-bottom: 20px; }
+.widget-title { font-size: 1.15rem; font-weight: 700; color: #fff; }
+.status-indicator { padding: 4px 10px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; }
+.status-green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.status-orange { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+.status-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.badge-count { background: #1f2937; color: #9ca3af; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.list-item { background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.list-item-title { font-weight: 600; color: #fff; font-size: 0.95rem; }
+.list-item-sub { font-size: 0.85rem; color: #9ca3af; margin-top: 3px; }
+.quick-links-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.link-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 12px; padding: 12px 10px; text-align: center; color: #d1d5db; text-decoration: none; transition: transform 0.2s, background 0.2s, border-color 0.2s; }
+.link-btn:hover { transform: translateY(-2px); background: #111; border-color: #3b82f6; color: #fff; }
+.link-icon { font-size: 1.2rem; margin-bottom: 5px; }
+.link-label { font-size: 0.85rem; font-weight: 600; }
+.btn-primary-dashboard { display: block; width: 100%; background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff; border: none; padding: 12px; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 600; margin-top: 15px; transition: opacity 0.2s; cursor: pointer; }
+.btn-primary-dashboard:hover { opacity: 0.9; }
+.attendance-timer { font-size: 2.2rem; font-weight: 700; text-align: center; color: #fff; font-family: monospace; margin: 10px 0; letter-spacing: 1px; }
 </style>
 
+<div class="emp-dashboard-center">
+    <div class="welcome-header">
+        <h1>Welcome {{ session.get("employee_name") }} 👋</h1>
+        <p>Your personal HR dashboard workspace</p>
+    </div>
+
+    <div class="emp-dashboard-grid">
+        <div class="left-col">
+            <div class="widget-card" id="dashboard-attendance-content">
+                <div class="widget-header" style="margin-bottom: 10px;">
+                    <div class="widget-title">📅 Today's Attendance</div>
+                    <div class="status-indicator status-orange">Loading...</div>
+                </div>
+                <div style="text-align: center; padding: 20px 0; color: #9ca3af;">
+                    Syncing status with server...
+                </div>
+            </div>
+
+            <div class="widget-card">
+                <div class="widget-header">
+                    <div class="widget-title">📂 Document Verification Summary</div>
+                    <div style="display:flex; gap:6px;">
+                        <span class="badge-count status-green">{{ doc_summary.verified }} Verified</span>
+                        <span class="badge-count status-orange">{{ doc_summary.pending }} Pending</span>
+                        <span class="badge-count status-red">{{ doc_summary.rejected }} Rejected</span>
+                    </div>
+                </div>
+                {% if doc_summary.recent %}
+                    {% for doc in doc_summary.recent %}
+                        <div class="list-item">
+                            <div>
+                                <div class="list-item-title">{{ doc.document_title }}</div>
+                                <div class="list-item-sub">Type: {{ doc.document_type }}</div>
+                            </div>
+                            <span class="status-indicator {% if doc.verification_status == 'Verified' %}status-green{% elif doc.verification_status == 'Pending' %}status-orange{% else %}status-red{% endif %}">
+                                {{ doc.verification_status }}
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state" style="text-align:center; padding:15px; color:#6b7280;">No onboarding documents uploaded.</div>
+                {% endif %}
+                <a href="/hrms/employees/my-documents" class="btn-primary-dashboard" style="background:#1f2937;">Manage Documents</a>
+            </div>
+
+            <div class="widget-card">
+                <div class="widget-header">
+                    <div class="widget-title">📈 Latest Performance Evaluation</div>
+                    <div class="badge-count">Total Reviews: {{ eval_summary.total }}</div>
+                </div>
+                {% if eval_summary.latest_score is not none %}
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#0a0a0a; border:1px solid #1a1a1a; padding:20px; border-radius:12px;">
+                        <div>
+                            <span style="color:#9ca3af; font-size:0.9rem;">Final Evaluation Score</span>
+                            <div style="font-size:2rem; font-weight:700; color:#fff; margin-top:5px;">{{ eval_summary.latest_score }}%</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="color:#9ca3af; font-size:0.9rem;">Grade Earned</span>
+                            <div style="font-size:2rem; font-weight:700; color:#3b82f6; margin-top:5px;">{{ eval_summary.latest_grade or "N/A" }}</div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="empty-state" style="text-align:center; padding:20px; color:#6b7280;">No evaluations conducted yet.</div>
+                {% endif %}
+                <a href="/hrms/performance/my_evaluations" class="btn-primary-dashboard" style="background:#1f2937;">View History</a>
+            </div>
+        </div>
+
+        <div class="right-col">
+            <div class="widget-card">
+                <div class="widget-header">
+                    <div class="widget-title">🏖 Leave Requests Summary</div>
+                    <div style="display:flex; gap:6px;">
+                        <span class="badge-count status-orange">{{ leave_summary.pending }} Pending</span>
+                        <span class="badge-count status-green">{{ leave_summary.approved }} Approved</span>
+                    </div>
+                </div>
+                {% if leave_summary.recent %}
+                    {% for l in leave_summary.recent %}
+                        <div class="list-item">
+                            <div>
+                                <div class="list-item-title">{{ l.leave_type }}</div>
+                                <div class="list-item-sub">{{ l.from_date }} to {{ l.to_date }}</div>
+                            </div>
+                            <span class="status-indicator {% if l.status == 'Approved' %}status-green{% elif l.status == 'Pending' %}status-orange{% else %}status-red{% endif %}">
+                                {{ l.status }}
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state" style="text-align:center; padding:15px; color:#6b7280;">No leave applications found.</div>
+                {% endif %}
+                <a href="/hrms/leave" class="btn-primary-dashboard">Apply for Leave</a>
+            </div>
+
+            <div class="widget-card">
+                <div class="widget-header">
+                    <div class="widget-title">⚡ Quick Modules</div>
+                </div>
+                <div class="quick-links-grid">
+                    <a href="/hrms/attendance" class="link-btn"><span class="link-icon">📅</span><span class="link-label">Attendance</span></a>
+                    <a href="/hrms/leave" class="link-btn"><span class="link-icon">🏖</span><span class="link-label">Leave</span></a>
+                    <a href="/hrms/my-payroll" class="link-btn"><span class="link-icon">💰</span><span class="link-label">Payroll</span></a>
+                    <a href="/hrms/employees/my-documents" class="link-btn"><span class="link-icon">📂</span><span class="link-label">Docs</span></a>
+                </div>
+                <a href="/settings" class="btn-primary-dashboard" style="background:#111; border:1px solid #222; margin-top:20px;">Settings Panel</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function dashboardCheckIn() {
+    fetch("/hrms/attendance/check-in", { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) showToast(data.message || data.error, "error");
+            else {
+                showToast("Checked In Successfully!", "success");
+                setTimeout(() => location.reload(), 1500);
+            }
+        }).catch(err => showToast("Error: " + err, "error"));
+}
+
+function dashboardCheckOut() {
+    fetch("/hrms/attendance/check-out", { method: "POST" })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) showToast(data.message || data.error, "error");
+            else {
+                showToast("Checked Out Successfully!", "success");
+                setTimeout(() => location.reload(), 1500);
+            }
+        }).catch(err => showToast("Error: " + err, "error"));
+}
+
+let stopwatchInterval = null;
+
+function loadDashboardAttendance() {
+    fetch("/hrms/attendance/today-status")
+        .then(res => res.json())
+        .then(data => {
+            const widgetContent = document.getElementById("dashboard-attendance-content");
+            clearInterval(stopwatchInterval);
+
+            let statusColor = "status-orange";
+            let statusText = "Not Checked In";
+            let badgeHtml = `<div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); color: #38bdf8; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">⏳ Status: Pending Check-In</div>`;
+            let bodyHtml = "";
+
+            if (data.status === "Checked In") {
+                statusColor = "status-green";
+                statusText = "Checked In";
+                badgeHtml = `<div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); color: #38bdf8; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">✅ Status: On-Track</div>`;
+                
+                bodyHtml = `
+                    <div class="attendance-timer" id="attendanceStopwatch">00:00:00</div>
+                    <div style="text-align: center; color: #9ca3af; font-size: 0.9rem; margin-bottom: 15px;">
+                        Checked In at: <span style="color: #fff; font-weight: 600;">${data.check_in_time}</span>
+                    </div>
+                    <button type="button" onclick="dashboardCheckOut()" class="btn-primary-dashboard" style="background: #ef4444;">Check Out Now</button>
+                `;
+            } else if (data.status === "Checked Out") {
+                statusColor = "status-green";
+                statusText = "Completed";
+                badgeHtml = `<div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); color: #38bdf8; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">✅ Status: On-Track</div>`;
+                
+                bodyHtml = `
+                    <div style="text-align: center; padding: 20px 0;">
+                        <span style="font-size: 1.1rem; color: #10b981; font-weight: 600;">Attendance Completed</span>
+                        <div style="color: #9ca3af; font-size: 0.9rem; margin-top: 8px;">
+                            Worked duration: ${data.worked}
+                        </div>
+                    </div>
+                `;
+            } else {
+                bodyHtml = `
+                    <div style="text-align: center; padding: 20px 0; color: #9ca3af;">
+                        You have not marked attendance for today yet.
+                    </div>
+                    <button type="button" onclick="dashboardCheckIn()" class="btn-primary-dashboard" style="background: #10b981;">Check In Now</button>
+                `;
+            }
+
+            widgetContent.innerHTML = `
+                <div class="widget-header" style="margin-bottom: 10px;">
+                    <div class="widget-title">📅 Today's Attendance</div>
+                    <div class="status-indicator ${statusColor}">${statusText}</div>
+                </div>
+                <div style="text-align: center; margin-bottom: 15px;">
+                    ${badgeHtml}
+                </div>
+                ${bodyHtml}
+            `;
+
+            // Bulletproof Stopwatch Initialization
+            if (data.status === "Checked In" && data.check_in_time && data.check_in_time !== "-") {
+                const timeParts = data.check_in_time.split(":");
+                const checkInTime = new Date();
+                checkInTime.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0, 0);
+
+                function updateTimer() {
+                    let diffMs = Date.now() - checkInTime.getTime();
+                    if (diffMs < 0) diffMs = 0; // Guard against negative time desync
+                    
+                    const diffHrs = Math.floor(diffMs / 3600000);
+                    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+                    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                    
+                    const timerElem = document.getElementById("attendanceStopwatch");
+                    if(timerElem) {
+                        timerElem.textContent = `${String(diffHrs).padStart(2,'0')}:${String(diffMins).padStart(2,'0')}:${String(diffSecs).padStart(2,'0')}`;
+                    }
+                }
+                updateTimer();
+                stopwatchInterval = setInterval(updateTimer, 1000);
+            }
+        });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    loadDashboardAttendance();
+    setInterval(loadDashboardAttendance, 60000);
+});
+</script>
 {% endblock %}

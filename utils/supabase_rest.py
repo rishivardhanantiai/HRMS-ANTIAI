@@ -16,7 +16,7 @@ def _base_url():
     return f"{supabase_url}/rest/v1"
 
 
-def _service_headers(prefer_representation=False):
+def _service_headers(prefer_representation=False, prefer_count=False):
     key = os.getenv("SERVICE_KEY") or os.getenv("SUPABASE_KEY")
     if not key:
         return None
@@ -27,12 +27,14 @@ def _service_headers(prefer_representation=False):
     }
     if prefer_representation:
         headers["Prefer"] = "return=representation"
+    elif prefer_count:
+        headers["Prefer"] = "count=exact"
     return headers
 
 
-def _request(method, path, params=None, payload=None, prefer_representation=False):
+def _request(method, path, params=None, payload=None, prefer_representation=False, prefer_count=False):
     base = _base_url()
-    headers = _service_headers(prefer_representation=prefer_representation)
+    headers = _service_headers(prefer_representation=prefer_representation, prefer_count=prefer_count)
     if not base or not headers:
         return None
     try:
@@ -57,17 +59,54 @@ def is_ready():
     return _base_url() is not None and _service_headers() is not None
 
 
+def get_count(table, params=None):
+    query = {"select": "id", "limit": "1"}
+    if params:
+        query.update(params)
+    response = _request("HEAD", table, params=query, prefer_count=True)
+    if response and "content-range" in response.headers:
+        try:
+            return int(response.headers["content-range"].split("/")[-1])
+        except ValueError:
+            return 0
+    return 0
+
+
 def get_rows(table, params=None):
     query = {"select": "*"}
     if params:
         query.update(params)
 
-    response = _request("GET", table, params=query)
-    if response is None or response.status_code != 200:
-        return []
+    if "limit" in query or "offset" in query:
+        response = _request("GET", table, params=query)
+        if response is None or response.status_code != 200:
+            return []
+        data = response.json()
+        return data if isinstance(data, list) else []
 
-    data = response.json()
-    return data if isinstance(data, list) else []
+    all_data = []
+    limit = 1000
+    offset = 0
+
+    while True:
+        query["limit"] = limit
+        query["offset"] = offset
+        
+        response = _request("GET", table, params=query)
+        if response is None or response.status_code != 200:
+            break
+            
+        data = response.json()
+        if not isinstance(data, list):
+            break
+            
+        all_data.extend(data)
+        if len(data) < limit:
+            break
+            
+        offset += limit
+
+    return all_data
 
 
 def get_first_row(table, params=None):
@@ -735,3 +774,26 @@ def create_salary_record(employee_id, monthly_salary, effective_from):
             "effective_from": effective_from,
         },
     )
+
+def upload_file_bytes(file_bytes, object_key, content_type="application/pdf"):
+    supabase_url = _supabase_url()
+    service_key = os.getenv("SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+    bucket = os.getenv("SUPABASE_RESUME_BUCKET", "resumes")
+    if not supabase_url or not service_key:
+        return None
+
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": content_type,
+    }
+    
+    upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{object_key}"
+    try:
+        response = httpx.post(upload_url, content=file_bytes, headers=headers, timeout=30.0)
+        if response.status_code in (200, 201):
+            return f"{supabase_url}/storage/v1/object/public/{bucket}/{object_key}"
+        return None
+    except Exception as e:
+        print("Error uploading to supabase:", e)
+        return None

@@ -44,7 +44,7 @@ The application is built to work with a local PostgreSQL database and also inclu
 - Resume uploads go to Supabase Storage
 - Excel downloads are generated in memory, which avoids filesystem issues on read-only deployments
 
-## Environment Variables of project
+## Environment Variables
 
 - `SECRET_KEY`
 - `DATABASE_URL`
@@ -68,4 +68,4 @@ The application is built to work with a local PostgreSQL database and also inclu
 
 ## Short Description
 
-HRMS is a modular HR operations app that combines job posting, applicant tracking, employee management, leave, attendance, payroll, and role-based access control in a single Flask projectfor internal usage only. 
+HRMS is a modular HR operations app that combines job posting, applicant tracking, employee management, leave, attendance, payroll, and role-based access control in a single Flask project.

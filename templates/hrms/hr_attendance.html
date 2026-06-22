@@ -7,138 +7,328 @@
         <h2>HR Attendance Panel</h2>
     </div>
 
-    <!-- FILTER CARD -->
-    <div class="hrms-card filter-card">
-
-        <form method="GET" class="filter-form">
-
-            <div class="filter-group">
-                <label>Employee</label>
-                <select name="employee_id">
-                    <option value="">All Employees</option>
-                    {% for emp in employees %}
-                    <option value="{{ emp.id }}"
-                        {% if request.args.get('employee_id') == emp.id|string %}selected{% endif %}>
-                        {{ emp.full_name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label>From Date</label>
-                <input type="date" name="from_date"
-                       value="{{ request.args.get('from_date','') }}">
-            </div>
-
-            <div class="filter-group">
-                <label>To Date</label>
-                <input type="date" name="to_date"
-                       value="{{ request.args.get('to_date','') }}">
-            </div>
-
-            <div class="filter-group button-group">
-                <button type="submit" class="btn-filter">
-                    🔍 Apply Filter
-                </button>
-
-                <a href="/hrms/attendance" class="btn-reset">
-                    Reset
-                </a>
-            </div>
-
-        </form>
-
+    <!-- TABS NAVIGATION -->
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('today-tab')">📅 Today's Monitor</button>
+        <button class="tab-btn" onclick="switchTab('history-tab')">📜 Historical Logs</button>
     </div>
 
-    {% if request.args %}
-    <div class="active-filter">
-        Filters Applied
-    </div>
-    {% endif %}
-
-    <div id="status-updated-msg" class="active-filter" style="display:none;">
-        Updated
-    </div>
-
-    <!-- TABLE CARD -->
-    <div class="hrms-card mt-4">
-
-        <div class="attendance-table-wrap">
-
-        <table class="hrms-table">
-
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Date</th>
-                    <th>Check In</th>
-                    <th>Check Out</th>
-                    <th>Duration (HH:MM)</th>
-                    <th>Edit</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for a in attendance %}
-                <tr>
-
-                    <td>{{ a.full_name }}</td>
-
-                    <td>{{ a.attendance_date }}</td>
-
-                    <td>
-                        {{ a.check_in_time.strftime("%H:%M:%S IST") if a.check_in_time else "-" }}
-                    </td>
-
-                    <td>
-                        {{ a.check_out_time.strftime("%H:%M:%S IST") if a.check_out_time else "-" }}
-                    </td>
-
-                    <td>
-                        {% if a.duration %}
-                        {% set total_minutes = a.duration|int %}
-                        {% set hours = total_minutes // 60 %}
-                        {% set minutes = total_minutes % 60 %}
-                        {{ "%02d:%02d"|format(hours, minutes) }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        {% if not a.is_locked %}
-                        <form method="POST"
-                            class="status-edit-form"
-                            onsubmit="return saveAttendanceStatus(event, this);"
-                            action="/hrms/attendance/edit/{{ a.id }}">
-                            <select name="status">
-                                <option value="Present" {% if a.status == 'Present' %}selected{% endif %}>Present</option>
-                                <option value="Absent" {% if a.status == 'Absent' %}selected{% endif %}>Absent</option>
-                                <option value="WFH" {% if a.status == 'WFH' %}selected{% endif %}>WFH</option>
-                                <option value="Leave" {% if a.status == 'Leave' %}selected{% endif %}>Leave</option>
-                                <option value="Weekend" {% if a.status == 'Weekend' %}selected{% endif %}>Weekend</option>
-                            </select>
-                            <button type="submit">Save</button>
-                        </form>
-                        {% else %}
-                            🔒 Locked
-                        {% endif %}
-                    </td>
-
-                </tr>
-                {% endfor %}
-            </tbody>
-
-        </table>
-
+    <!-- TODAY'S MONITOR TAB -->
+    <div id="today-tab" class="tab-content active-content">
+        
+        <!-- KPI METRICS GRID -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="val val-blue">{{ stats.total }}</div>
+                <div class="lbl">Total Strength</div>
+            </div>
+            <div class="stat-card">
+                <div class="val val-green">{{ stats.present }}</div>
+                <div class="lbl">Present Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="val val-teal">{{ stats.wfh }}</div>
+                <div class="lbl">WFH Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="val val-orange">{{ stats.leave }}</div>
+                <div class="lbl">On Leave</div>
+            </div>
+            <div class="stat-card">
+                <div class="val val-red">{{ stats.not_marked + stats.absent }}</div>
+                <div class="lbl">Not Checked In</div>
+            </div>
         </div>
 
+        <div id="status-updated-msg" class="active-filter" style="display:none; background: #1b5e20; color: #a5d6a7; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+            Status Updated Successfully!
+        </div>
+
+        <!-- TODAY'S ROSTER MONITOR CARD -->
+        <div class="hrms-card mt-4">
+            <h3 class="hrms-heading" style="margin-bottom: 20px; font-size: 1.1rem; color: #38bdf8;">Today's Live Employee Status</h3>
+            <div class="attendance-table-wrap">
+                <table class="hrms-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Designation</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Duration (HH:MM)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in today_monitor %}
+                        <tr>
+                            <td><strong>{{ emp.full_name }}</strong></td>
+                            <td>{{ emp.designation }}</td>
+                            <td>
+                                {{ emp.check_in_time.strftime("%I:%M:%S %p") if emp.check_in_time else "-" }}
+                            </td>
+                            <td>
+                                {{ emp.check_out_time.strftime("%I:%M:%S %p") if emp.check_out_time else "-" }}
+                            </td>
+                            <td>
+                                {% set status_lower = emp.status|lower %}
+                                <span class="status-indicator-badge {% if status_lower == 'present' %}badge-green{% elif status_lower == 'wfh' %}badge-teal{% elif status_lower == 'leave' %}badge-orange{% elif status_lower == 'absent' %}badge-red{% elif status_lower == 'weekend' %}badge-gray{% else %}badge-gray{% endif %}">
+                                    {{ emp.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if emp.duration %}
+                                    {% set hours = emp.duration // 60 %}
+                                    {% set minutes = emp.duration % 60 %}
+                                    {{ "%02d:%02d"|format(hours, minutes) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not emp.is_locked %}
+                                <form method="POST"
+                                    class="status-edit-form"
+                                    onsubmit="return saveAttendanceStatus(event, this);"
+                                    action="/hrms/attendance/mark">
+                                    <input type="hidden" name="employee_id" value="{{ emp['employee_id'] }}">
+                                    <input type="hidden" name="attendance_date" value="{{ today }}">
+                                    <select name="status" style="width:auto; display:inline-block; margin-right:5px; padding:4px;">
+                                        <option value="Not Marked" {% if emp.status == 'Not Marked' %}selected{% endif %} disabled>Not Checked In</option>
+                                        <option value="Present" {% if emp.status == 'Present' %}selected{% endif %}>Present</option>
+                                        <option value="Absent" {% if emp.status == 'Absent' %}selected{% endif %}>Absent</option>
+                                        <option value="WFH" {% if emp.status == 'WFH' %}selected{% endif %}>WFH</option>
+                                        <option value="Leave" {% if emp.status == 'Leave' %}selected{% endif %}>Leave</option>
+                                        <option value="Weekend" {% if emp.status == 'Weekend' %}selected{% endif %}>Weekend</option>
+                                    </select>
+                                    <button type="submit" style="padding:4px 10px; font-size:12px;">Save</button>
+                                </form>
+                                {% else %}
+                                    🔒 Locked
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #888;">No employee records found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- HISTORICAL LOGS TAB -->
+    <div id="history-tab" class="tab-content">
+        <!-- FILTER CARD -->
+        <div class="hrms-card filter-card">
+            <form method="GET" class="filter-form">
+                <div class="filter-group">
+                    <label>Employee</label>
+                    <select name="employee_id">
+                        <option value="">All Employees</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}"
+                            {% if request.args.get('employee_id') == emp.id|string %}selected{% endif %}>
+                            {{ emp.full_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>From Date</label>
+                    <input type="date" name="from_date"
+                           value="{{ request.args.get('from_date','') }}">
+                </div>
+
+                <div class="filter-group">
+                    <label>To Date</label>
+                    <input type="date" name="to_date"
+                           value="{{ request.args.get('to_date','') }}">
+                </div>
+
+                <div class="filter-group button-group">
+                    <button type="submit" class="btn-filter">
+                        🔍 Apply Filter
+                    </button>
+
+                    <a href="/hrms/attendance" class="btn-reset">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        {% if request.args %}
+        <div class="active-filter" style="margin-top: 15px;">
+            Filters Applied
+        </div>
+        {% endif %}
+
+        <!-- TABLE CARD -->
+        <div class="hrms-card mt-4">
+            <div class="attendance-table-wrap">
+                <table class="hrms-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Date</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Duration (HH:MM)</th>
+                            <th>Edit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in attendance %}
+                        <tr>
+                            <td>{{ a.full_name }}</td>
+                            <td>{{ a.attendance_date.strftime("%d %b %Y") if a.attendance_date and a.attendance_date.strftime is defined else a.attendance_date }}</td>
+                            <td>
+                                {{ a.check_in_time.strftime("%I:%M:%S %p") if a.check_in_time else "-" }}
+                            </td>
+                            <td>
+                                {{ a.check_out_time.strftime("%I:%M:%S %p") if a.check_out_time else "-" }}
+                            </td>
+                            <td>
+                                {% set hist_status_lower = a.status|lower %}
+                                <span class="status-indicator-badge {% if hist_status_lower == 'present' %}badge-green{% elif hist_status_lower == 'wfh' %}badge-teal{% elif hist_status_lower == 'absent' %}badge-red{% elif hist_status_lower == 'leave' %}badge-orange{% elif hist_status_lower in ['half-day', 'halfday'] %}badge-purple{% else %}badge-gray{% endif %}">
+                                    {{ a.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if a.duration %}
+                                    {% set total_minutes = a.duration|int %}
+                                    {% set hours = total_minutes // 60 %}
+                                    {% set minutes = total_minutes % 60 %}
+                                    {{ "%02d:%02d"|format(hours, minutes) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not a.is_locked %}
+                                <form method="POST"
+                                    class="status-edit-form"
+                                    onsubmit="return saveAttendanceStatus(event, this);"
+                                    action="/hrms/attendance/edit/{{ a.id }}">
+                                    <select name="status" style="width:auto; display:inline-block; margin-right:5px; padding:4px;">
+                                        <option value="Present" {% if a.status == 'Present' %}selected{% endif %}>Present</option>
+                                        <option value="Absent" {% if a.status == 'Absent' %}selected{% endif %}>Absent</option>
+                                        <option value="WFH" {% if a.status == 'WFH' %}selected{% endif %}>WFH</option>
+                                        <option value="Leave" {% if a.status == 'Leave' %}selected{% endif %}>Leave</option>
+                                        <option value="Weekend" {% if a.status == 'Weekend' %}selected{% endif %}>Weekend</option>
+                                    </select>
+                                    <button type="submit" style="padding:4px 10px; font-size:12px;">Save</button>
+                                </form>
+                                {% else %}
+                                    🔒 Locked
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #888;">No historical logs found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
 </div>
 
 <style>
+/* ===== TABS NAVIGATION ===== */
+.tabs-nav {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+}
+
+.tab-btn {
+    background: transparent;
+    color: #888;
+    border: none;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.25s ease;
+}
+
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: #fff;
+    background: linear-gradient(135deg, #3f51b5, #1a237e);
+    box-shadow: 0 4px 12px rgba(63, 81, 181, 0.3);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active-content {
+    display: block;
+}
+
+/* ===== STATS CARDS ===== */
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.stat-card {
+    flex: 1 1 calc(20% - 13px);
+    min-width: 160px;
+    background: linear-gradient(145deg, #020617, #020817);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.stat-card .val {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.stat-card .lbl {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+}
+
+.val-blue { color: #38bdf8; }
+.val-green { color: #22c55e; }
+.val-teal { color: #2dd4bf; }
+.val-orange { color: #fb923c; }
+.val-red { color: #f87171; }
+
 .filter-card {
     padding: 25px;
 }
@@ -212,6 +402,19 @@
     color: #a5d6a7;
 }
 
+.status-indicator-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.badge-green { background: rgba(27, 94, 32, 0.2); color: #81c784; }
+.badge-teal { background: rgba(0, 96, 100, 0.2); color: #4dd0e1; }
+.badge-red { background: rgba(183, 28, 28, 0.2); color: #e57373; }
+.badge-orange { background: rgba(230, 81, 0, 0.2); color: #ffb74d; }
+.badge-purple { background: rgba(74, 20, 140, 0.2); color: #ba68c8; }
+.badge-gray { background: rgba(42, 42, 42, 0.2); color: #a0a0a0; }
+
 .hrms-table tbody tr:hover {
     background: #111827;
     transition: 0.2s;
@@ -283,10 +486,45 @@
     .hrms-table td form button {
         padding: 10px 12px;
     }
+    .stat-card {
+        flex: 1 1 calc(50% - 8px);
+    }
 }
 </style>
 
 <script>
+// Switch Tabs
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active-content'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active-content');
+    
+    // Set active button
+    const targetBtn = document.querySelector(`[onclick="switchTab('${tabId}')"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+    
+    sessionStorage.setItem('attendance_active_tab', tabId);
+}
+
+// On page load persistence
+document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasFilters = urlParams.has('employee_id') || urlParams.has('from_date') || urlParams.has('to_date');
+    
+    let activeTab = 'today-tab';
+    if (hasFilters) {
+        activeTab = 'history-tab';
+    } else {
+        const storedTab = sessionStorage.getItem('attendance_active_tab');
+        if (storedTab) activeTab = storedTab;
+    }
+    
+    switchTab(activeTab);
+});
+
 async function saveAttendanceStatus(e, form) {
     if (e) {
         e.preventDefault();
@@ -321,6 +559,33 @@ async function saveAttendanceStatus(e, form) {
         statusSelect.value = data.status || selectedStatus;
         submitBtn.textContent = 'Saved';
 
+        // Dynamically update the status badge in the same row
+        const row = form.closest('tr');
+        if (row) {
+            const badge = row.querySelector('.status-indicator-badge');
+            if (badge) {
+                badge.textContent = data.status || selectedStatus;
+                
+                // Clear any existing status classes
+                badge.className = 'status-indicator-badge';
+                
+                const statusLower = (data.status || selectedStatus).toLowerCase();
+                if (statusLower === 'present') {
+                    badge.classList.add('badge-green');
+                } else if (statusLower === 'wfh') {
+                    badge.classList.add('badge-teal');
+                } else if (statusLower === 'leave') {
+                    badge.classList.add('badge-orange');
+                } else if (statusLower === 'absent') {
+                    badge.classList.add('badge-red');
+                } else if (statusLower === 'weekend') {
+                    badge.classList.add('badge-gray');
+                } else {
+                    badge.classList.add('badge-gray');
+                }
+            }
+        }
+
         const updatedMsg = document.getElementById('status-updated-msg');
         if (updatedMsg) {
             updatedMsg.style.display = 'block';
@@ -338,10 +603,10 @@ async function saveAttendanceStatus(e, form) {
         submitBtn.textContent = 'Retry';
         submitBtn.disabled = false;
         console.error(err);
+        alert(err.message || 'An error occurred while saving.');
     }
 
     return false;
 }
 </script>
-
 {% endblock %}

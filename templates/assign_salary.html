@@ -22,8 +22,18 @@
         </div>
 
         <div class="form-group">
+            <label>Salary Structure</label>
+            <select name="structure_id">
+                <option value="">Select Structure (Optional)</option>
+                {% for struct in salary_structures %}
+                <option value="{{ struct.id }}">{{ struct.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
             <label>Monthly Salary (₹)</label>
-            <input type="number" name="monthly_salary" id="salary_input" required class="no-arrow">
+            <input type="number" name="monthly_salary" id="salary_input" required class="no-arrow" min="1">
             <p id="salary_words" style="margin-top:6px; color:#888; font-size:13px;"></p>
         </div>
 

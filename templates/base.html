@@ -6,6 +6,7 @@
 <title>{{ title or "HR Panel" }}</title>
 
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 
 <style>
 
@@ -20,11 +21,10 @@
 }
 
 table tbody tr {
-    transition: background 0.25s ease, transform 0.25s ease;
+    transition: background 0.25s ease;
 }
 table tbody tr:hover {
     background: rgba(255,255,255,0.06);
-    transform: scale(1.01);
 }
 
 input, textarea, select {
@@ -68,44 +68,6 @@ input:focus, textarea:focus, select:focus {
 /* ========================= */
 /* TOAST NOTIFICATION STYLE */
 /* ========================= */
-.toast-container{
-position: fixed;
-top: 25px;
-right: 25px;
-z-index: 9999;
-}
-
-.toast{
-padding:14px 18px;
-border-radius:10px;
-margin-bottom:10px;
-box-shadow:0 8px 25px rgba(0,0,0,0.4);
-animation:slideIn 0.4s ease;
-font-size:14px;
-min-width:220px;
-}
-
-.toast.error{
-background:#ef4444;
-color:white;
-}
-
-.toast.success{
-background:#22c55e;
-color:white;
-}
-
-@keyframes slideIn{
-from{
-transform:translateX(100%);
-opacity:0;
-}
-to{
-transform:translateX(0);
-opacity:1;
-}
-}
-
 .toast-container{
     position: fixed;
     top: 25px;
@@ -214,6 +176,16 @@ class="{% if request.path.startswith('/hrms/my-payroll') %}active{% endif %}">
 My Payroll
 </a>
 
+<a href="/hrms/employees/my-documents"
+class="{% if request.path.startswith('/hrms/employees/my-documents') %}active{% endif %}">
+Documents
+</a>
+
+<a href="/hrms/performance/my_evaluations"
+class="{% if request.path.startswith('/hrms/performance/my_evaluations') %}active{% endif %}">
+My Performance
+</a>
+
 {% endif %}
 
 <!-- ================= HR / ADMIN ================= -->
@@ -253,6 +225,21 @@ Applications
 <a href="/hrms/employees/ui"
 class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
 Employees
+</a>
+
+<a href="/hrms/performance/ui"
+class="{% if request.path.startswith('/hrms/performance/ui') %}active{% endif %}">
+Performance
+</a>
+
+<a href="/hrms/exit/history"
+class="{% if request.path.startswith('/hrms/exit') %}active{% endif %}">
+Employee Exit History
+</a>
+
+<a href="/hrms/letters/generator"
+class="{% if request.path.startswith('/hrms/letters') %}active{% endif %}">
+Letter Generation
 </a>
 
 <a href="/hrms/roles/ui"
@@ -333,7 +320,26 @@ document.addEventListener("keydown", (event) => {
     }
 });
 
+window.showToast = function(message, category = "success") {
+    let container = document.querySelector(".toast-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.className = "toast-container";
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast ${category}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.transition = "opacity 0.5s";
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+};
 </script>
+<script src="/static/js/main.js"></script>
 
 </body>
 </html>

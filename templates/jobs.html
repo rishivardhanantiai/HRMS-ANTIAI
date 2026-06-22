@@ -48,6 +48,14 @@
 }
 
 .add-job-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-top 0.3s ease;
+    margin-top: 0;
+}
+
+.add-job-body.open {
+    max-height: 500px;
     margin-top: 16px;
 }
 

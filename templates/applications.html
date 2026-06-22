@@ -319,45 +319,15 @@
 
     </div>
 
-    <button type="button" class="btn btn-primary" id="openCsvModalBtn">
+    <form id="csvImportForm" method="POST" action="/applications/import-csv" enctype="multipart/form-data" style="display:none;">
+        <input type="file" name="csv_file" id="hiddenCsvInput" accept=".csv" onchange="document.getElementById('csvImportForm').submit();">
+        {% if selected_job %}
+            <input type="hidden" name="job_id" value="{{ selected_job }}">
+        {% endif %}
+    </form>
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('hiddenCsvInput').click();">
         Import CSV
     </button>
-</div>
-
-<div class="modal-backdrop" id="csvImportModal" aria-hidden="true">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="csvImportTitle">
-        <div class="modal-header">
-            <div>
-                <h3 class="modal-title" id="csvImportTitle">Import applicants from CSV</h3>
-                <p style="margin:8px 0 0; opacity:0.75; line-height:1.5;">
-                    Supported columns: <strong>name</strong>, <strong>email</strong>, <strong>phone</strong>, <strong>resume_url</strong>, <strong>cover_letter</strong>, <strong>job_id</strong>, or <strong>job_title</strong>.
-                    If job columns are missing, the selected job filter will be used.
-                </p>
-            </div>
-            <button type="button" class="modal-close" id="closeCsvModalBtn" aria-label="Close dialog">&times;</button>
-        </div>
-
-        <form method="POST" action="/applications/import-csv" enctype="multipart/form-data" style="display:grid; gap:14px;">
-            <label style="display:grid; gap:8px;">
-                <span>Choose CSV file</span>
-                <input type="file" name="csv_file" accept=".csv" class="search-input" style="width:100%; padding:10px 12px;">
-            </label>
-            {% if selected_job %}
-                <input type="hidden" name="job_id" value="{{ selected_job }}">
-            {% endif %}
-            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
-                <a href="/applications/csv-template" class="download-btn template-link">
-                    Download CSV Template
-                </a>
-                <button type="button" class="btn btn-outline" id="cancelCsvModalBtn">
-                    Cancel
-                </button>
-                <button type="submit" class="btn btn-primary">
-                    Upload File
-                </button>
-            </div>
-        </form>
-    </div>
 </div>
 
 <!-- ================= FILTER BAR ================= -->
@@ -380,9 +350,11 @@
         Filter
     </button>
     
-    <a href="/applications" class="btn btn-outline" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">
-        Refresh
-    </a>
+    <div style="display:flex; align-items:center; gap:15px;">
+        <button type="button" onclick="window.location.reload()" title="Refresh Page" style="background:transparent; border:none; color:#9ca3af; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:5px; transition:all 0.3s ease;" onmouseover="this.style.color='#fff'; this.style.transform='rotate(90deg)'" onmouseout="this.style.color='#9ca3af'; this.style.transform='rotate(0deg)'">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 1 0 2.13-5.87L21 8"></path></svg>
+        </button>
+    </div>
 
 </form>
 
@@ -394,7 +366,7 @@
                 <th>S.No</th>
                 <th>Job</th>
                 <th>Timestamp</th>
-                <th>Applicant</th>
+                <th>Applicant Name</th>
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Cover Letter</th>
@@ -552,29 +524,72 @@ async function updateStatus(selectElement) {
         selectElement.disabled = false;
     }
 }
-const csvImportModal = document.getElementById("csvImportModal");
-const openCsvModalBtn = document.getElementById("openCsvModalBtn");
-const closeCsvModalBtn = document.getElementById("closeCsvModalBtn");
-const cancelCsvModalBtn = document.getElementById("cancelCsvModalBtn");
 
-function openCsvModal() {
-    csvImportModal.classList.add("is-open");
-    csvImportModal.setAttribute("aria-hidden", "false");
-}
 
-function closeCsvModal() {
-    csvImportModal.classList.remove("is-open");
-    csvImportModal.setAttribute("aria-hidden", "true");
-}
+</script>
 
-openCsvModalBtn.addEventListener("click", openCsvModal);
-closeCsvModalBtn.addEventListener("click", closeCsvModal);
-cancelCsvModalBtn.addEventListener("click", closeCsvModal);
-csvImportModal.addEventListener("click", function(event) {
-    if (event.target === csvImportModal) {
-        closeCsvModal();
+<script>
+// Auto-refresh logic
+const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+const slider = document.querySelector('.slider');
+const sliderDot = document.querySelector('.slider-dot');
+
+function updateSliderUI(isChecked) {
+    if (isChecked) {
+        slider.style.backgroundColor = '#3b82f6';
+        sliderDot.style.transform = 'translateX(20px)';
+    } else {
+        slider.style.backgroundColor = '#374151';
+        sliderDot.style.transform = 'translateX(0)';
     }
+}
+
+// Load preference from local storage
+const savedPreference = localStorage.getItem('autoRefreshApplications');
+if (savedPreference === 'true') {
+    autoRefreshToggle.checked = true;
+    updateSliderUI(true);
+}
+
+autoRefreshToggle.addEventListener('change', (e) => {
+    const isChecked = e.target.checked;
+    localStorage.setItem('autoRefreshApplications', isChecked);
+    updateSliderUI(isChecked);
 });
+
+// Polling function
+setInterval(async () => {
+    if (autoRefreshToggle.checked) {
+        try {
+            // Keep the current URL query parameters (like selected job)
+            const currentUrl = window.location.href;
+            const response = await fetch(currentUrl);
+            if (response.ok) {
+                const htmlText = await response.text();
+                
+                // Parse the new HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                
+                // Extract new tbody
+                const newTbody = doc.querySelector('#applicationsTable tbody');
+                const currentTbody = document.querySelector('#applicationsTable tbody');
+                
+                if (newTbody && currentTbody) {
+                    currentTbody.innerHTML = newTbody.innerHTML;
+                    
+                    // Re-apply local search filter if search box has text
+                    const searchInput = document.getElementById('searchInput');
+                    if (searchInput && searchInput.value) {
+                        searchApplications(); // Trigger existing global search function
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error during auto-refresh:', error);
+        }
+    }
+}, 30000); // 30 seconds
 </script>
 
 {% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.history-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: #e5e7eb;
+}
+.history-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 20px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #1f2937;
+}
+th {
+    color: #9ca3af;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+tr:hover {
+    background: #1f2937;
+}
+.badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge-blue { background: #1e3a8a; color: #60a5fa; }
+.badge-green { background: #064e3b; color: #34d399; }
+.badge-red { background: #7f1d1d; color: #f87171; }
+.btn-sm {
+    background: #374151;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.8rem;
+    margin-right: 5px;
+}
+.btn-sm:hover { background: #4b5563; }
+</style>
+
+<div class="history-container">
+    <h2>Exit History</h2>
+    <div class="history-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Exit Type</th>
+                    <th>Last Working Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exit in exits %}
+                <tr>
+                    <td>
+                        <div style="font-weight:600;">{{ exit.full_name }}</div>
+                        <div style="font-size:0.8rem; color:#9ca3af;">{{ exit.department }}</div>
+                    </td>
+                    <td>{{ exit.exit_type }}</td>
+                    <td>{{ exit.last_working_date }}</td>
+                    <td>
+                        <span class="badge {% if exit.status == 'Exit Closed' %}badge-green{% elif exit.status == 'Termination' %}badge-red{% else %}badge-blue{% endif %}">
+                            {{ exit.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="/hrms/exit/manage/{{ exit.employee_id }}" class="btn-sm">Manage</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" style="text-align:center; padding: 20px; color:#6b7280;">No exit records found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

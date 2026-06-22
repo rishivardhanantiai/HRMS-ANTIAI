@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.exit-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: #e5e7eb;
+}
+.exit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.exit-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-bottom: 5px;
+}
+.form-control {
+    width: 100%;
+    padding: 10px;
+    background: #030712;
+    border: 1px solid #374151;
+    color: #fff;
+    border-radius: 6px;
+}
+.btn-primary {
+    background: #3b82f6;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.timeline {
+    display: flex;
+    justify-content: space-between;
+    padding: 20px 0;
+    position: relative;
+}
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #374151;
+    z-index: 0;
+}
+.timeline-step {
+    position: relative;
+    z-index: 1;
+    background: #111827;
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: 2px solid #374151;
+    color: #9ca3af;
+    font-size: 0.85rem;
+}
+.timeline-step.active {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: #1e3a8a;
+}
+
+@media (max-width: 768px) {
+    .timeline {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+        padding-left: 20px;
+    }
+    .timeline::before {
+        left: 35px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        height: auto;
+    }
+    .timeline-step {
+        width: auto;
+        box-sizing: border-box;
+    }
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}
+</style>
+
+<div class="exit-container">
+    <div class="exit-header">
+        <h2>Employee Exit History: {{ emp.full_name }} ({{ emp.id }})</h2>
+        <a href="/hrms/employees/ui" class="btn-primary" style="background:#374151;">Back to Directory</a>
+    </div>
+
+    {% if not active_exit %}
+    <div class="exit-card">
+        <h3>Initiate Exit Process</h3>
+        <form action="/hrms/exit/initiate" method="POST">
+            <input type="hidden" name="employee_id" value="{{ emp.id }}">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Exit Type</label>
+                    <select name="exit_type" class="form-control" required>
+                        <option value="Resignation">Resignation</option>
+                        <option value="Termination">Termination</option>
+                        <option value="Retirement">Retirement</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notice Period</label>
+                    <input type="text" name="notice_period" class="form-control" placeholder="e.g., 30 Days" required>
+                </div>
+                <div class="form-group">
+                    <label>Last Working Date</label>
+                    <input type="date" name="last_working_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Exit Reason</label>
+                    <input type="text" name="exit_reason" class="form-control" required>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 20px;">
+                <label>Remarks</label>
+                <textarea name="remarks" class="form-control" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn-primary" style="margin-top: 20px;">Initiate Exit</button>
+        </form>
+    </div>
+    {% else %}
+    
+    {% set stages = ['Initiated', 'Notice Period', 'Documents Generated', 'FNF Pending', 'FNF Completed', 'Exit Closed'] %}
+    <div class="exit-card">
+        <h3>Exit Workflow</h3>
+        <div class="timeline">
+            {% for stage in stages %}
+            <div class="timeline-step {% if active_exit.status == stage %}active{% endif %}">
+                {{ stage }}
+            </div>
+            {% endfor %}
+        </div>
+        
+        <form action="/hrms/exit/update_status/{{ active_exit.id }}" method="POST" style="margin-top: 20px;">
+            <input type="hidden" name="employee_id" value="{{ emp.id }}">
+            <div style="display:flex; gap:10px; align-items:center;">
+                <select name="status" class="form-control" style="width:200px;">
+                    {% for stage in stages %}
+                    <option value="{{ stage }}" {% if active_exit.status == stage %}selected{% endif %}>{{ stage }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn-primary">Update Status</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="form-grid">
+        <div class="exit-card">
+            <h3>Exit Information</h3>
+            <p><strong>Type:</strong> {{ active_exit.exit_type }}</p>
+            <p><strong>Last Working Date:</strong> {{ active_exit.last_working_date }}</p>
+            <p><strong>Reason:</strong> {{ active_exit.exit_reason }}</p>
+            <hr style="border-color:#1f2937; margin: 15px 0;">
+            <h4>Quick Actions</h4>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                <a href="/hrms/letters/generator?doc=Experience+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#10b981;">📄 Generate Experience Letter</a>
+                <a href="/hrms/letters/generator?doc=FNF+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#f59e0b;">📄 Generate FNF Letter</a>
+                <a href="/hrms/letters/generator?doc=LOR&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#8b5cf6;">📄 Generate LOR</a>
+            </div>
+            <h4>Generated Documents</h4>
+            {% if docs %}
+                <ul style="list-style:none; padding:0;">
+                {% for doc in docs %}
+                    <li style="margin-bottom:10px;">
+                        <a href="{{ doc.pdf_url }}" style="color:#38bdf8; text-decoration:none;">📄 {{ doc.document_type }}</a>
+                        <span style="font-size:0.8rem; color:#6b7280;">({{ doc.generated_at.strftime('%Y-%m-%d') }})</span>
+                    </li>
+                {% endfor %}
+                </ul>
+            {% else %}
+                <p style="color:#6b7280; font-size:0.9rem;">No documents generated yet.</p>
+            {% endif %}
+        </div>
+
+        <div class="exit-card">
+            <h3>FNF Calculator</h3>
+            <form action="/hrms/exit/save_fnf/{{ active_exit.id }}" method="POST">
+                <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                <div class="form-group">
+                    <label>Pending Salary (+)</label>
+                    <input type="number" step="0.01" id="pending_salary" name="pending_salary" class="form-control" value="{{ fnf.pending_salary if fnf else 0 }}">
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Leave Encashment (+)</label>
+                    <input type="number" step="0.01" id="leave_encashment" name="leave_encashment" class="form-control" value="{{ fnf.leave_encashment if fnf else 0 }}">
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Bonus/Incentives (+)</label>
+                    <input type="number" step="0.01" id="bonus" name="bonus" class="form-control" value="{{ fnf.bonus if fnf else 0 }}">
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Reimbursements (+)</label>
+                    <input type="number" step="0.01" id="reimbursement" name="reimbursement" class="form-control" value="{{ fnf.reimbursement if fnf else 0 }}">
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Deductions / Notice Recovery (-)</label>
+                    <input type="number" step="0.01" id="deductions" name="deductions" class="form-control" value="{{ fnf.deductions if fnf else 0 }}">
+                </div>
+                <div style="margin-top:20px; padding:15px; background:#030712; border:1px solid #1f2937; border-radius:6px;">
+                    <h4 style="margin:0;">Net Payable: <span id="net_payable_val" style="color:#22c55e;">₹ {{ fnf.net_amount if fnf else 0 }}</span></h4>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 20px; width:100%;">Save FNF</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function calculateNetPayable() {
+    const pendingSalary = parseFloat(document.getElementById('pending_salary').value) || 0;
+    const leaveEncashment = parseFloat(document.getElementById('leave_encashment').value) || 0;
+    const bonus = parseFloat(document.getElementById('bonus').value) || 0;
+    const reimbursement = parseFloat(document.getElementById('reimbursement').value) || 0;
+    const deductions = parseFloat(document.getElementById('deductions').value) || 0;
+
+    const netPayable = pendingSalary + leaveEncashment + bonus + reimbursement - deductions;
+    document.getElementById('net_payable_val').innerText = '₹ ' + netPayable.toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = ['pending_salary', 'leave_encashment', 'bonus', 'reimbursement', 'deductions'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', calculateNetPayable);
+        }
+    });
+});
+</script>
+{% endblock %}

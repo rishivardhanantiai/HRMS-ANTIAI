@@ -1,31 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="hrms-wrapper">
+{% set prev_year = year - 1 if month == 1 else year %}
+{% set prev_month = 12 if month == 1 else month - 1 %}
+{% set next_year = year + 1 if month == 12 else year %}
+{% set next_month = 1 if month == 12 else month + 1 %}
+{% set prev_month_str = "%d-%02d"|format(prev_year, prev_month) %}
+{% set next_month_str = "%d-%02d"|format(next_year, next_month) %}
 
+<div class="hrms-wrapper">
     <div class="hrms-header">
         <h2>My Attendance</h2>
-        <p style="color:#aaa;">{{ month_name }} {{ year }}</p>
     </div>
 
-    <!-- TODAY STATUS -->
-    <div class="hrms-card attendance-card">
-        <h3>Today's Attendance</h3>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; background:#0f0f0f; border:1px solid #222; padding:12px 20px; border-radius:12px;">
+        <a href="?month={{ prev_month_str }}" class="btn-small-nav">← Previous Month</a>
+        <span style="font-size:1.25rem; font-weight:700; color:#fff; letter-spacing:0.5px;">{{ month_name }} {{ year }}</span>
+        <a href="?month={{ next_month_str }}" class="btn-small-nav">Next Month →</a>
+    </div>
 
-        <div class="attendance-status" id="today-status">
+    <div class="hrms-card attendance-card">
+        <h3>Today's Status</h3>
+        <div class="attendance-status" id="today-status" style="margin-top:15px; min-height:60px;">
             Loading...
         </div>
 
-        <div class="attendance-actions">
-            <button class="btn-checkin" onclick="checkIn()">Check In</button>
-            <button class="btn-checkout" onclick="checkOut()">Check Out</button>
+        <div class="attendance-actions" style="margin-top:15px; display:flex; gap:12px;">
+            <button class="btn-checkin" id="btnCheckIn" style="display:none;" onclick="checkIn()">Check In</button>
+            <button class="btn-checkout" id="btnCheckOut" style="display:none;" onclick="checkOut()">Check Out</button>
         </div>
     </div>
 
-    <!-- CALENDAR -->
     <div class="calendar-card">
-
-        <!-- Day Names -->
         <div class="calendar-days-header">
             {% for day in day_names %}
                 <div class="day-label">{{ day }}</div>
@@ -40,12 +46,26 @@
                     {% else %}
                         {% set current_date = date(year, month, day) %}
                         {% set record = attendance_map.get(current_date) %}
-
-                        <div class="calendar-day
-                            {% if current_date.weekday() == 6 %} sunday
-                            {% elif record and record.status == 'Present' %} present
+                        {% set cell_class = "" %}
+                        {% if record %}
+                            {% if record.status == 'Present' %}{% set cell_class = "present" %}
+                            {% elif record.status == 'WFH' %}{% set cell_class = "wfh" %}
+                            {% elif record.status == 'Absent' %}{% set cell_class = "absent" %}
+                            {% elif record.status == 'Leave' %}{% set cell_class = "leave" %}
+                            {% elif record.status in ['Half-day', 'Half-Day'] %}{% set cell_class = "half-day" %}
+                            {% elif record.status == 'Weekend' %}{% set cell_class = "weekend" %}
                             {% endif %}
-                        ">
+                        {% elif current_date.weekday() == 6 %}
+                            {% set cell_class = "weekend" %}
+                        {% endif %}
+
+                        <div class="calendar-day {{ cell_class }}"
+                             data-date="{{ current_date.strftime('%d %b %Y') }}"
+                             data-status="{{ record.status if record else ('Weekend' if current_date.weekday() == 6 else 'Not Marked') }}"
+                             data-checkin="{{ record.check_in_time.strftime('%I:%M %p') if record and record.check_in_time else '-' }}"
+                             data-checkout="{{ record.check_out_time.strftime('%I:%M %p') if record and record.check_out_time else '-' }}"
+                             data-duration="{% if record and record.duration %}{{ '%02d:%02d'|format(record.duration // 60, record.duration % 60) }}{% else %}-{% endif %}"
+                             onclick="showDayDetails(this)">
                             {{ day }}
                         </div>
                     {% endif %}
@@ -53,11 +73,17 @@
             {% endfor %}
         </div>
 
+        <div class="calendar-legend" style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin-top:20px; border-top:1px solid #222; padding-top:15px; font-size:0.85rem;">
+            <div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:#1b5e20;"></span>Present</div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:#006064;"></span>WFH</div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:#b71c1c;"></span>Absent</div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:#e65100;"></span>Leave</div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:#4a148c;"></span>Half-Day</div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:#2a2a2a;"></span>Weekend</div>
+        </div>
     </div>
 
-    <!-- TABLE -->
     <div class="hrms-card">
-
         <table class="hrms-table">
             <thead>
                 <tr>
@@ -72,9 +98,13 @@
                 {% for a in attendance %}
                 <tr>
                     <td>{{ a.attendance_date.strftime("%d %b %Y") if a.attendance_date else "-" }}</td>
-                    <td>{{ a.status }}</td>
-                    <td>{{ a.check_in_time.strftime("%H:%M:%S IST") if a.check_in_time else "-" }}</td>
-                    <td>{{ a.check_out_time.strftime("%H:%M:%S IST") if a.check_out_time else "-" }}</td>
+                    <td>
+                        <span class="status-indicator-badge {% if a.status == 'Present' %}badge-green{% elif a.status == 'WFH' %}badge-teal{% elif a.status == 'Absent' %}badge-red{% elif a.status == 'Leave' %}badge-orange{% elif a.status in ['Half-day', 'Half-Day'] %}badge-purple{% else %}badge-gray{% endif %}">
+                            {{ a.status }}
+                        </span>
+                    </td>
+                    <td>{{ a.check_in_time.strftime("%I:%M %p") if a.check_in_time else "-" }}</td>
+                    <td>{{ a.check_out_time.strftime("%I:%M %p") if a.check_out_time else "-" }}</td>
                     <td>
                         {% if a.duration %}
                             {% set hours = a.duration // 60 %}
@@ -88,62 +118,47 @@
                 {% endfor %}
             </tbody>
         </table>
-
     </div>
+</div>
 
+<div id="calendarModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+    <div class="hrms-card" style="width:100%; max-width:400px; margin:0; border-color:#3b82f6; box-shadow:0 10px 30px rgba(59,130,246,0.25);">
+        <h3 id="modalDate" style="border-bottom:1px solid #222; padding-bottom:10px; margin-bottom:15px; color:#fff;">Date Details</h3>
+        <div style="display:flex; flex-direction:column; gap:12px; font-size:0.95rem; color:#d1d5db;">
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1a1a; padding-bottom:8px;"><span>Status:</span><strong id="modalStatus" style="color:#fff;">-</strong></div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1a1a; padding-bottom:8px;"><span>Check In:</span><strong id="modalCheckIn" style="color:#fff;">-</strong></div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #1a1a1a; padding-bottom:8px;"><span>Check Out:</span><strong id="modalCheckOut" style="color:#fff;">-</strong></div>
+            <div style="display:flex; justify-content:space-between;"><span>Duration:</span><strong id="modalDuration" style="color:#fff;">-</strong></div>
+        </div>
+        <button class="btn-checkin" onclick="closeCalendarModal()" style="margin-top:20px; width:100%; padding:10px; background:#3b82f6; color:#fff; border:none; border-radius:8px; cursor:pointer;">Close</button>
+    </div>
 </div>
 
 <style>
-.calendar-days-header {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #aaa;
-}
-
-.day-label {
-    text-align: center;
-}
-
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-}
-
-.calendar-day {
-    padding: 12px;
-    border-radius: 8px;
-    background: #111;
-    border: 1px solid #222;
-    text-align: center;
-}
-
-.present {
-    background: #1b5e20;
-}
-
-.sunday {
-    background: #2a2a2a;
-    color: #888;
-}
-
-.empty {
-    visibility: hidden;
-}
-.hrms-card {
-    background: #0f0f0f;
-    border-radius: 14px;
-    padding: 25px;
-    border: 1px solid #222;
-    margin-bottom: 30px;
-}
-
-.attendance-status {
-    font-size: 22px;
-    margin-bottom: 15px;
-}
+.btn-small-nav { background: #111; border: 1px solid #333; padding: 6px 12px; border-radius: 6px; color: #cfcfcf; text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+.btn-small-nav:hover { background: #222; border-color: #555; color: #fff; }
+.calendar-card { background: #0f0f0f; border: 1px solid #222; border-radius: 14px; padding: 20px; margin-bottom: 30px; box-shadow: 0 4px 25px rgba(0,0,0,0.5); }
+.calendar-days-header { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 8px; font-weight: 600; color: #aaa; }
+.day-label { text-align: center; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.calendar-day { padding: 12px; border-radius: 8px; background: #151515; border: 1px solid #222; text-align: center; cursor: pointer; font-weight: 500; transition: transform 0.2s, border-color 0.2s, background 0.2s; }
+.calendar-day:hover:not(.empty) { transform: scale(1.08); border-color: #3b82f6; z-index: 2; }
+.present { background: #1b5e20 !important; color: #fff; }
+.wfh { background: #006064 !important; color: #fff; }
+.absent { background: #b71c1c !important; color: #fff; }
+.leave { background: #e65100 !important; color: #fff; }
+.half-day { background: #4a148c !important; color: #fff; }
+.weekend { background: #2a2a2a !important; color: #888; }
+.empty { visibility: hidden; pointer-events: none; }
+.status-indicator-badge { padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.badge-green { background: rgba(27, 94, 32, 0.2); color: #81c784; }
+.badge-teal { background: rgba(0, 96, 100, 0.2); color: #4dd0e1; }
+.badge-red { background: rgba(183, 28, 28, 0.2); color: #e57373; }
+.badge-orange { background: rgba(230, 81, 0, 0.2); color: #ffb74d; }
+.badge-purple { background: rgba(74, 20, 140, 0.2); color: #ba68c8; }
+.badge-gray { background: rgba(42, 42, 42, 0.2); color: #a0a0a0; }
+.btn-checkin { background: #10b981; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight:600; cursor: pointer; }
+.btn-checkout { background: #ef4444; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight:600; cursor: pointer; }
 </style>
 
 <script>
@@ -151,8 +166,8 @@ function checkIn() {
     fetch("/hrms/attendance/check-in", { method: "POST" })
         .then(res => res.json())
         .then(data => {
-            if (!data.success) alert(data.message);
-            else location.reload();
+            if (!data.success) showToast(data.message || data.error, "error");
+            else { showToast("Checked In Successfully!", "success"); setTimeout(() => location.reload(), 1500); }
         });
 }
 
@@ -160,31 +175,86 @@ function checkOut() {
     fetch("/hrms/attendance/check-out", { method: "POST" })
         .then(res => res.json())
         .then(data => {
-            if (!data.success) alert(data.message);
-            else location.reload();
+            if (!data.success) showToast(data.message || data.error, "error");
+            else { showToast("Checked Out Successfully!", "success"); setTimeout(() => location.reload(), 1500); }
         });
 }
+
+let stopwatchInterval = null;
 
 function loadStatus() {
     fetch("/hrms/attendance/today-status")
         .then(res => res.json())
         .then(data => {
             let div = document.getElementById("today-status");
+            let btnIn = document.getElementById("btnCheckIn");
+            let btnOut = document.getElementById("btnCheckOut");
+            clearInterval(stopwatchInterval);
 
             if (data.status === "Checked In") {
-                div.innerHTML = "🟢 Checked In<br><small>Check-in: " + data.check_in_time + "</small><br><small>" + data.worked + "</small>";
+                div.innerHTML = `
+                    <div style="font-weight:600; color:#10b981;">🟢 Checked In</div>
+                    <small style="color:#aaa;">Check-in time: ${data.check_in_time}</small>
+                    <div id="todayStopwatch" style="font-size:2rem; font-weight:700; color:#fff; font-family:monospace; margin-top:8px;">00:00:00</div>
+                `;
+                btnIn.style.display = "none";
+                btnOut.style.display = "block";
+                
+                if (data.check_in_time && data.check_in_time !== "-") {
+                    const timeParts = data.check_in_time.split(":");
+                    const checkInTime = new Date();
+                    checkInTime.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0, 0);
+
+                    function updateTimer() {
+                        let diffMs = Date.now() - checkInTime.getTime();
+                        if (diffMs < 0) diffMs = 0; // Negative time guard
+                        
+                        const diffHrs = Math.floor(diffMs / 3600000);
+                        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+                        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                        
+                        const timerElem = document.getElementById("todayStopwatch");
+                        if(timerElem) {
+                            timerElem.textContent = `${String(diffHrs).padStart(2,'0')}:${String(diffMins).padStart(2,'0')}:${String(diffSecs).padStart(2,'0')}`;
+                        }
+                    }
+                    updateTimer();
+                    stopwatchInterval = setInterval(updateTimer, 1000);
+                }
             }
             else if (data.status === "Checked Out") {
-                div.innerHTML = "✅ Checked Out<br><small>Check-in: " + data.check_in_time + " | Check-out: " + data.check_out_time + "</small><br><small>" + data.worked + "</small>";
+                div.innerHTML = `
+                    <div style="font-weight:600; color:#22c55e;">✅ Checked Out</div>
+                    <small style="color:#aaa;">Check-in: ${data.check_in_time} | Check-out: ${data.check_out_time}</small>
+                    <div style="font-size:1.15rem; font-weight:600; color:#fff; margin-top:8px;">Worked: ${data.worked}</div>
+                `;
+                btnIn.style.display = "none";
+                btnOut.style.display = "none";
             }
             else {
-                div.innerHTML = "⚪ Not Marked Today";
+                div.innerHTML = "<div style='color:#a3adc2;'>⚪ Not Marked Today</div>";
+                btnIn.style.display = "block";
+                btnOut.style.display = "none";
             }
         });
 }
 
-loadStatus();
-setInterval(loadStatus, 60000);
+function showDayDetails(elem) {
+    if (elem.classList.contains("empty")) return;
+    document.getElementById("modalDate").textContent = elem.getAttribute("data-date");
+    document.getElementById("modalStatus").textContent = elem.getAttribute("data-status");
+    document.getElementById("modalCheckIn").textContent = elem.getAttribute("data-checkin");
+    document.getElementById("modalCheckOut").textContent = elem.getAttribute("data-checkout");
+    document.getElementById("modalDuration").textContent = elem.getAttribute("data-duration");
+    document.getElementById("calendarModal").style.display = "flex";
+}
+
+function closeCalendarModal() { document.getElementById("calendarModal").style.display = "none"; }
+
+document.addEventListener("DOMContentLoaded", function() {
+    loadStatus();
+    setInterval(loadStatus, 60000);
+});
 </script>
 
 {% endblock %}
