@@ -233,7 +233,7 @@ def delete_role(role_id):
         if not role_row:
             return "Role not found", 404
 
-        employees = supabase_rest.get_rows("employees", {"select": "id", "role_id": f"eq.{role_id}"})
+        employees = supabase_rest.get_rows("hrms_employees", {"select": "id", "role_id": f"eq.{role_id}"})
         if employees:
             fallback = supabase_rest.get_role_by_name("Unassigned")
             if not fallback:

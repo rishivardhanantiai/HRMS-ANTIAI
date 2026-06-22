@@ -253,8 +253,10 @@ def my_evaluations():
     if session.get("role") != "Employee":
         return redirect("/dashboard")
 
-    conn, cur = get_db(True)
+    conn, cur = None, None
+    evals = []
     try:
+        conn, cur = get_db(True)
         employee_id = session.get("employee_id")
         cur.execute("""
             SELECT p.*, COALESCE(e2.full_name, 'HR Admin') as evaluator_name 
@@ -266,15 +268,18 @@ def my_evaluations():
         """, (employee_id,))
         evals = cur.fetchall()
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
 
     return render_template("hrms/my_evaluations.html", evals=evals)
 
 @performance_bp.route("/view/<eval_id>", methods=["GET"])
 @login_required
 def view_evaluation(eval_id):
-    conn, cur = get_db(True)
+    conn, cur = None, None
+    evaluation = ratings = pip = None
     try:
+        conn, cur = get_db(True)
         cur.execute("""
             SELECT p.*, e.full_name, e.employee_code, e.department, e.designation, e.joining_date, COALESCE(e2.full_name, 'HR Admin') as evaluator_name
             FROM performance_evaluations p
@@ -303,7 +308,8 @@ def view_evaluation(eval_id):
             pip = cur.fetchone()
 
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
 
     return render_template("hrms/view_evaluation.html", eval=evaluation, ratings=ratings, pip=pip)
 
