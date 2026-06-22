@@ -333,8 +333,14 @@ def export_evaluation(eval_id):
         
         # Try importing Playwright
         import httpx
-        from playwright.sync_api import sync_playwright
-        
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            if conn and cur:
+                release_db(conn, cur)
+                conn, cur = None, None
+            return "PDF generation not available on this server.", 503
+
         # Generate PDF with Playwright
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
