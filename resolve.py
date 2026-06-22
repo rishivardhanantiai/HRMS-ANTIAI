@@ -16,7 +16,7 @@ replacement1 = """        cur.execute("SELECT id, title FROM jobs ORDER BY creat
                     a.id,
                     j.title AS job_title,
                     a.applied_at,
-                    a.applicant_name,
+                    a.candidate_name,
                     a.email,
                     a.phone,
                     a.resume_url,
@@ -33,7 +33,7 @@ replacement1 = """        cur.execute("SELECT id, title FROM jobs ORDER BY creat
                     a.id,
                     j.title AS job_title,
                     a.applied_at,
-                    a.applicant_name,
+                    a.candidate_name,
                     a.email,
                     a.phone,
                     a.resume_url,
@@ -51,7 +51,7 @@ replacement1 = """        cur.execute("SELECT id, title FROM jobs ORDER BY creat
             "jobs",
             {"select": "id,title", "order": "created_at.desc"},
         )
-        selected_filter = {"select": "id,job_id,applicant_name,email,phone,resume_url,applied_at,cover_letter,status", "order": "created_at.desc"}
+        selected_filter = {"select": "id,job_id,candidate_name,email,phone,resume_url,applied_at,cover_letter,status", "order": "created_at.desc"}
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         app_rows = supabase_rest.get_rows("applications", selected_filter)
@@ -60,7 +60,7 @@ replacement1 = """        cur.execute("SELECT id, title FROM jobs ORDER BY creat
             {
                 "id": a.get("id"),
                 "job_title": job_lookup.get(str(a.get("job_id")), "-"),
-                "applicant_name": a.get("applicant_name"),
+                "candidate_name": a.get("candidate_name"),
                 "applied_at": a.get("applied_at"),
                 "email": a.get("email"),
                 "phone": a.get("phone"),
@@ -79,7 +79,7 @@ replacement2 = """        base_query = \"\"\"
             SELECT
                 j.title AS Job,
                 a.applied_at AS Applied_At,
-                a.applicant_name AS Applicant,
+                a.candidate_name AS Applicant,
                 a.email AS Email,
                 a.phone AS Phone,
                 a.resume_url AS Resume_URL,

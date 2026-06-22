@@ -366,7 +366,7 @@
                 <th>S.No</th>
                 <th>Job</th>
                 <th>Timestamp</th>
-                <th>Applicant</th>
+                <th>Candidate Name</th>
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Cover Letter</th>
@@ -389,9 +389,9 @@
                 </td>
                 <td>
                     {% if not app.cover_letter %}
-                        - {{ app.applicant_name }}
+                        - {{ app.candidate_name }}
                     {% else %}
-                        {{ app.applicant_name }}
+                        {{ app.candidate_name }}
                     {% endif %}
                 </td>
                 <td>{{ app.email }}</td>
@@ -400,7 +400,7 @@
                     {% if app.cover_letter %}
                         <button class="btn btn-outline show-letter-btn" 
                                 style="padding:6px 12px; font-size:12px; background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8; margin: 0; line-height: 1;" 
-                                data-name="{{ app.applicant_name }}" 
+                                data-name="{{ app.candidate_name }}" 
                                 onclick="openLetter(this)">
                             View Letter
                         </button>

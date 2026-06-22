@@ -103,6 +103,8 @@ def _send_excel_dataframe(df, filename):
 
 def _supabase_headers(use_service=False):
     key = os.getenv("SERVICE_KEY") if use_service else os.getenv("SUPABASE_KEY")
+    if not key and use_service:
+        key = os.getenv("SUPABASE_KEY")
     if not key:
         return None
     return {
@@ -143,22 +145,25 @@ def _fallback_login_via_supabase(email, password, role):
         timeout=20.0,
     )
 
-    # If Auth user is missing/out-of-sync, allow login using hrms_users password hash.
-    if token_resp.status_code != 200:
-        users_url = f"{rest_base}/hrms_users"
-        user_resp = httpx.get(
-            users_url,
-            headers=service_headers,
-            params={"select": "id,email,password", "email": f"eq.{email}", "limit": "1"},
-            timeout=20.0,
-        )
-        if user_resp.status_code != 200:
-            return None
-        user_rows = user_resp.json() or []
-        if not user_rows:
-            return None
+    # Fetch user from hrms_users
+    users_url = f"{rest_base}/hrms_users"
+    user_resp = httpx.get(
+        users_url,
+        headers=service_headers,
+        params={"select": "id,email,password,role_id,employee_id", "email": f"eq.{email}", "limit": "1"},
+        timeout=20.0,
+    )
+    if user_resp.status_code != 200:
+        return None
+    user_rows = user_resp.json() or []
+    if not user_rows:
+        return None
 
-        stored_password = str(user_rows[0].get("password") or "")
+    user = user_rows[0]
+
+    # If Auth user is missing/out-of-sync, validate password using hrms_users hash
+    if token_resp.status_code != 200:
+        stored_password = str(user.get("password") or "")
         password_ok = (
             check_password_hash(stored_password, password)
             if stored_password.startswith("pbkdf2:") or stored_password.startswith("scrypt:")
@@ -167,26 +172,11 @@ def _fallback_login_via_supabase(email, password, role):
         if not password_ok:
             return None
 
-    # 2) Fetch employee row by email
-    emp_url = f"{rest_base}/hrms_employees"
-    emp_resp = httpx.get(
-        emp_url,
-        headers=service_headers,
-        params={"select": "id,full_name,email,role_id", "email": f"eq.{email}"},
-        timeout=20.0,
-    )
-    if emp_resp.status_code != 200:
-        return None
-    employees = emp_resp.json() or []
-    if not employees:
-        return None
-
-    emp = employees[0]
-    role_id = emp.get("role_id")
+    role_id = user.get("role_id")
     if not role_id:
         return None
 
-    # 3) Resolve role name
+    # Resolve role name
     role_url = f"{rest_base}/hrms_roles"
     role_resp = httpx.get(
         role_url,
@@ -204,11 +194,26 @@ def _fallback_login_via_supabase(email, password, role):
     if role_name.lower() != role.lower():
         return {"error": "Unauthorized Role Access"}
 
-    full_name = str(emp.get("full_name") or "").strip()
+    # Fetch employee name if applicable
+    full_name = None
+    employee_id = user.get("employee_id")
+    if employee_id:
+        emp_url = f"{rest_base}/hrms_employees"
+        emp_resp = httpx.get(
+            emp_url,
+            headers=service_headers,
+            params={"select": "full_name", "id": f"eq.{employee_id}"},
+            timeout=20.0,
+        )
+        if emp_resp.status_code == 200:
+            emps = emp_resp.json() or []
+            if emps:
+                full_name = str(emps[0].get("full_name") or "").strip()
+
     return {
-        "id": emp.get("id"),
-        "email": emp.get("email"),
-        "employee_id": emp.get("id"),
+        "id": user.get("id"),
+        "email": user.get("email"),
+        "employee_id": employee_id,
         "role_name": role_name,
         "employee_name": full_name or None,
     }
@@ -332,7 +337,7 @@ def login(role):
             flash("Login Successful", "success")
             return redirect("/dashboard")
 
-        except psycopg2.OperationalError:
+        except Exception:
             # Fallback for projects using only Supabase REST/Auth + new schema
             fallback_user = _fallback_login_via_supabase(email, password, role)
             if not fallback_user:
@@ -623,6 +628,17 @@ def dashboard():
 
     except Exception as e:
         print("Error fetching dashboard metrics:", e)
+        try:
+            total_jobs = len(supabase_rest.get_rows("jobs", {"select": "id"}))
+            total_applications = len(supabase_rest.get_rows("applications", {"select": "id"}))
+            total_employees = len(supabase_rest.get_rows("hrms_employees", {"select": "id", "status": "in.(active,Active)"}))
+            pending_leaves = len(supabase_rest.get_rows("leave_applications", {"select": "id", "status": "eq.Pending"}))
+            pending_docs = len(supabase_rest.get_rows("employee_documents", {"select": "id", "verification_status": "eq.Pending"}))
+            
+            # Simple fallback for company average
+            perf_metrics["avg_company_score"] = 0
+        except Exception as ex:
+            print("Supabase fallback for dashboard also failed:", ex)
     finally:
         if conn:
             release_db(conn, cur)
@@ -868,7 +884,7 @@ def applications():
                     a.id,
                     j.title AS job_title,
                     a.applied_at,
-                    a.applicant_name,
+                    a.candidate_name,
                     a.email,
                     a.phone,
                     a.resume_url,
@@ -885,7 +901,7 @@ def applications():
                     a.id,
                     j.title AS job_title,
                     a.applied_at,
-                    a.applicant_name,
+                    a.candidate_name,
                     a.email,
                     a.phone,
                     a.resume_url,
@@ -903,74 +919,26 @@ def applications():
             "jobs",
             {"select": "id,title", "order": "created_at.desc"},
         )
-        selected_filter = {"select": "id,job_id,applicant_name,email,phone,resume_url,applied_at,cover_letter,status", "order": "created_at.desc"}
+        # Try fetching with multiple fields to handle schema differences (old vs new)
+        selected_filter = {"select": "id,job_id,candidate_name,name,email,phone,resume_url,applied_at,created_at,cover_letter,status", "order": "created_at.desc"}
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
-        app_rows = supabase_rest.get_rows("applications", selected_filter)
+        
+        # Sometimes querying non-existent columns via REST causes error, so we fallback to selecting *
+        app_rows = supabase_rest.get_rows("applications", {"order": "created_at.desc"} if not selected_job else {"job_id": f"eq.{selected_job}", "order": "created_at.desc"})
+        
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         applications = [
             {
                 "id": a.get("id"),
                 "job_title": job_lookup.get(str(a.get("job_id")), "-"),
-                "applicant_name": a.get("applicant_name"),
-                "applied_at": a.get("applied_at"),
+                "candidate_name": a.get("candidate_name") or a.get("name"),
+                "applied_at": a.get("applied_at") or a.get("created_at"),
                 "email": a.get("email"),
                 "phone": a.get("phone"),
                 "resume_url": a.get("resume_url"),
                 "cover_letter": a.get("cover_letter"),
                 "status": a.get("status")
-            }
-            for a in app_rows
-        ]
-
-        if selected_job:
-            cur.execute("""
-                SELECT
-                    a.id,
-                    j.title AS job_title,
-                    a.name AS applicant_name,
-                    a.email,
-                    a.phone,
-                    a.resume_url
-                FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                WHERE a.job_id = %s
-                ORDER BY a.created_at DESC
-            """, (selected_job,))
-        else:
-            cur.execute("""
-                SELECT
-                    a.id,
-                    j.title AS job_title,
-                    a.name AS applicant_name,
-                    a.email,
-                    a.phone,
-                    a.resume_url
-                FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                ORDER BY a.created_at DESC
-            """)
-
-        applications = cur.fetchall()
-        release_db(conn, cur)
-    except Exception:
-        jobs = supabase_rest.get_rows(
-            "jobs",
-            {"select": "id,title", "order": "created_at.desc"},
-        )
-        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
-        if selected_job:
-            selected_filter["job_id"] = f"eq.{selected_job}"
-        app_rows = supabase_rest.get_rows("applications", selected_filter)
-        job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
-        applications = [
-            {
-                "id": a.get("id"),
-                "job_title": job_lookup.get(str(a.get("job_id")), "-"),
-                "applicant_name": a.get("name"),
-                "email": a.get("email"),
-                "phone": a.get("phone"),
-                "resume_url": a.get("resume_url"),
             }
             for a in app_rows
         ]
@@ -1020,7 +988,7 @@ def import_applications_csv():
     rows = list(reader)
 
     def parse_row(row):
-        name = (row.get("name") or row.get("applicant_name") or row.get("full_name") or "").strip()
+        name = (row.get("name") or row.get("candidate_name") or row.get("full_name") or "").strip()
         email = (row.get("email") or "").strip()
         phone = (row.get("phone") or "").strip() or None
         resume_url = (row.get("resume_url") or row.get("resume") or "").strip() or None
@@ -1181,21 +1149,27 @@ def update_application_status(application_id):
     if status not in valid_statuses:
         return {"error": "Invalid status value"}, 400
         
-    conn, cur = get_db(True)
-    cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
-    row = cur.fetchone()
-    
-    if not row:
-        release_db(conn, cur)
-        return {"error": "Application not found"}, 404
+    try:
+        conn, cur = get_db(True)
+        cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
+        row = cur.fetchone()
         
-    cur.execute(
-        "UPDATE applications SET status = %s WHERE id = %s",
-        (status, application_id)
-    )
-    conn.commit()
-    release_db(conn, cur)
-    
+        if not row:
+            release_db(conn, cur)
+            return {"error": "Application not found"}, 404
+            
+        cur.execute(
+            "UPDATE applications SET status = %s WHERE id = %s",
+            (status, application_id)
+        )
+        conn.commit()
+        release_db(conn, cur)
+    except Exception:
+        row = supabase_rest.get_first_row("applications", {"select": "id", "id": f"eq.{application_id}"})
+        if not row:
+            return {"error": "Application not found"}, 404
+        supabase_rest.update_rows("applications", {"id": f"eq.{application_id}"}, {"status": status})
+        
     return {"message": "Status updated successfully"}, 200
 
 
@@ -1214,7 +1188,7 @@ def download_excel():
             SELECT
                 j.title AS Job,
                 a.applied_at AS Applied_At,
-                a.applicant_name AS Applicant,
+                a.candidate_name AS Applicant,
                 a.email AS Email,
                 a.phone AS Phone,
                 a.resume_url AS Resume_URL,
