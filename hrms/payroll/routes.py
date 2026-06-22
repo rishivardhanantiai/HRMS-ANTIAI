@@ -90,12 +90,14 @@ def generate():
     if role not in ["HR", "Admin"]:
         return redirect("/dashboard")
 
-    employee_id = request.form["employee_id"]
-    month = int(request.form["month"])
-    year = int(request.form["year"])
-    generated_by = session.get("user_id")
-
     try:
+        employee_id = request.form.get("employee_id", "").strip()
+        month = int(request.form.get("month") or 0)
+        year = int(request.form.get("year") or 0)
+        if not employee_id or not month or not year:
+            flash("Employee, month and year are required.", "error")
+            return redirect("/hrms/payroll/")
+        generated_by = session.get("user_id")
         result = generate_payroll(employee_id, month, year, generated_by)
     except Exception:
         result = supabase_rest.create_payroll_run(employee_id, month, year)

@@ -216,8 +216,10 @@ def employee_profile(employee_id):
     if not hr_admin_required():
         return redirect("/dashboard")
 
-    conn, cur = get_db(True)
+    conn, cur = None, None
+    emp = evals = documents = leaves = salary = None
     try:
+        conn, cur = get_db(True)
         cur.execute("SELECT * FROM hrms_employees WHERE id = %s", (employee_id,))
         emp = cur.fetchone()
         
@@ -247,7 +249,8 @@ def employee_profile(employee_id):
         salary = cur.fetchone()
         
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
 
     if not emp:
         flash("Employee not found", "error")
@@ -673,12 +676,15 @@ def my_documents():
     if not employee_id:
         return redirect("/dashboard")
 
-    conn, cur = get_db(True)
+    conn, cur = None, None
+    documents = []
     try:
+        conn, cur = get_db(True)
         cur.execute("SELECT * FROM employee_documents WHERE employee_id=%s ORDER BY created_at DESC", (employee_id,))
         documents = cur.fetchall()
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
 
     return render_template("hrms/my_documents.html", documents=documents, employee_name=session.get("employee_name"))
 
@@ -738,12 +744,15 @@ def download_local_document(filename):
 @employees_bp.route("/documents/<doc_id>/view", methods=["GET"])
 @login_required
 def view_document(doc_id):
-    conn, cur = get_db(True)
+    conn, cur = None, None
+    doc = None
     try:
+        conn, cur = get_db(True)
         cur.execute("SELECT public_url, file_url, bucket_name, file_path FROM employee_documents WHERE id=%s", (doc_id,))
         doc = cur.fetchone()
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
 
     if not doc:
         from flask import flash
@@ -788,9 +797,9 @@ def view_document(doc_id):
                         # The signed path starts with /object/sign/... so we need to append it to the supabase url
                         return redirect(f"{supabase_url}/storage/v1{signed_path}")
                 else:
-                    return f"Failed to sign. status={r.status_code} text={r.text} url={sign_url}", 500
-            except Exception as e:
-                return f"Exception in sign: {e}", 500
+                    return "Document preview unavailable. Please try again later.", 503
+            except Exception:
+                return "Document preview unavailable. Please try again later.", 503
 
     # Fallback to the public URL if signed URL generation fails
     return redirect(url)

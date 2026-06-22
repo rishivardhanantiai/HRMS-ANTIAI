@@ -88,6 +88,17 @@ def verify_supabase_bucket():
 verify_supabase_bucket()
 
 
+def _parse_iso_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
 def _send_excel_dataframe(df, filename):
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -933,7 +944,7 @@ def applications():
                 "id": a.get("id"),
                 "job_title": job_lookup.get(str(a.get("job_id")), "-"),
                 "applicant_name": a.get("applicant_name") or a.get("name") or "—",
-                "applied_at": a.get("applied_at") or a.get("created_at"),
+                "applied_at": _parse_iso_datetime(a.get("applied_at") or a.get("created_at")),
                 "email": a.get("email"),
                 "phone": a.get("phone"),
                 "resume_url": a.get("resume_url"),
@@ -1217,10 +1228,13 @@ def download_excel():
         records = [
             {
                 "Job": job_lookup.get(str(a.get("job_id")), "-"),
-                "Applicant": a.get("name"),
+                "Applied_At": a.get("applied_at") or a.get("created_at"),
+                "Applicant": a.get("applicant_name") or a.get("name"),
                 "Email": a.get("email"),
                 "Phone": a.get("phone"),
                 "Resume_URL": a.get("resume_url"),
+                "Cover_Letter": a.get("cover_letter"),
+                "Status": a.get("status"),
             }
             for a in apps
         ]
@@ -1332,14 +1346,16 @@ def settings():
                         message = "Password update failed. Database and Supabase are unreachable."
                         message_type = "error"
 
-    conn, cur = get_db(True)
+    conn, cur = None, None
     try:
+        conn, cur = get_db(True)
         cur.execute("SELECT logo_url FROM company_settings LIMIT 1")
         company = cur.fetchone()
     except Exception:
         company = None
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
 
     return render_template("settings.html", message=message, message_type=message_type, company=company)
 

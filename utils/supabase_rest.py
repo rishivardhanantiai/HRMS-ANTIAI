@@ -369,7 +369,7 @@ def list_attendance():
             {
                 "id": r.get("id"),
                 "employee_id": r.get("employee_id"),
-                "attendance_date": r.get("attendance_date"),
+                "attendance_date": _safe_parse_iso(r.get("attendance_date")),
                 "status": (r.get("status") or "Present").capitalize(),
                 "check_in_time": check_in,
                 "check_out_time": check_out,
@@ -641,8 +641,8 @@ def list_leaves_manage():
                 "id": r.get("id"),
                 "full_name": emp.get("full_name") or "-",
                 "type": leave_types.get(str(r.get("leave_type_id")), "Leave"),
-                "from_date": r.get("from_date"),
-                "to_date": r.get("to_date"),
+                "from_date": _safe_parse_iso(r.get("from_date")),
+                "to_date": _safe_parse_iso(r.get("to_date")),
                 "status": (r.get("status") or "pending").capitalize(),
             }
         )
