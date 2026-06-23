@@ -444,8 +444,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Annual CTC (₹)<span class="req">*</span></label>
-                        <input type="number" id="annual_ctc" name="annual_ctc" class="form-control" value="0" min="0" required oninput="calculateGross()">
+                        <label class="form-label">Annual CTC (₹)</label>
+                        <input type="number" id="annual_ctc" name="annual_ctc" class="form-control" value="0" min="0" oninput="calculateGross()">
                     </div>
 
                     <div class="form-group">
@@ -721,8 +721,8 @@
         }
         if (step === 3) {
             const ctc = document.getElementById('annual_ctc').value.trim();
-            if (!ctc || parseFloat(ctc) <= 0) {
-                showToast("Annual CTC must be greater than 0.", "error");
+            if (ctc && parseFloat(ctc) < 0) {
+                showToast("Annual CTC cannot be negative.", "error");
                 return false;
             }
         }

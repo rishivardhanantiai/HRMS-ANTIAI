@@ -188,7 +188,7 @@ def api_verify_document(doc_id):
         return jsonify({"error": "Unauthorized"}), 403
 
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         status = data.get("status")
         remarks = data.get("remarks")
         verified_by = session.get("user_id")
@@ -199,7 +199,7 @@ def api_verify_document(doc_id):
         conn, cur = get_db()
         cur.execute("""
             UPDATE employee_documents
-            SET verification_status = %s, verification_remarks = %s, verified_by = %s, verified_at = CURRENT_TIMESTAMP
+            SET verification_status = %s, remarks = %s, verified_by = %s, verified_at = CURRENT_TIMESTAMP
             WHERE id = %s
         """, (status, remarks, verified_by, doc_id))
         conn.commit()
@@ -217,6 +217,9 @@ def employee_profile(employee_id):
         return redirect("/dashboard")
 
     conn, cur = get_db(True)
+    if not conn:
+        flash("Database connection error", "error")
+        return redirect("/dashboard")
     try:
         cur.execute("SELECT * FROM hrms_employees WHERE id = %s", (employee_id,))
         emp = cur.fetchone()
@@ -674,6 +677,9 @@ def my_documents():
         return redirect("/dashboard")
 
     conn, cur = get_db(True)
+    if not conn:
+        flash("Database connection error", "error")
+        return redirect("/dashboard")
     try:
         cur.execute("SELECT * FROM employee_documents WHERE employee_id=%s ORDER BY created_at DESC", (employee_id,))
         documents = cur.fetchall()
@@ -739,6 +745,10 @@ def download_local_document(filename):
 @login_required
 def view_document(doc_id):
     conn, cur = get_db(True)
+    if not conn:
+        from flask import flash
+        flash("Database connection error", "error")
+        return redirect(request.referrer or "/hrms/employees/ui")
     try:
         cur.execute("SELECT public_url, file_url, bucket_name, file_path FROM employee_documents WHERE id=%s", (doc_id,))
         doc = cur.fetchone()
@@ -804,6 +814,8 @@ def delete_document(doc_id):
         return {"error": "Unauthorized"}, 403
 
     conn, cur = get_db(True)
+    if not conn:
+        return {"error": "Database connection error"}, 500
     try:
         cur.execute("DELETE FROM employee_documents WHERE id=%s AND employee_id=%s", (doc_id, employee_id))
         conn.commit()
@@ -820,6 +832,9 @@ def employee_documents_hr(employee_id):
         return redirect("/dashboard")
 
     conn, cur = get_db(True)
+    if not conn:
+        flash("Database connection error", "error")
+        return redirect("/dashboard")
     try:
         cur.execute("SELECT full_name FROM hrms_employees WHERE id=%s", (employee_id,))
         emp = cur.fetchone()
@@ -849,6 +864,10 @@ def verify_document(doc_id):
     verifier_id = session.get("employee_id")
 
     conn, cur = get_db(True)
+    if not conn:
+        from flask import flash
+        flash("Database connection error", "error")
+        return redirect("/hrms/employees/ui")
     try:
         cur.execute("""
             UPDATE employee_documents 
@@ -870,8 +889,10 @@ def api_pending_documents():
     if not hr_admin_required():
         return {"error": "Unauthorized"}, 403
 
-    conn, cur = get_db(True)
+    conn, cur = None, None
+    docs = []
     try:
+        conn, cur = get_db(True)
         cur.execute("""
             SELECT d.id, d.document_type, d.document_title, d.created_at, e.full_name, e.id AS employee_id
             FROM employee_documents d
@@ -880,8 +901,24 @@ def api_pending_documents():
             ORDER BY d.created_at DESC
         """)
         docs = cur.fetchall()
+    except Exception as e:
+        print("Error fetching pending documents:", e)
+        try:
+            raw_docs = supabase_rest.get_rows("employee_documents", {"verification_status": "eq.Pending", "order": "created_at.desc"})
+            for d in raw_docs:
+                docs.append({
+                    "id": d.get("id"),
+                    "document_type": d.get("document_type"),
+                    "document_title": d.get("document_title"),
+                    "created_at": d.get("created_at"),
+                    "full_name": "Employee", 
+                    "employee_id": d.get("employee_id")
+                })
+        except Exception as ex:
+            print("Supabase fallback failed for pending docs:", ex)
     finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
         
     for d in docs:
         if d.get('created_at'): d['created_at'] = str(d['created_at'])

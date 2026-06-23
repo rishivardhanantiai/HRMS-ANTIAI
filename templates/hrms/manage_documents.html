@@ -146,7 +146,7 @@
                     </td>
                     <td>
                         <a href="/hrms/employees/documents/{{ doc.id }}/view" target="_blank" class="btn-attachment">View / Download</a>
-                        <div style="font-size: 11px; margin-top: 4px; color: #6b7280;">{{ (doc.file_size / 1024)|round(1) }} KB</div>
+                        <div style="font-size: 11px; margin-top: 4px; color: #6b7280;">{{ (doc.file_size / 1024)|round(1) if doc.file_size else '0' }} KB</div>
                     </td>
                     <td>
                         <span class="badge-status status-{{ doc.verification_status|lower }}">

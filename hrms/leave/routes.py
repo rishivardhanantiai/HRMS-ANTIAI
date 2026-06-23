@@ -248,7 +248,7 @@ def update_leave_status(leave_id):
 
         cur.execute("""
             UPDATE leave_applications
-            SET status=%s, updated_at=CURRENT_TIMESTAMP
+            SET status=%s
             WHERE id=%s
         """, (status, leave_id))
 

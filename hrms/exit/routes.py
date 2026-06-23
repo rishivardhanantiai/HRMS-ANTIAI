@@ -57,7 +57,11 @@ def initiate_exit():
     from flask import session
     emp_id = request.form.get("employee_id")
     exit_type = request.form.get("exit_type")
-    notice_period = request.form.get("notice_period")
+    notice_period_str = request.form.get("notice_period", "")
+    try:
+        notice_period_days = int(''.join(filter(str.isdigit, notice_period_str)))
+    except ValueError:
+        notice_period_days = 0
     last_working_date = request.form.get("last_working_date")
     exit_reason = request.form.get("exit_reason")
     remarks = request.form.get("remarks")
@@ -66,9 +70,9 @@ def initiate_exit():
     conn, cur = get_db(True)
     try:
         cur.execute("""
-            INSERT INTO employee_exits (employee_id, exit_type, notice_period, last_working_date, exit_reason, remarks, initiated_by)
+            INSERT INTO employee_exits (employee_id, exit_type, notice_period_days, last_working_date, exit_reason, remarks, initiated_by)
             VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
-        """, (emp_id, exit_type, notice_period, last_working_date, exit_reason, remarks, initiated_by))
+        """, (emp_id, exit_type, notice_period_days, last_working_date, exit_reason, remarks, initiated_by))
         
         exit_id = cur.fetchone()['id']
 
@@ -77,6 +81,7 @@ def initiate_exit():
         """, (emp_id, exit_id))
 
         flash("Exit process initiated successfully.", "success")
+        conn.commit()
     except Exception as e:
         print("Error initiating exit:", e)
         flash("Could not initiate exit process.", "error")
@@ -120,19 +125,20 @@ def save_fnf(exit_id):
     pending_salary = float(request.form.get("pending_salary") or 0)
     leave_encashment = float(request.form.get("leave_encashment") or 0)
     bonus = float(request.form.get("bonus") or 0)
-    reimbursement = float(request.form.get("reimbursement") or 0)
+    reimbursements = float(request.form.get("reimbursement") or 0)
     deductions = float(request.form.get("deductions") or 0)
 
-    net_amount = (pending_salary + leave_encashment + bonus + reimbursement) - deductions
+    net_payable = (pending_salary + leave_encashment + bonus + reimbursements) - deductions
 
     conn, cur = get_db(True)
     try:
         cur.execute("""
             UPDATE employee_fnf_records 
-            SET pending_salary = %s, leave_encashment = %s, bonus = %s, reimbursement = %s, deductions = %s, net_amount = %s
+            SET pending_salary = %s, leave_encashment = %s, bonus = %s, reimbursements = %s, deductions = %s, net_payable = %s
             WHERE exit_id = %s
-        """, (pending_salary, leave_encashment, bonus, reimbursement, deductions, net_amount, exit_id))
+        """, (pending_salary, leave_encashment, bonus, reimbursements, deductions, net_payable, exit_id))
         flash("FNF calculation saved.", "success")
+        conn.commit()
     except Exception as e:
         print("Error saving FNF:", e)
         flash("Could not save FNF calculation.", "error")

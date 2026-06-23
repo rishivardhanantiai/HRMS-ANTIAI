@@ -47,7 +47,7 @@ def assign_employee_salary():
                 if existing:
                     cur.execute("""
                         UPDATE employee_salary
-                        SET monthly_salary = %s, structure_id = %s, updated_at = CURRENT_TIMESTAMP
+                        SET monthly_salary = %s, structure_id = %s
                         WHERE id = %s
                     """, (monthly_salary, structure_id if structure_id else None, existing["id"]))
                 else:

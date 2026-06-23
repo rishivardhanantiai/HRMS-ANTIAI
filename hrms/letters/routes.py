@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, flash, session, current_app, jsonify, send_file
+from flask import Blueprint, render_template, request, redirect, flash, session, current_app, jsonify, send_file, url_for
 from utils.auth import login_required, role_required
 from utils.db import get_db, release_db
 import os
@@ -469,7 +469,7 @@ def generate_pdf():
         session["fallback_doc_type"] = document_type
         session["fallback_emp_id"] = emp_id
         session["fallback_exit_id"] = exit_id
-        return redirect(url_for("letters.print_fallback"))
+        return redirect(url_for("letters_bp.print_fallback"))
 
 @letters_bp.route("/print-fallback")
 @login_required
