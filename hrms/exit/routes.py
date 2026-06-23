@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, flash, jsonify
 from utils.auth import login_required, role_required
 from utils.db import get_db, release_db
+from utils import supabase_rest
+from datetime import datetime
 
 exit_bp = Blueprint("exit_bp", __name__, url_prefix="/hrms/exit")
 
@@ -44,10 +46,45 @@ def manage_exit(emp_id):
         )
 
     except Exception as e:
-        flash(f"Error loading exit management: {e}", "error")
-        return redirect("/hrms/employees/ui")
+        print("Error loading exit management via DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            employee = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{emp_id}"})
+            if not employee:
+                flash("Employee not found.", "error")
+                return redirect("/hrms/employees/ui")
+
+            active_exit = supabase_rest.get_first_row("employee_exits", {"employee_id": f"eq.{emp_id}"})
+            fnf_record = None
+            exit_docs = []
+
+            if active_exit:
+                fnf_record = supabase_rest.get_first_row("employee_fnf_records", {"exit_id": f"eq.{active_exit['id']}"})
+                exit_docs = supabase_rest.get_rows("employee_exit_documents", {
+                    "exit_id": f"eq.{active_exit['id']}",
+                    "order": "generated_at.desc"
+                })
+
+            return render_template(
+                "hrms/exit/manage.html",
+                emp=employee,
+                active_exit=active_exit,
+                fnf=fnf_record,
+                docs=exit_docs
+            )
+        except Exception as rest_err:
+            flash(f"Error loading exit management: {rest_err}", "error")
+            return redirect("/hrms/employees/ui")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
 
 
 @exit_bp.route("/initiate", methods=["POST"])
@@ -83,10 +120,34 @@ def initiate_exit():
         flash("Exit process initiated successfully.", "success")
         conn.commit()
     except Exception as e:
-        print("Error initiating exit:", e)
-        flash("Could not initiate exit process.", "error")
+        print("Error initiating exit via DB, trying REST fallback:", e)
+        try:
+            exit_row = supabase_rest.insert_row("employee_exits", {
+                "employee_id": emp_id,
+                "exit_type": exit_type,
+                "notice_period_days": notice_period_days,
+                "last_working_date": last_working_date,
+                "exit_reason": exit_reason,
+                "remarks": remarks,
+                "initiated_by": initiated_by
+            })
+            if exit_row:
+                exit_id = exit_row.get("id")
+                supabase_rest.insert_row("employee_fnf_records", {
+                    "employee_id": emp_id,
+                    "exit_id": exit_id
+                })
+                flash("Exit process initiated successfully.", "success")
+            else:
+                flash("Could not initiate exit process.", "error")
+        except Exception as rest_err:
+            print("REST fallback for initiate exit failed:", rest_err)
+            flash("Could not initiate exit process.", "error")
     finally:
-        release_db(conn, cur)
+        try:
+            release_db(conn, cur)
+        except:
+            pass
 
     return redirect(f"/hrms/exit/manage/{emp_id}")
 
@@ -108,10 +169,20 @@ def update_status(exit_id):
             
         flash(f"Exit status updated to {new_status}.", "success")
     except Exception as e:
-        print("Error updating status:", e)
-        flash("Could not update status.", "error")
+        print("Error updating exit status via DB, trying REST fallback:", e)
+        try:
+            supabase_rest.update_rows("employee_exits", {"id": f"eq.{exit_id}"}, {"status": new_status})
+            if new_status == "Exit Closed":
+                supabase_rest.update_rows("hrms_employees", {"id": f"eq.{emp_id}"}, {"status": "Exited"})
+            flash(f"Exit status updated to {new_status}.", "success")
+        except Exception as rest_err:
+            print("REST fallback for update status failed:", rest_err)
+            flash("Could not update status.", "error")
     finally:
-        release_db(conn, cur)
+        try:
+            release_db(conn, cur)
+        except:
+            pass
 
     return redirect(f"/hrms/exit/manage/{emp_id}")
 
@@ -140,10 +211,29 @@ def save_fnf(exit_id):
         flash("FNF calculation saved.", "success")
         conn.commit()
     except Exception as e:
-        print("Error saving FNF:", e)
-        flash("Could not save FNF calculation.", "error")
+        print("Error saving FNF via DB, trying REST fallback:", e)
+        try:
+            supabase_rest.update_rows(
+                "employee_fnf_records",
+                {"exit_id": f"eq.{exit_id}"},
+                {
+                    "pending_salary": pending_salary,
+                    "leave_encashment": leave_encashment,
+                    "bonus": bonus,
+                    "reimbursements": reimbursements,
+                    "deductions": deductions,
+                    "net_payable": net_payable
+                }
+            )
+            flash("FNF calculation saved.", "success")
+        except Exception as rest_err:
+            print("REST fallback for save FNF failed:", rest_err)
+            flash("Could not save FNF calculation.", "error")
     finally:
-        release_db(conn, cur)
+        try:
+            release_db(conn, cur)
+        except:
+            pass
 
     return redirect(f"/hrms/exit/manage/{emp_id}")
 
@@ -166,7 +256,28 @@ def exit_history():
 
         return render_template("hrms/exit/history.html", exits=exits)
     except Exception as e:
-        print("Error loading exit history:", e)
-        return redirect("/dashboard")
+        print("Error loading exit history, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+        try:
+            exits = supabase_rest.get_rows("employee_exits", {"order": "created_at.desc"})
+            for ex in exits:
+                emp = supabase_rest.get_first_row("hrms_employees", {"select": "full_name,department", "id": f"eq.{ex.get('employee_id')}"})
+                if emp:
+                    ex["full_name"] = emp.get("full_name") or "-"
+                    ex["department"] = emp.get("department") or "-"
+                else:
+                    ex["full_name"] = "-"
+                    ex["department"] = "-"
+
+            return render_template("hrms/exit/history.html", exits=exits)
+        except Exception as rest_err:
+            print("REST fallback for exit history failed:", rest_err)
+            return redirect("/dashboard")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass

@@ -76,7 +76,62 @@ def get_leave_balances(employee_id):
                 "remaining": remaining
             })
     except Exception as e:
-        print("Leave balance calculation error:", e)
+        print("Leave balance calculation error, trying REST fallback:", e)
+        if conn and cur:
+            try:
+                release_db(conn, cur)
+            except Exception:
+                pass
+        try:
+            emp = supabase_rest.get_first_row("hrms_employees", {"select": "joining_date", "id": f"eq.{employee_id}"})
+            joining_date = date.today()
+            if emp and emp.get("joining_date"):
+                try:
+                    joining_date = date.fromisoformat(str(emp["joining_date"])[:10])
+                except:
+                    pass
+            
+            today = date.today()
+            months_worked = (today.year - joining_date.year) * 12 + today.month - joining_date.month
+            months_worked = max(1, months_worked)
+            
+            leave_types = supabase_rest.get_rows("leave_types", {"select": "id,name,annual_entitlement", "order": "name.asc"})
+            
+            used_raw = supabase_rest.get_rows("leave_applications", {
+                "select": "leave_type_id,from_date,to_date",
+                "employee_id": f"eq.{employee_id}",
+                "status": "eq.Approved"
+            })
+            
+            used_map = {}
+            for row in used_raw:
+                lt_id = row.get("leave_type_id")
+                f_str = row.get("from_date")
+                t_str = row.get("to_date")
+                if lt_id and f_str and t_str:
+                    try:
+                        fd = date.fromisoformat(str(f_str)[:10])
+                        td = date.fromisoformat(str(t_str)[:10])
+                        days = (td - fd).days + 1
+                        used_map[lt_id] = used_map.get(lt_id, 0) + days
+                    except:
+                        pass
+            
+            for lt in leave_types:
+                annual = lt.get("annual_entitlement")
+                annual = annual if annual is not None else 15
+                accrued = min(annual, round((annual / 12.0) * months_worked))
+                used = used_map.get(lt.get("id"), 0)
+                remaining = max(0, accrued - used)
+                balances.append({
+                    "id": lt.get("id"),
+                    "name": lt.get("name"),
+                    "total_allocated": accrued,
+                    "used": used,
+                    "remaining": remaining
+                })
+        except Exception as rest_err:
+            print("REST fallback for leave balance calculation failed:", rest_err)
     finally:
         if conn and cur:
             try:
@@ -308,14 +363,58 @@ def configure_leaves():
                 flash("Leave Type created successfully.", "success")
 
             conn.commit()
+            release_db(conn, cur)
             return redirect("/hrms/leave/configure")
 
         cur.execute("SELECT id, name, description, annual_entitlement FROM leave_types ORDER BY name")
         leave_types = cur.fetchall()
         release_db(conn, cur)
     except Exception as e:
-        print("Error configuring leaves:", e)
-        leave_types = []
+        print("Error configuring leaves, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        
+        try:
+            if request.method == "POST":
+                leave_id = request.form.get("id", "").strip()
+                name = request.form.get("name", "").strip()
+                description = request.form.get("description", "").strip()
+                annual_entitlement = int(request.form.get("annual_entitlement", 15))
+
+                if not name:
+                    flash("Leave Type name is required.", "error")
+                    return redirect("/hrms/leave/configure")
+
+                if leave_id:
+                    supabase_rest.update_rows(
+                        "leave_types",
+                        {"id": f"eq.{leave_id}"},
+                        {
+                            "name": name,
+                            "description": description,
+                            "annual_entitlement": annual_entitlement
+                        }
+                    )
+                    flash("Leave Type updated successfully.", "success")
+                else:
+                    supabase_rest.insert_row(
+                        "leave_types",
+                        {
+                            "name": name,
+                            "description": description,
+                            "annual_entitlement": annual_entitlement
+                        }
+                    )
+                    flash("Leave Type created successfully.", "success")
+                return redirect("/hrms/leave/configure")
+                
+            leave_types = supabase_rest.get_rows("leave_types", {"select": "id,name,description,annual_entitlement", "order": "name.asc"})
+        except Exception as rest_err:
+            print("REST fallback for configure leaves failed:", rest_err)
+            leave_types = []
 
     return render_template("hrms/configure_leaves.html", leave_types=leave_types)
 
@@ -331,8 +430,21 @@ def delete_leave_type(leave_id):
         release_db(conn, cur)
         flash("Leave type deleted.", "success")
     except Exception as e:
-        print("Error deleting leave type:", e)
-        flash("Could not delete leave type.", "error")
+        print("Error deleting leave type, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            success = supabase_rest.delete_rows("leave_types", {"id": f"eq.{leave_id}"})
+            if success:
+                flash("Leave type deleted.", "success")
+            else:
+                flash("Could not delete leave type.", "error")
+        except Exception as rest_err:
+            print("REST fallback for deleting leave type failed:", rest_err)
+            flash("Could not delete leave type.", "error")
     return redirect("/hrms/leave/configure")
 
 

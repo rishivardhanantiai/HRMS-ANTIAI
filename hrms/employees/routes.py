@@ -73,7 +73,15 @@ def employees_ui():
     except Exception as e:
         print("Error fetching employee ui data:", e)
         employees = supabase_rest.list_employees()
-        metrics = {"total": 0, "active": 0, "inactive": 0, "on_leave": 0, "new_joinees": 0, "pending_docs": 0, "pending_verification": 0}
+        metrics = {
+            "total": len(employees),
+            "active": sum(1 for emp in employees if emp["status"] == "Active"),
+            "inactive": sum(1 for emp in employees if emp["status"] == "Inactive"),
+            "on_leave": sum(1 for emp in employees if emp["status"] == "On Leave"),
+            "new_joinees": 0,
+            "pending_docs": 0,
+            "pending_verification": 0
+        }
 
     return render_template("hrms/employees.html", employees=employees, metrics=metrics)
 
@@ -162,9 +170,25 @@ def add_employee_ui():
     except Exception as e:
         print("Error fetching add ui data:", e)
         roles = supabase_rest.list_roles()
-        salary_structures = []
-        managers = []
-        next_code = "EMP-0001"
+        try:
+            salary_structures = supabase_rest.get_rows("salary_structures", {"select": "id,name", "order": "name.asc"})
+        except Exception:
+            salary_structures = []
+        try:
+            managers = supabase_rest.get_rows("hrms_employees", {"select": "id,full_name,employee_code", "status": "not.eq.Deleted", "order": "full_name.asc"})
+        except Exception:
+            managers = []
+        try:
+            last_emp = supabase_rest.get_first_row("hrms_employees", {"select": "employee_code", "employee_code": "like.EMP-%", "order": "id.desc", "limit": 1})
+            next_code = "EMP-0001"
+            if last_emp and last_emp.get("employee_code"):
+                try:
+                    last_num = int(last_emp["employee_code"].split("-")[1])
+                    next_code = f"EMP-{(last_num + 1):04d}"
+                except:
+                    pass
+        except Exception:
+            next_code = "EMP-0001"
 
     return render_template(
         "hrms/add_employee.html",
@@ -181,7 +205,7 @@ def add_employee_ui():
 # =========================
 # ADD EMPLOYEE
 # =========================
-@employees_bp.route("/documents/api/verify/<int:doc_id>", methods=["POST"])
+@employees_bp.route("/documents/api/verify/<doc_id>", methods=["POST"])
 @login_required
 def api_verify_document(doc_id):
     if not hr_admin_required():
@@ -207,8 +231,24 @@ def api_verify_document(doc_id):
 
         return jsonify({"message": "Document verification updated successfully"}), 200
     except Exception as e:
-        print(f"Error verifying document: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error verifying document via DB, trying REST fallback: {e}")
+        try:
+            res = supabase_rest.update_rows(
+                "employee_documents",
+                {"id": f"eq.{doc_id}"},
+                {
+                    "verification_status": status,
+                    "remarks": remarks,
+                    "verified_by": verified_by,
+                    "verified_at": datetime.now().isoformat()
+                }
+            )
+            if res:
+                return jsonify({"message": "Document verification updated successfully"}), 200
+            else:
+                return jsonify({"error": "Document not found"}), 404
+        except Exception as fallback_err:
+            return jsonify({"error": str(fallback_err)}), 500
 
 @employees_bp.route("/<employee_id>/profile", methods=["GET"])
 @login_required
@@ -221,8 +261,7 @@ def employee_profile(employee_id):
     try:
         conn, cur = get_db(True)
         if not conn:
-            flash("Database connection error", "error")
-            return redirect("/dashboard")
+            raise Exception("Database connection failed")
         
         cur.execute("SELECT * FROM hrms_employees WHERE id = %s", (employee_id,))
         emp = cur.fetchone()
@@ -252,9 +291,46 @@ def employee_profile(employee_id):
         cur.execute("SELECT * FROM employee_salary WHERE employee_id = %s", (employee_id,))
         salary = cur.fetchone()
         
-    finally:
         if conn:
             release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching employee profile from DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        
+        try:
+            emp = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{employee_id}"})
+            evals = supabase_rest.get_rows("performance_evaluations", {
+                "employee_id": f"eq.{employee_id}",
+                "order": "evaluation_year.desc,evaluation_month.desc,id.desc"
+            })
+            if evals:
+                for ev in evals:
+                    ev["evaluator_name"] = "HR Admin"
+                    evaluator_id = ev.get("evaluator_id")
+                    if evaluator_id:
+                        user_row = supabase_rest.get_first_row("hrms_users", {"id": f"eq.{evaluator_id}"})
+                        if user_row and user_row.get("employee_id"):
+                            emp_row = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{user_row['employee_id']}"})
+                            if emp_row:
+                                ev["evaluator_name"] = emp_row.get("full_name") or "HR Admin"
+
+            documents = supabase_rest.get_rows("employee_documents", {"employee_id": f"eq.{employee_id}"})
+            leaves = supabase_rest.get_rows("leave_applications", {
+                "employee_id": f"eq.{employee_id}",
+                "order": "created_at.desc"
+            })
+            if leaves:
+                leave_types = {str(lt["id"]): lt["name"] for lt in supabase_rest.list_leave_types()}
+                for lv in leaves:
+                    lv["leave_type"] = leave_types.get(str(lv.get("leave_type_id")), "Leave")
+
+            salary = supabase_rest.get_first_row("employee_salary", {"employee_id": f"eq.{employee_id}"})
+        except Exception as fallback_err:
+            print("REST fallback for employee profile failed:", fallback_err)
 
     if not emp:
         flash("Employee not found", "error")
@@ -435,8 +511,171 @@ def add_employee():
         return jsonify({"success": True, "redirect": "/hrms/employees/ui"})
 
     except Exception as e:
-        print("Add employee error:", e)
-        return jsonify({"error": str(e)}), 500
+        print("Add employee error, trying REST fallback:", e)
+        try:
+            from datetime import datetime as _dt
+            plain_password = data.get("password")
+            hashed_password = generate_password_hash(plain_password)
+            joining_date = data.get("joining_date") or str(date.today())
+
+            # Duplicate checks
+            if supabase_rest.get_first_row("hrms_employees", {"select": "id", "email": f"eq.{data['email']}"}):
+                return jsonify({"error": "Employee email already exists"}), 400
+            if supabase_rest.get_first_row("hrms_users", {"select": "id", "email": f"eq.{data['email']}"}):
+                return jsonify({"error": "Login email already exists"}), 400
+
+            # Step 1: Create Employee Record
+            emp_row = supabase_rest.insert_row("hrms_employees", {
+                "employee_code":   data["employee_code"],
+                "full_name":       data["full_name"],
+                "email":           data["email"],
+                "phone":           data.get("phone"),
+                "department":      data.get("department"),
+                "designation":     data.get("designation", "Employee"),
+                "role_id":         data["role_id"],
+                "joining_date":    str(joining_date),
+                "status":          "Active",
+                "manager_id":      data.get("manager_id") or None,
+                "gender":          data.get("gender"),
+                "date_of_birth":   data.get("date_of_birth") or None,
+                "office_location": data.get("office_location"),
+                "employment_type": data.get("employment_type", "Full Time"),
+            })
+            if not emp_row:
+                return jsonify({"error": "Could not create employee record via fallback."}), 500
+
+            employee_id = emp_row.get("id")
+
+            # Step 2: Create Login Account
+            supabase_rest.create_auth_user(data["email"], plain_password)
+            supabase_rest.insert_row("hrms_users", {
+                "email":       data["email"],
+                "password":    hashed_password,
+                "role_id":     data["role_id"],
+                "employee_id": employee_id,
+            })
+
+            # Handle Profile Photo Upload
+            profile_photo = files.get("profile_photo")
+            if profile_photo and profile_photo.filename:
+                res = upload_document_to_supabase(profile_photo, employee_id)
+                if res:
+                    supabase_rest.update_rows("hrms_employees", {"id": f"eq.{employee_id}"}, {"profile_photo_url": res["public_url"]})
+
+            # Step 3: Compensation
+            annual_ctc = data.get("annual_ctc", 0)
+            try:
+                annual_ctc = float(annual_ctc)
+            except:
+                annual_ctc = 0.0
+
+            if annual_ctc > 0:
+                monthly_gross = annual_ctc / 12.0
+                supabase_rest.insert_row("employee_salary", {
+                    "employee_id":    employee_id,
+                    "annual_ctc":     annual_ctc,
+                    "monthly_salary": monthly_gross,
+                    "effective_from": str(joining_date),
+                })
+                
+                # Save basic breakdown to employee_salary_components
+                basic = annual_ctc * 0.50
+                hra = annual_ctc * 0.25
+                lta = annual_ctc * 0.10
+                special = annual_ctc - (basic + hra + lta)
+
+                components = [
+                    ("Basic", basic, basic/12),
+                    ("House Rent Allowance", hra, hra/12),
+                    ("Leave & Travel Allowance", lta, lta/12),
+                    ("Special Allowance", special, special/12)
+                ]
+                for c_name, y_amt, m_amt in components:
+                    supabase_rest.insert_row("employee_salary_components", {
+                        "employee_id":    employee_id,
+                        "component_name": c_name,
+                        "yearly_amount":  y_amt,
+                        "monthly_amount": m_amt,
+                    })
+
+            # Step 4: Compliance
+            if any([data.get("pan_number"), data.get("aadhaar_number"), data.get("uan_number")]):
+                supabase_rest.insert_row("employee_compliance", {
+                    "employee_id":    employee_id,
+                    "pan_number":     data.get("pan_number"),
+                    "aadhaar_number": data.get("aadhaar_number"),
+                    "uan_number":     data.get("uan_number"),
+                    "pf_number":      data.get("pf_number"),
+                    "esic_number":    data.get("esic_number"),
+                })
+
+            # Step 5: Bank Details
+            if any([data.get("bank_name"), data.get("account_number")]):
+                supabase_rest.insert_row("employee_bank_details", {
+                    "employee_id":              employee_id,
+                    "bank_name":                data.get("bank_name"),
+                    "account_number":           data.get("account_number"),
+                    "ifsc_code":                data.get("ifsc_code"),
+                    "branch_name":              data.get("branch_name"),
+                    "address":                  data.get("address"),
+                    "emergency_contact":        data.get("emergency_contact"),
+                    "emergency_contact_number": data.get("emergency_contact_number"),
+                })
+
+            # Document Uploads
+            doc_fields = [
+                ("doc_aadhaar", "Aadhaar Card"),
+                ("doc_pan", "PAN Card"),
+                ("doc_resume", "Resume"),
+                ("doc_offer", "Offer/Experience Letter")
+            ]
+            for file_key, doc_title in doc_fields:
+                doc_file = files.get(file_key)
+                if doc_file and doc_file.filename:
+                    res = upload_document_to_supabase(doc_file, employee_id)
+                    if res:
+                        supabase_rest.insert_row("employee_documents", {
+                            "employee_id":         employee_id,
+                            "document_type":       "Onboarding",
+                            "document_title":      doc_title,
+                            "file_url":            res["public_url"],
+                            "created_at":          _dt.now().isoformat(),
+                            "verification_status": "Verified",
+                            "file_name":           res["file_name"],
+                            "file_path":           res["file_path"],
+                            "bucket_name":         res["bucket_name"],
+                            "public_url":          res["public_url"],
+                            "mime_type":           res["mime_type"],
+                            "uploaded_by":         session.get("employee_id") or employee_id,
+                        })
+
+            # Audit Log
+            supabase_rest.insert_row("employee_audit_logs", {
+                "employee_id":  employee_id,
+                "action":       "Employee Created via Onboarding Wizard (REST Fallback)",
+                "performed_by": session.get("employee_id") or None,
+            })
+
+            # Status History
+            supabase_rest.insert_row("employee_status_history", {
+                "employee_id": employee_id,
+                "status":      "Active",
+                "changed_by":  session.get("employee_id") or None,
+                "remarks":     "Initial Onboarding",
+            })
+
+            # Email automation simulation
+            print(f"--- EMAIL AUTOMATION (REST Fallback) ---")
+            print(f"To: {data['email']}")
+            print(f"Subject: Welcome to the Company!")
+            print(f"Your Login: {data['email']}")
+            print(f"Your Password: {plain_password}")
+            print(f"----------------------------------------")
+
+            return jsonify({"success": True, "redirect": "/hrms/employees/ui"})
+        except Exception as rest_err:
+            print("Add employee REST fallback also failed:", rest_err)
+            return jsonify({"error": f"Failed to create employee: {str(rest_err)}"}), 500
 
 # =========================
 # EDIT EMPLOYEE UI (GET)
@@ -535,15 +774,40 @@ def edit_employee(employee_id):
 
         conn.commit()
         release_db(conn, cur)
-    except Exception:
-        supabase_rest.update_employee(
-            employee_id=employee_id,
-            full_name=data["full_name"],
-            email=data["email"],
-            phone=data.get("phone"),
-            department=data.get("department"),
-            role_id=data["role_id"],
-        )
+    except Exception as e:
+        print("Error updating employee via DB, trying REST fallback:", e)
+        try:
+            # 1. Update the Employee Profile
+            supabase_rest.update_employee(
+                employee_id=employee_id,
+                full_name=data["full_name"],
+                email=data["email"],
+                phone=data.get("phone"),
+                department=data.get("department"),
+                role_id=data["role_id"],
+            )
+
+            # 2. Sync the Role and Email to the Login Table (hrms_users)
+            supabase_rest.update_rows(
+                "hrms_users",
+                {"employee_id": f"eq.{employee_id}"},
+                {
+                    "email": data["email"],
+                    "role_id": data["role_id"]
+                }
+            )
+
+            # 3. Admin Password Reset (If provided)
+            new_password = data.get("password", "").strip()
+            if new_password and session.get("role") == "Admin":
+                hashed_new = generate_password_hash(new_password)
+                supabase_rest.update_rows(
+                    "hrms_users",
+                    {"employee_id": f"eq.{employee_id}"},
+                    {"password": hashed_new}
+                )
+        except Exception as rest_err:
+            print("REST fallback for editing employee failed:", rest_err)
 
     return redirect("/hrms/employees/ui")
 
@@ -685,14 +949,26 @@ def my_documents():
     try:
         conn, cur = get_db(True)
         if not conn:
-            flash("Database connection error", "error")
-            return redirect("/dashboard")
+            raise Exception("Database connection failed")
         
         cur.execute("SELECT * FROM employee_documents WHERE employee_id=%s ORDER BY created_at DESC", (employee_id,))
         documents = cur.fetchall()
-    finally:
         if conn:
             release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching my documents via DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            documents = supabase_rest.get_rows("employee_documents", {
+                "employee_id": f"eq.{employee_id}",
+                "order": "created_at.desc"
+            })
+        except Exception as rest_err:
+            print("REST fallback for my documents failed:", rest_err)
 
     return render_template("hrms/my_documents.html", documents=documents, employee_name=session.get("employee_name"))
 
@@ -737,8 +1013,33 @@ def upload_document():
         from flask import flash
         flash("Document uploaded successfully.", "success")
     except Exception as e:
-        from flask import flash
-        flash(f"Upload failed: {e}", "error")
+        print("Error saving document info to DB, trying REST fallback:", e)
+        try:
+            if 'res' in locals() and res:
+                supabase_rest.insert_row("employee_documents", {
+                    "employee_id": employee_id,
+                    "document_type": doc_type,
+                    "document_title": doc_title,
+                    "description": description,
+                    "file_url": res["public_url"],
+                    "file_size": size_bytes,
+                    "uploaded_by": employee_id,
+                    "file_name": res["file_name"],
+                    "file_path": res["file_path"],
+                    "bucket_name": res["bucket_name"],
+                    "public_url": res["public_url"],
+                    "mime_type": res["mime_type"],
+                    "verification_status": "Pending"
+                })
+                from flask import flash
+                flash("Document uploaded successfully.", "success")
+            else:
+                from flask import flash
+                flash(f"Upload failed: {e}", "error")
+        except Exception as rest_err:
+            print("REST fallback for document upload failed:", rest_err)
+            from flask import flash
+            flash(f"Upload failed: {rest_err}", "error")
 
     return redirect("/hrms/employees/my-documents")
 
@@ -757,15 +1058,26 @@ def view_document(doc_id):
     try:
         conn, cur = get_db(True)
         if not conn:
-            from flask import flash
-            flash("Database connection error", "error")
-            return redirect(request.referrer or "/hrms/employees/ui")
+            raise Exception("Database connection failed")
             
         cur.execute("SELECT public_url, file_url, bucket_name, file_path FROM employee_documents WHERE id=%s", (doc_id,))
         doc = cur.fetchone()
-    finally:
         if conn:
             release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching document info from DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            doc = supabase_rest.get_first_row("employee_documents", {
+                "select": "public_url,file_url,bucket_name,file_path",
+                "id": f"eq.{doc_id}"
+            })
+        except Exception as rest_err:
+            print("REST fallback for viewing document failed:", rest_err)
 
     if not doc:
         from flask import flash
@@ -825,14 +1137,32 @@ def delete_document(doc_id):
     if not employee_id:
         return {"error": "Unauthorized"}, 403
 
-    conn, cur = get_db(True)
-    if not conn:
-        return {"error": "Database connection error"}, 500
+    conn, cur = None, None
     try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("Database connection failed")
         cur.execute("DELETE FROM employee_documents WHERE id=%s AND employee_id=%s", (doc_id, employee_id))
         conn.commit()
-    finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
+    except Exception as e:
+        print("Error deleting document from DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            success = supabase_rest.delete_rows("employee_documents", {
+                "id": f"eq.{doc_id}",
+                "employee_id": f"eq.{employee_id}"
+            })
+            if not success:
+                return {"error": "Failed to delete document"}, 500
+        except Exception as rest_err:
+            print("REST fallback for deleting document failed:", rest_err)
+            return {"error": str(rest_err)}, 500
 
     return {"message": "Deleted"}, 200
 
@@ -843,11 +1173,13 @@ def employee_documents_hr(employee_id):
     if not hr_admin_required():
         return redirect("/dashboard")
 
-    conn, cur = get_db(True)
-    if not conn:
-        flash("Database connection error", "error")
-        return redirect("/dashboard")
+    conn, cur = None, None
+    emp = None
+    documents = []
     try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("Database connection failed")
         cur.execute("SELECT full_name FROM hrms_employees WHERE id=%s", (employee_id,))
         emp = cur.fetchone()
         
@@ -859,8 +1191,42 @@ def employee_documents_hr(employee_id):
             WHERE d.employee_id=%s ORDER BY d.created_at DESC
         """, (employee_id,))
         documents = cur.fetchall()
-    finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching employee documents via DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            emp = supabase_rest.get_first_row("hrms_employees", {
+                "select": "full_name",
+                "id": f"eq.{employee_id}"
+            })
+            documents = supabase_rest.get_rows("employee_documents", {
+                "employee_id": f"eq.{employee_id}",
+                "order": "created_at.desc"
+            })
+            if documents:
+                for doc in documents:
+                    doc["uploaded_by_name"] = "Employee"
+                    doc["verified_by_name"] = "HR Admin"
+                    
+                    uploaded_by = doc.get("uploaded_by")
+                    if uploaded_by:
+                        u_emp = supabase_rest.get_first_row("hrms_employees", {"select": "full_name", "id": f"eq.{uploaded_by}"})
+                        if u_emp:
+                            doc["uploaded_by_name"] = u_emp.get("full_name") or "Employee"
+                            
+                    verified_by = doc.get("verified_by")
+                    if verified_by:
+                        v_emp = supabase_rest.get_first_row("hrms_employees", {"select": "full_name", "id": f"eq.{verified_by}"})
+                        if v_emp:
+                            doc["verified_by_name"] = v_emp.get("full_name") or "HR Admin"
+        except Exception as rest_err:
+            print("REST fallback for employee documents HR failed:", rest_err)
 
     return render_template("hrms/manage_documents.html", documents=documents, employee=emp)
 
@@ -875,12 +1241,12 @@ def verify_document(doc_id):
     remarks = request.form.get("remarks", "")
     verifier_id = session.get("employee_id")
 
-    conn, cur = get_db(True)
-    if not conn:
-        from flask import flash
-        flash("Database connection error", "error")
-        return redirect("/hrms/employees/ui")
+    conn, cur = None, None
+    res = None
     try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("Database connection failed")
         cur.execute("""
             UPDATE employee_documents 
             SET verification_status=%s, remarks=%s, verified_by=%s, verified_at=CURRENT_TIMESTAMP
@@ -889,8 +1255,31 @@ def verify_document(doc_id):
         """, (status, remarks, verifier_id, doc_id))
         res = cur.fetchone()
         conn.commit()
-    finally:
-        release_db(conn, cur)
+        if conn:
+            release_db(conn, cur)
+    except Exception as e:
+        print("Error verifying document via DB, trying REST fallback:", e)
+        if conn:
+            try:
+                release_db(conn, cur)
+            except:
+                pass
+        try:
+            doc = supabase_rest.get_first_row("employee_documents", {"select": "employee_id", "id": f"eq.{doc_id}"})
+            if doc:
+                res = {"employee_id": doc.get("employee_id")}
+                supabase_rest.update_rows(
+                    "employee_documents",
+                    {"id": f"eq.{doc_id}"},
+                    {
+                        "verification_status": status,
+                        "remarks": remarks,
+                        "verified_by": verifier_id,
+                        "verified_at": datetime.now().isoformat()
+                    }
+                )
+        except Exception as rest_err:
+            print("REST fallback for document verification failed:", rest_err)
         
     return redirect(f"/hrms/employees/{res['employee_id']}/documents" if res else "/hrms/employees/ui")
 

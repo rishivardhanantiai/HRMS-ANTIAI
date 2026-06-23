@@ -480,9 +480,105 @@ def dashboard():
                 eval_summary["total"] = cur.fetchone()["total"]
 
             except Exception as e:
-                print("Error fetching employee dashboard stats:", e)
+                print("Error fetching employee dashboard stats, trying REST fallback:", e)
+                if conn:
+                    try:
+                        release_db(conn, cur)
+                    except:
+                        pass
+                try:
+                    # Letters
+                    letters = supabase_rest.get_rows("generated_letters", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "generated_at.desc"
+                    })
+                    
+                    # Today's attendance
+                    today_str = str(date.today())
+                    attendance_row = supabase_rest.get_first_row("hrms_attendance", {
+                        "employee_id": f"eq.{emp_id}",
+                        "attendance_date": f"eq.{today_str}"
+                    })
+                    if attendance_row:
+                        from hrms.attendance.routes import ensure_ist
+                        today_attendance = {
+                            "status": attendance_row.get("status"),
+                            "check_in_time": ensure_ist(attendance_row.get("check_in_time")),
+                            "check_out_time": ensure_ist(attendance_row.get("check_out_time")),
+                            "duration": attendance_row.get("duration")
+                        }
+                    
+                    # Leave requests summary
+                    leave_rows = supabase_rest.get_rows("leave_applications", {
+                        "select": "status",
+                        "employee_id": f"eq.{emp_id}"
+                    })
+                    for row in leave_rows:
+                        status_lower = str(row.get("status") or "").lower()
+                        if "pending" in status_lower:
+                            leave_summary["pending"] = leave_summary.get("pending", 0) + 1
+                        elif "approved" in status_lower:
+                            leave_summary["approved"] = leave_summary.get("approved", 0) + 1
+                        elif "rejected" in status_lower:
+                            leave_summary["rejected"] = leave_summary.get("rejected", 0) + 1
+                    
+                    # Recent leave applications
+                    recent_leaves = supabase_rest.get_rows("leave_applications", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "from_date.desc",
+                        "limit": "3"
+                    })
+                    if recent_leaves:
+                        leave_types = {str(lt["id"]): lt["name"] for lt in supabase_rest.list_leave_types()}
+                        for r_lv in recent_leaves:
+                            r_lv["leave_type"] = leave_types.get(str(r_lv.get("leave_type_id")), "Leave")
+                        leave_summary["recent"] = recent_leaves
+
+                    # Document summary
+                    doc_rows = supabase_rest.get_rows("employee_documents", {
+                        "select": "verification_status",
+                        "employee_id": f"eq.{emp_id}"
+                    })
+                    for row in doc_rows:
+                        status_lower = str(row.get("verification_status") or "").lower()
+                        if "pending" in status_lower:
+                            doc_summary["pending"] = doc_summary.get("pending", 0) + 1
+                        elif "verified" in status_lower:
+                            doc_summary["verified"] = doc_summary.get("verified", 0) + 1
+                        elif "rejected" in status_lower:
+                            doc_summary["rejected"] = doc_summary.get("rejected", 0) + 1
+
+                    # Recent documents
+                    recent_docs = supabase_rest.get_rows("employee_documents", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "created_at.desc",
+                        "limit": "3"
+                    })
+                    if recent_docs:
+                        doc_summary["recent"] = recent_docs
+
+                    # Performance summary
+                    latest_eval = supabase_rest.get_first_row("performance_evaluations", {
+                        "employee_id": f"eq.{emp_id}",
+                        "status": "eq.Completed",
+                        "order": "evaluation_date.desc",
+                        "limit": "1"
+                    })
+                    if latest_eval:
+                        eval_summary["latest_score"] = latest_eval.get("final_score")
+                        eval_summary["latest_grade"] = latest_eval.get("grade")
+                    
+                    eval_summary["total"] = supabase_rest.get_count("performance_evaluations", {
+                        "employee_id": f"eq.{emp_id}"
+                    })
+                except Exception as rest_err:
+                    print("REST fallback for employee dashboard failed:", rest_err)
             finally:
-                if conn: release_db(conn, cur)
+                if conn:
+                    try:
+                        release_db(conn, cur)
+                    except:
+                        pass
 
         return render_template(
             "employee_dashboard.html",
@@ -935,8 +1031,20 @@ def applications():
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         
-        # Sometimes querying non-existent columns via REST causes error, so we fallback to selecting *
-        app_rows = supabase_rest.get_rows("applications", {"order": "created_at.desc"} if not selected_job else {"job_id": f"eq.{selected_job}", "order": "created_at.desc"})
+        # Try fetching with multiple sorting fallbacks to handle schema differences (old vs new / cache issues)
+        app_rows = None
+        for sort_col in ["applied_at", "created_at", "id", None]:
+            params = {}
+            if sort_col:
+                params["order"] = f"{sort_col}.desc"
+            if selected_job:
+                params["job_id"] = f"eq.{selected_job}"
+            
+            app_rows = supabase_rest.get_rows("applications", params)
+            if app_rows:
+                break
+        if not app_rows:
+            app_rows = []
         
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         applications = [
@@ -1150,7 +1258,7 @@ def delete_application(application_id):
     return redirect("/applications")
 
 
-@app.route("/applications/update-status/<int:application_id>", methods=["POST"])
+@app.route("/applications/update-status/<application_id>", methods=["POST"])
 @login_required
 def update_application_status(application_id):
     data = request.get_json() or {}
@@ -1220,16 +1328,27 @@ def download_excel():
 
     except Exception:
         jobs = supabase_rest.get_rows("jobs", {"select": "id,title"})
-        apps_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
-        if selected_job:
-            apps_filter["job_id"] = f"eq.{selected_job}"
-        apps = supabase_rest.get_rows("applications", apps_filter)
+        
+        apps = None
+        for sort_col in ["applied_at", "created_at", "id", None]:
+            apps_filter = {"select": "id,job_id,name,applicant_name,email,phone,resume_url,applied_at,created_at,cover_letter,status"}
+            if sort_col:
+                apps_filter["order"] = f"{sort_col}.desc"
+            if selected_job:
+                apps_filter["job_id"] = f"eq.{selected_job}"
+            
+            apps = supabase_rest.get_rows("applications", apps_filter)
+            if apps:
+                break
+        if not apps:
+            apps = []
+            
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         records = [
             {
                 "Job": job_lookup.get(str(a.get("job_id")), "-"),
-                "Applied_At": a.get("applied_at") or a.get("created_at"),
-                "Applicant": a.get("applicant_name") or a.get("name"),
+                "Applied_At": a.get("applied_at") or a.get("created_at") or "-",
+                "Applicant": a.get("applicant_name") or a.get("name") or "-",
                 "Email": a.get("email"),
                 "Phone": a.get("phone"),
                 "Resume_URL": a.get("resume_url"),
