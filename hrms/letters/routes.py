@@ -7,7 +7,11 @@ from datetime import date, datetime
 from utils.supabase_rest import upload_file_bytes
 import json
 import decimal
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
 
 letters_bp = Blueprint("letters_bp", __name__, url_prefix="/hrms/letters")
 
@@ -385,6 +389,8 @@ def generate_pdf():
     pdf_path = os.path.join(current_app.root_path, "uploads", f"doc_{int(time.time())}.pdf")
 
     try:
+        if not PLAYWRIGHT_AVAILABLE:
+            return "PDF generation not available on this server.", 503
         with sync_playwright() as p:
             browser = p.chromium.launch()
             page = browser.new_page()
