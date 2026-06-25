@@ -1031,20 +1031,8 @@ def applications():
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         
-        # Try fetching with multiple sorting fallbacks to handle schema differences (old vs new / cache issues)
-        app_rows = None
-        for sort_col in ["applied_at", "created_at", "id", None]:
-            params = {}
-            if sort_col:
-                params["order"] = f"{sort_col}.desc"
-            if selected_job:
-                params["job_id"] = f"eq.{selected_job}"
-            
-            app_rows = supabase_rest.get_rows("applications", params)
-            if app_rows:
-                break
-        if not app_rows:
-            app_rows = []
+        # Sometimes querying non-existent columns via REST causes error, so we fallback to selecting *
+        app_rows = supabase_rest.get_rows("applications", {"order": "created_at.desc"} if not selected_job else {"job_id": f"eq.{selected_job}", "order": "created_at.desc"})
         
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         applications = [
@@ -1328,27 +1316,16 @@ def download_excel():
 
     except Exception:
         jobs = supabase_rest.get_rows("jobs", {"select": "id,title"})
-        
-        apps = None
-        for sort_col in ["applied_at", "created_at", "id", None]:
-            apps_filter = {"select": "id,job_id,name,applicant_name,email,phone,resume_url,applied_at,created_at,cover_letter,status"}
-            if sort_col:
-                apps_filter["order"] = f"{sort_col}.desc"
-            if selected_job:
-                apps_filter["job_id"] = f"eq.{selected_job}"
-            
-            apps = supabase_rest.get_rows("applications", apps_filter)
-            if apps:
-                break
-        if not apps:
-            apps = []
-            
+        apps_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
+        if selected_job:
+            apps_filter["job_id"] = f"eq.{selected_job}"
+        apps = supabase_rest.get_rows("applications", apps_filter)
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         records = [
             {
                 "Job": job_lookup.get(str(a.get("job_id")), "-"),
-                "Applied_At": a.get("applied_at") or a.get("created_at") or "-",
-                "Applicant": a.get("applicant_name") or a.get("name") or "-",
+                "Applied_At": a.get("applied_at") or a.get("created_at"),
+                "Applicant": a.get("applicant_name") or a.get("name"),
                 "Email": a.get("email"),
                 "Phone": a.get("phone"),
                 "Resume_URL": a.get("resume_url"),
