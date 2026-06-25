@@ -290,9 +290,6 @@
 <p class="subtitle">Review and manage candidate applications</p>
 
 <div class="action-bar" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:18px;">
-    <input type="text" id="searchInput" placeholder="Search on this page..."
-           onkeyup="searchApplications()" class="search-input">
-
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <!-- Robust Excel download with error feedback -->
         <a href="/download-excel"
@@ -301,11 +298,11 @@
            onclick="handleDownload(event, this, '/download-excel')">
             ⬇ Download All Excel
         </a>
-        {% if selected_job %}
-        <a href="/download-excel?job_id={{ selected_job }}"
+        {% if selected_job or status or search %}
+        <a href="/download-excel?job_id={{ selected_job or '' }}&status={{ status or '' }}&search={{ search or '' }}"
            class="download-btn"
            id="dlFiltered"
-           onclick="handleDownload(event, this, '/download-excel?job_id={{ selected_job }}')">
+           onclick="handleDownload(event, this, '/download-excel?job_id={{ selected_job or '' }}&status={{ status or '' }}&search={{ search or '' }}')">
             ⬇ Download Filtered Excel
         </a>
         {% endif %}
@@ -320,9 +317,14 @@
             onclick="document.getElementById('hiddenCsvInput').click();">Import CSV</button>
 </div>
 
-<form method="GET" action="/applications" style="display:flex; gap:12px; align-items:center; margin-bottom:10px;">
+<form method="GET" action="/applications" style="display:flex; flex-flow:row nowrap; gap:12px; align-items:center; margin-bottom:18px; width:100%; box-sizing:border-box;">
     <input type="hidden" name="per_page" value="{{ per_page }}">
-    <select name="job_id" class="select">
+    <input type="hidden" name="page" value="1">
+    
+    <input type="text" name="search" id="searchInput" placeholder="Search name, email, phone..."
+           value="{{ search or '' }}" class="search-input" style="flex: 15 1 0%; min-width: 140px; width: 100%; box-sizing: border-box; margin-bottom: 0;">
+           
+    <select name="job_id" class="select" style="flex: 75 1 0%; min-width: 200px; width: 100%; box-sizing: border-box; margin-bottom: 0;">
         <option value="">All Jobs</option>
         {% for job in jobs %}
             <option value="{{ job.id }}"
@@ -331,9 +333,21 @@
             </option>
         {% endfor %}
     </select>
-    <button type="submit" class="btn btn-outline">Filter</button>
+    
+    <select name="status" class="select" style="flex: 10 1 0%; min-width: 130px; width: 100%; box-sizing: border-box; margin-bottom: 0;">
+        <option value="">All Statuses</option>
+        <option value="Pending" {% if status == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="Selected" {% if status == 'Selected' %}selected{% endif %}>Selected</option>
+        <option value="Rejected" {% if status == 'Rejected' %}selected{% endif %}>Rejected</option>
+        <option value="Backup" {% if status == 'Backup' %}selected{% endif %}>Backup</option>
+        <option value="Future Reference" {% if status == 'Future Reference' %}selected{% endif %}>Future Ref</option>
+    </select>
+    
+    <button type="submit" class="btn btn-primary" style="white-space: nowrap; flex-shrink: 0;">Search & Filter</button>
+    <a href="/applications" class="btn btn-outline" style="text-decoration:none; display:flex; align-items:center; justify-content:center; white-space: nowrap; flex-shrink: 0;">Clear</a>
+    
     <button type="button" onclick="window.location.reload()" title="Refresh"
-            style="background:transparent; border:none; color:#9ca3af; cursor:pointer; padding:5px; transition:all 0.3s;"
+            style="background:transparent; border:none; color:#9ca3af; cursor:pointer; padding:5px; transition:all 0.3s; flex-shrink: 0;"
             onmouseover="this.style.color='#fff';this.style.transform='rotate(90deg)'"
             onmouseout="this.style.color='#9ca3af';this.style.transform='rotate(0deg)'">
         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
@@ -357,7 +371,7 @@
     </div>
     <div style="display:flex; gap:8px; align-items:center;">
         {% if page > 1 %}
-            <a href="?job_id={{ selected_job or '' }}&page={{ page-1 }}&per_page={{ per_page }}"
+            <a href="?job_id={{ selected_job or '' }}&status={{ status or '' }}&search={{ search or '' }}&page={{ page-1 }}&per_page={{ per_page }}"
                class="btn btn-outline" style="padding:4px 10px; font-size:13px;">Prev</a>
         {% else %}
             <button class="btn btn-outline" disabled
@@ -365,7 +379,7 @@
         {% endif %}
         <span>Page {{ page }} of {{ total_pages }}</span>
         {% if page < total_pages %}
-            <a href="?job_id={{ selected_job or '' }}&page={{ page+1 }}&per_page={{ per_page }}"
+            <a href="?job_id={{ selected_job or '' }}&status={{ status or '' }}&search={{ search or '' }}&page={{ page+1 }}&per_page={{ per_page }}"
                class="btn btn-outline" style="padding:4px 10px; font-size:13px;">Next</a>
         {% else %}
             <button class="btn btn-outline" disabled
@@ -523,7 +537,7 @@
     <div>Showing {{ applications|length }} of {{ total_records }}</div>
     <div style="display:flex; gap:8px; align-items:center;">
         {% if page > 1 %}
-            <a href="?job_id={{ selected_job or '' }}&page={{ page-1 }}&per_page={{ per_page }}"
+            <a href="?job_id={{ selected_job or '' }}&status={{ status or '' }}&search={{ search or '' }}&page={{ page-1 }}&per_page={{ per_page }}"
                class="btn btn-outline" style="padding:4px 10px; font-size:13px;">Prev</a>
         {% else %}
             <button class="btn btn-outline" disabled
@@ -531,7 +545,7 @@
         {% endif %}
         <span>Page {{ page }} of {{ total_pages }}</span>
         {% if page < total_pages %}
-            <a href="?job_id={{ selected_job or '' }}&page={{ page+1 }}&per_page={{ per_page }}"
+            <a href="?job_id={{ selected_job or '' }}&status={{ status or '' }}&search={{ search or '' }}&page={{ page+1 }}&per_page={{ per_page }}"
                class="btn btn-outline" style="padding:4px 10px; font-size:13px;">Next</a>
         {% else %}
             <button class="btn btn-outline" disabled
@@ -682,12 +696,9 @@ function changePerPage(v) {
     window.location.href = url.toString();
 }
 
-/* ── Live search ── */
+/* ── Live search (now backend driven, keeping signature for refresh logic) ── */
 function searchApplications() {
-    const q = document.getElementById('searchInput').value.toLowerCase();
-    document.querySelectorAll('#applicationsTable tbody tr').forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
-    });
+    // Backend handles searching, no client-side hiding needed
 }
 
 /* ── Status update ── */

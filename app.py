@@ -969,6 +969,8 @@ def serve_resume(filename):
 @role_required(["HR", "Admin"])
 def applications():
     selected_job = request.args.get("job_id", "")
+    search_q = request.args.get("search", "").strip()
+    selected_status = request.args.get("status", "").strip()
     
     # --- PAGINATION SETTINGS ---
     page = int(request.args.get("page", 1))
@@ -983,12 +985,34 @@ def applications():
         cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
 
-        # Get total records for pagination math
-        count_query = "SELECT COUNT(*) as total FROM applications a"
+        # Build dynamic query filters
+        clauses = []
         count_params = []
+        
         if selected_job:
-            count_query += " WHERE a.job_id = %s"
+            clauses.append("a.job_id = %s")
             count_params.append(selected_job)
+            
+        if selected_status:
+            if selected_status == "Pending":
+                clauses.append("(a.status = 'Pending' OR a.status IS NULL OR a.status = '')")
+            else:
+                clauses.append("a.status = %s")
+                count_params.append(selected_status)
+                
+        if search_q:
+            clauses.append("(a.name ILIKE %s OR a.email ILIKE %s OR a.phone ILIKE %s)")
+            search_param = f"%{search_q}%"
+            count_params.extend([search_param, search_param, search_param])
+
+        # Get total records for pagination math
+        count_query = """
+            SELECT COUNT(*) as total 
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.id
+        """
+        if clauses:
+            count_query += " WHERE " + " AND ".join(clauses)
             
         cur.execute(count_query, tuple(count_params))
         total_records = cur.fetchone()["total"]
@@ -1011,9 +1035,9 @@ def applications():
         """
         
         params = []
-        if selected_job:
-            base_query += " WHERE a.job_id = %s"
-            params.append(selected_job)
+        if clauses:
+            base_query += " WHERE " + " AND ".join(clauses)
+            params.extend(count_params)
 
         base_query += " ORDER BY a.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
@@ -1033,10 +1057,33 @@ def applications():
         
         all_app_rows = supabase_rest.get_rows("applications", selected_filter)
         
+        # Apply local filters for status and search query in fallback
+        filtered_rows = []
+        for a in all_app_rows:
+            # status filter
+            st = a.get("status") or ""
+            if selected_status:
+                if selected_status == "Pending":
+                    if st not in ("Pending", "Pending (Default)", ""):
+                        continue
+                elif st.lower() != selected_status.lower():
+                    continue
+            
+            # search filter
+            if search_q:
+                name = (a.get("name") or "").lower()
+                email = (a.get("email") or "").lower()
+                phone = (a.get("phone") or "").lower()
+                sq = search_q.lower()
+                if sq not in name and sq not in email and sq not in phone:
+                    continue
+            
+            filtered_rows.append(a)
+            
         # Paginate manual fallback results
-        total_records = len(all_app_rows)
+        total_records = len(filtered_rows)
         total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
-        app_rows = all_app_rows[offset : offset + per_page]
+        app_rows = filtered_rows[offset : offset + per_page]
         
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         applications = [
@@ -1075,6 +1122,8 @@ def applications():
         applications=applications,
         jobs=jobs,
         selected_job=selected_job,
+        search=search_q,
+        status=selected_status,
         page=page,
         per_page=per_page,
         total_pages=total_pages,
@@ -1300,6 +1349,9 @@ def update_application_status(application_id):
 def download_excel():
 
     selected_job = request.args.get("job_id")
+    search_q = request.args.get("search", "").strip()
+    selected_status = request.args.get("status", "").strip()
+    
     conn = None
     cur = None
     df = None
@@ -1325,11 +1377,28 @@ def download_excel():
             JOIN jobs j ON a.job_id = j.id
         """
 
+        clauses = []
+        params = []
         if selected_job:
-            cur.execute(base_query + " WHERE a.job_id = %s ORDER BY a.applied_at DESC", (selected_job,))
-        else:
-            cur.execute(base_query + " ORDER BY a.applied_at DESC")
+            clauses.append("a.job_id = %s")
+            params.append(selected_job)
+        if selected_status:
+            if selected_status == "Pending":
+                clauses.append("(a.status = 'Pending' OR a.status IS NULL OR a.status = '')")
+            else:
+                clauses.append("a.status = %s")
+                params.append(selected_status)
+        if search_q:
+            clauses.append("(a.name ILIKE %s OR a.email ILIKE %s OR a.phone ILIKE %s)")
+            search_param = f"%{search_q}%"
+            params.extend([search_param, search_param, search_param])
 
+        query = base_query
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY a.applied_at DESC"
+
+        cur.execute(query, tuple(params))
         rows = cur.fetchall()
         print(f"[download_excel] DB rows fetched: {len(rows)}")
 
@@ -1353,7 +1422,29 @@ def download_excel():
                 apps_filter["job_id"] = f"eq.{selected_job}"
 
             apps = supabase_rest.get_rows("applications", apps_filter)
-            print(f"[download_excel] Supabase rows fetched: {len(apps)}")
+
+            # Python-side filtering for status and search query
+            filtered_apps = []
+            for a in apps:
+                # status
+                st = a.get("status") or ""
+                if selected_status:
+                    if selected_status == "Pending":
+                        if st not in ("Pending", "Pending (Default)", ""):
+                            continue
+                    elif st.lower() != selected_status.lower():
+                        continue
+                # search
+                if search_q:
+                    name = (a.get("name") or "").lower()
+                    email = (a.get("email") or "").lower()
+                    phone = (a.get("phone") or "").lower()
+                    sq = search_q.lower()
+                    if sq not in name and sq not in email and sq not in phone:
+                        continue
+                filtered_apps.append(a)
+
+            print(f"[download_excel] Supabase rows fetched and filtered: {len(filtered_apps)}")
 
             job_lookup = {str(j.get("id")): j.get("title") for j in jobs_list}
             records = [
@@ -1367,7 +1458,7 @@ def download_excel():
                     "Cover_Letter": a.get("cover_letter"),
                     "Status":       a.get("status"),
                 }
-                for a in apps
+                for a in filtered_apps
             ]
             df = pd.DataFrame(records)
         except Exception as rest_err:

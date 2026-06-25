@@ -26,7 +26,10 @@ def init_db_pool():
                 sslmode="require"
             )
         except Exception as e:
-            print("Database pool init error:", e)
+            err_msg = str(e)
+            import re
+            cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
+            print("Database pool init error:", cleaned_err)
             db_pool = None
 
 # =========================
@@ -40,7 +43,10 @@ def get_db(dict_cursor=False):
     try:
         conn = db_pool.getconn()
     except Exception as e:
-        print("Database connection error:", e)
+        err_msg = str(e)
+        import re
+        cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
+        print("Database connection error:", cleaned_err)
         return None, None
 
     if dict_cursor:
