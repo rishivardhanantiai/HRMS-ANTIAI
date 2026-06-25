@@ -275,6 +275,8 @@ def login(role):
 
         try:
             conn, cur = get_db(True)
+            if not conn:
+                raise psycopg2.OperationalError("Database connection failed")
             cur.execute("""
                 SELECT u.id,
                        u.email,
@@ -379,6 +381,8 @@ def dashboard():
             conn, cur = None, None
             try:
                 conn, cur = get_db(True)
+                if not conn:
+                    raise psycopg2.OperationalError("Database connection failed")
                 
                 # Letters
                 cur.execute("SELECT * FROM generated_letters WHERE employee_id = %s ORDER BY generated_at DESC", (emp_id,))
@@ -589,6 +593,8 @@ def dashboard():
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT COUNT(*) AS total FROM jobs")
         total_jobs = cur.fetchone()["total"]
@@ -746,6 +752,8 @@ def dashboard():
 def jobs():
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         if request.method == "POST":
             cur.execute("""
@@ -793,6 +801,8 @@ def jobs():
 def delete_job(job_id):
     try:
         conn, cur = get_db()
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
         conn.commit()
         release_db(conn, cur)
@@ -806,6 +816,8 @@ def delete_job(job_id):
 def edit_job(job_id):
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         if request.method == "POST":
             cur.execute("""
@@ -862,6 +874,8 @@ def apply(job_id):
     job = None
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
         job = cur.fetchone()
@@ -963,6 +977,8 @@ def applications():
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
@@ -1011,7 +1027,7 @@ def applications():
             "jobs",
             {"select": "id,title", "order": "created_at.desc"},
         )
-        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,created_at,cover_letter,status", "order": "id.desc"}
+        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,cover_letter,status", "order": "id.desc"}
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         
@@ -1106,6 +1122,8 @@ def import_applications_csv():
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
         job_lookup_by_id = {str(job.get("id")): job.get("id") for job in jobs}
@@ -1210,6 +1228,8 @@ def download_applications_csv_template():
 def delete_application(application_id):
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
         row = cur.fetchone()
@@ -1250,6 +1270,8 @@ def update_application_status(application_id):
         
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
         row = cur.fetchone()
         
@@ -1388,21 +1410,25 @@ def settings():
                 
                 logo_url = f"/static/uploads/{local_filename}"
                 conn, cur = get_db(True)
-                try:
-                    cur.execute("SELECT id FROM company_settings LIMIT 1")
-                    if cur.fetchone():
-                        cur.execute("UPDATE company_settings SET logo_url = %s", (logo_url,))
-                    else:
-                        cur.execute("INSERT INTO company_settings (logo_url) VALUES (%s)", (logo_url,))
-                    conn.commit()
-                    message = "Company logo updated successfully!"
-                    message_type = "success"
-                except Exception as e:
-                    print("Error updating logo:", e)
-                    message = "Failed to update company logo."
+                if not conn:
+                    message = "Failed to update company logo. Database connection failed."
                     message_type = "error"
-                finally:
-                    release_db(conn, cur)
+                else:
+                    try:
+                        cur.execute("SELECT id FROM company_settings LIMIT 1")
+                        if cur.fetchone():
+                            cur.execute("UPDATE company_settings SET logo_url = %s", (logo_url,))
+                        else:
+                            cur.execute("INSERT INTO company_settings (logo_url) VALUES (%s)", (logo_url,))
+                        conn.commit()
+                        message = "Company logo updated successfully!"
+                        message_type = "success"
+                    except Exception as e:
+                        print("Error updating logo:", e)
+                        message = "Failed to update company logo."
+                        message_type = "error"
+                    finally:
+                        release_db(conn, cur)
         else:
             old_password = request.form.get("old_password", "").strip()
             new_password = request.form.get("new_password", "").strip()
@@ -1422,6 +1448,8 @@ def settings():
                 user_id = session.get("user_id")
                 try:
                     conn, cur = get_db(True)
+                    if not conn:
+                        raise psycopg2.OperationalError("Database connection failed")
                     cur.execute("SELECT password, email FROM hrms_users WHERE id = %s", (user_id,))
                     user = cur.fetchone()
 
@@ -1492,6 +1520,8 @@ def settings():
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("SELECT logo_url FROM company_settings LIMIT 1")
         company = cur.fetchone()
     except Exception:
@@ -1507,6 +1537,8 @@ def settings():
 def salary_records():
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("""
             SELECT es.id,

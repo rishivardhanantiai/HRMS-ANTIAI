@@ -689,6 +689,8 @@ def edit_employee_ui(employee_id):
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("""
             SELECT id, full_name, email, phone, department, role_id
@@ -731,6 +733,8 @@ def edit_employee(employee_id):
     data = request.form
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         # 1. Update the Employee Profile
         cur.execute("""
@@ -828,6 +832,8 @@ def change_employee_status(employee_id):
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute(
             "UPDATE hrms_employees SET status=%s WHERE id=%s",
@@ -854,6 +860,8 @@ def delete_employee(employee_id):
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("""
             UPDATE hrms_employees
@@ -1294,6 +1302,8 @@ def api_pending_documents():
     docs = []
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("""
             SELECT d.id, d.document_type, d.document_title, d.created_at, e.full_name, e.id AS employee_id
             FROM employee_documents d
