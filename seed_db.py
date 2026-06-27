@@ -13,7 +13,7 @@ def seed():
     applicants = [
         {
             "job_id": 1, # Software Engineer
-            "applicant_name": "Aarav Sharma",
+            "candidate_name": "Aarav Sharma",
             "email": "aarav.sharma@example.com",
             "phone": "+91 98765 43210",
             "resume_url": "https://bjbjrenpttgovfxpjbil.supabase.co/storage/v1/object/public/resumes/applications/aarav_resume.pdf",
@@ -22,7 +22,7 @@ def seed():
         },
         {
             "job_id": 2, # Product Manager
-            "applicant_name": "Priya Patel",
+            "candidate_name": "Priya Patel",
             "email": "priya.patel@example.com",
             "phone": "+91 87654 32109",
             "resume_url": "https://bjbjrenpttgovfxpjbil.supabase.co/storage/v1/object/public/resumes/applications/priya_pm_resume.pdf",
@@ -31,7 +31,7 @@ def seed():
         },
         {
             "job_id": 3, # UI/UX Designer
-            "applicant_name": "Rohan Das",
+            "candidate_name": "Rohan Das",
             "email": "rohan.das@example.com",
             "phone": "+91 76543 21098",
             "resume_url": "https://bjbjrenpttgovfxpjbil.supabase.co/storage/v1/object/public/resumes/applications/rohan_design_resume.pdf",
@@ -40,7 +40,7 @@ def seed():
         },
         {
             "job_id": 1, # Software Engineer
-            "applicant_name": "Vikram Singh",
+            "candidate_name": "Vikram Singh",
             "email": "vikram.singh@example.com",
             "phone": "+91 95432 10987",
             "resume_url": "https://bjbjrenpttgovfxpjbil.supabase.co/storage/v1/object/public/resumes/applications/vikram_backend_resume.pdf",
@@ -49,7 +49,7 @@ def seed():
         },
         {
             "job_id": 1, # Software Engineer
-            "applicant_name": "Ananya Iyer",
+            "candidate_name": "Ananya Iyer",
             "email": "ananya.iyer@example.com",
             "phone": "+91 91234 56789",
             "resume_url": "https://bjbjrenpttgovfxpjbil.supabase.co/storage/v1/object/public/resumes/applications/ananya_resume.pdf",
@@ -61,11 +61,11 @@ def seed():
     print("Seeding applicants...")
     for app in applicants:
         cur.execute("""
-            INSERT INTO applications (job_id, applicant_name, email, phone, resume_url, cover_letter, applied_at)
+            INSERT INTO applications (job_id, candidate_name, email, phone, resume_url, cover_letter, applied_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             app["job_id"],
-            app["applicant_name"],
+            app["candidate_name"],
             app["email"],
             app["phone"],
             app["resume_url"],

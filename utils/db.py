@@ -6,7 +6,7 @@ import psycopg2.extras
 from psycopg2 import pool
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -18,19 +18,36 @@ db_pool = None
 def init_db_pool():
     global db_pool
     if not db_pool:
-        db_pool = pool.SimpleConnectionPool(
-            minconn=1,
-            maxconn=20,
-            dsn=DATABASE_URL,
-            sslmode="require"
-        )
+        try:
+            db_pool = pool.SimpleConnectionPool(
+                minconn=1,
+                maxconn=20,
+                dsn=DATABASE_URL,
+                sslmode="require"
+            )
+        except Exception as e:
+            err_msg = str(e)
+            import re
+            cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
+            print("Database pool init error:", cleaned_err)
+            db_pool = None
 
 # =========================
 # GET DATABASE CONNECTION
 # =========================
 def get_db(dict_cursor=False):
     init_db_pool()
-    conn = db_pool.getconn()
+    if not db_pool:
+        return None, None
+    
+    try:
+        conn = db_pool.getconn()
+    except Exception as e:
+        err_msg = str(e)
+        import re
+        cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
+        print("Database connection error:", cleaned_err)
+        return None, None
 
     if dict_cursor:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -38,7 +55,10 @@ def get_db(dict_cursor=False):
         cur = conn.cursor()
 
     #  CRITICAL FIX FOR SUPABASE SCHEMA CONFLICT
-    cur.execute("SET search_path TO public")
+    if os.getenv("TESTING") == "true":
+        cur.execute("SET search_path TO pytest_schema")
+    else:
+        cur.execute("SET search_path TO public")
 
     return conn, cur
 
@@ -46,5 +66,13 @@ def get_db(dict_cursor=False):
 # RELEASE CONNECTION
 # =========================
 def release_db(conn, cur):
-    cur.close()
-    db_pool.putconn(conn)
+    if cur:
+        try:
+            cur.close()
+        except Exception:
+            pass
+    if conn and db_pool:
+        try:
+            db_pool.putconn(conn)
+        except Exception:
+            pass

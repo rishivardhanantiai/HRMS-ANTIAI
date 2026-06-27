@@ -26,9 +26,6 @@ from hrms.attendance.routes import attendance_bp
 from hrms.payroll.routes import payroll_bp
 from hrms.salary.routes import salary_bp
 
-
-
-
 # =========================
 # HRMS BLUEPRINTS
 # =========================
@@ -263,35 +260,23 @@ def upload_resume_to_supabase(file_storage):
 
     return f"{supabase_url}/storage/v1/object/public/{SUPABASE_RESUME_BUCKET}/{object_key}"
 
-
-# =========================
-# REGISTER BLUEPRINTS
-# =========================
-
-
-# =========================
 # =========================
 # AUTHENTICATION
 # =========================
-
 @app.route("/")
 def role_select():
     return render_template("role_select.html")
 
-
-
 @app.route("/login/<role>", methods=["GET", "POST"])
 def login(role):
-
     if request.method == "POST":
-
         email = request.form["email"].strip().lower()
         password = request.form["password"]
 
-                # Primary login path: HRMS users + roles
         try:
             conn, cur = get_db(True)
-
+            if not conn:
+                raise psycopg2.OperationalError("Database connection failed")
             cur.execute("""
                 SELECT u.id,
                        u.email,
@@ -349,7 +334,6 @@ def login(role):
             return redirect("/dashboard")
 
         except Exception:
-            # Fallback for projects using only Supabase REST/Auth + new schema
             fallback_user = _fallback_login_via_supabase(email, password, role)
             if not fallback_user:
                 flash("Invalid Email or Password", "error")
@@ -370,9 +354,7 @@ def login(role):
             return redirect("/dashboard")
 
     return render_template("login.html", role=role)
-
         
-
 @app.route("/logout")
 def logout():
     session.clear()
@@ -385,7 +367,6 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-
     role = session.get("role")
 
     if role == "Employee":
@@ -400,6 +381,8 @@ def dashboard():
             conn, cur = None, None
             try:
                 conn, cur = get_db(True)
+                if not conn:
+                    raise psycopg2.OperationalError("Database connection failed")
                 
                 # Letters
                 cur.execute("SELECT * FROM generated_letters WHERE employee_id = %s ORDER BY generated_at DESC", (emp_id,))
@@ -480,9 +463,105 @@ def dashboard():
                 eval_summary["total"] = cur.fetchone()["total"]
 
             except Exception as e:
-                print("Error fetching employee dashboard stats:", e)
+                print("Error fetching employee dashboard stats, trying REST fallback:", e)
+                if conn:
+                    try:
+                        release_db(conn, cur)
+                    except:
+                        pass
+                try:
+                    # Letters
+                    letters = supabase_rest.get_rows("generated_letters", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "generated_at.desc"
+                    })
+                    
+                    # Today's attendance
+                    today_str = str(date.today())
+                    attendance_row = supabase_rest.get_first_row("hrms_attendance", {
+                        "employee_id": f"eq.{emp_id}",
+                        "attendance_date": f"eq.{today_str}"
+                    })
+                    if attendance_row:
+                        from hrms.attendance.routes import ensure_ist
+                        today_attendance = {
+                            "status": attendance_row.get("status"),
+                            "check_in_time": ensure_ist(attendance_row.get("check_in_time")),
+                            "check_out_time": ensure_ist(attendance_row.get("check_out_time")),
+                            "duration": attendance_row.get("duration")
+                        }
+                    
+                    # Leave requests summary
+                    leave_rows = supabase_rest.get_rows("leave_applications", {
+                        "select": "status",
+                        "employee_id": f"eq.{emp_id}"
+                    })
+                    for row in leave_rows:
+                        status_lower = str(row.get("status") or "").lower()
+                        if "pending" in status_lower:
+                            leave_summary["pending"] = leave_summary.get("pending", 0) + 1
+                        elif "approved" in status_lower:
+                            leave_summary["approved"] = leave_summary.get("approved", 0) + 1
+                        elif "rejected" in status_lower:
+                            leave_summary["rejected"] = leave_summary.get("rejected", 0) + 1
+                    
+                    # Recent leave applications
+                    recent_leaves = supabase_rest.get_rows("leave_applications", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "from_date.desc",
+                        "limit": "3"
+                    })
+                    if recent_leaves:
+                        leave_types = {str(lt["id"]): lt["name"] for lt in supabase_rest.list_leave_types()}
+                        for r_lv in recent_leaves:
+                            r_lv["leave_type"] = leave_types.get(str(r_lv.get("leave_type_id")), "Leave")
+                        leave_summary["recent"] = recent_leaves
+
+                    # Document summary
+                    doc_rows = supabase_rest.get_rows("employee_documents", {
+                        "select": "verification_status",
+                        "employee_id": f"eq.{emp_id}"
+                    })
+                    for row in doc_rows:
+                        status_lower = str(row.get("verification_status") or "").lower()
+                        if "pending" in status_lower:
+                            doc_summary["pending"] = doc_summary.get("pending", 0) + 1
+                        elif "verified" in status_lower:
+                            doc_summary["verified"] = doc_summary.get("verified", 0) + 1
+                        elif "rejected" in status_lower:
+                            doc_summary["rejected"] = doc_summary.get("rejected", 0) + 1
+
+                    # Recent documents
+                    recent_docs = supabase_rest.get_rows("employee_documents", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "created_at.desc",
+                        "limit": "3"
+                    })
+                    if recent_docs:
+                        doc_summary["recent"] = recent_docs
+
+                    # Performance summary
+                    latest_eval = supabase_rest.get_first_row("performance_evaluations", {
+                        "employee_id": f"eq.{emp_id}",
+                        "status": "eq.Completed",
+                        "order": "evaluation_date.desc",
+                        "limit": "1"
+                    })
+                    if latest_eval:
+                        eval_summary["latest_score"] = latest_eval.get("final_score")
+                        eval_summary["latest_grade"] = latest_eval.get("grade")
+                    
+                    eval_summary["total"] = supabase_rest.get_count("performance_evaluations", {
+                        "employee_id": f"eq.{emp_id}"
+                    })
+                except Exception as rest_err:
+                    print("REST fallback for employee dashboard failed:", rest_err)
             finally:
-                if conn: release_db(conn, cur)
+                if conn:
+                    try:
+                        release_db(conn, cur)
+                    except:
+                        pass
 
         return render_template(
             "employee_dashboard.html",
@@ -514,6 +593,8 @@ def dashboard():
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT COUNT(*) AS total FROM jobs")
         total_jobs = cur.fetchone()["total"]
@@ -559,9 +640,7 @@ def dashboard():
                 continue # Skip new joinees this month
 
             # The due date is the same day of the current month
-            # (Simplification: if joining date is 31st and current month has 30 days, assume 30th)
             due_day = jd.day
-            # Handle month end cases
             import calendar
             last_day = calendar.monthrange(current_year, current_month)[1]
             if due_day > last_day:
@@ -664,6 +743,7 @@ def dashboard():
         perf_metrics=perf_metrics,
         notifications=notifications
     )
+
 # =========================
 # JOB MANAGEMENT
 # =========================
@@ -672,6 +752,8 @@ def dashboard():
 def jobs():
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         if request.method == "POST":
             cur.execute("""
@@ -719,6 +801,8 @@ def jobs():
 def delete_job(job_id):
     try:
         conn, cur = get_db()
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
         conn.commit()
         release_db(conn, cur)
@@ -732,6 +816,8 @@ def delete_job(job_id):
 def edit_job(job_id):
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         if request.method == "POST":
             cur.execute("""
@@ -788,6 +874,8 @@ def apply(job_id):
     job = None
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
         job = cur.fetchone()
@@ -880,70 +968,129 @@ def serve_resume(filename):
 @login_required
 @role_required(["HR", "Admin"])
 def applications():
-
-    selected_job = request.args.get("job_id")
+    selected_job = request.args.get("job_id", "")
+    search_q = request.args.get("search", "").strip()
+    selected_status = request.args.get("status", "").strip()
+    
+    # --- PAGINATION SETTINGS ---
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 100))
+    offset = (page - 1) * per_page
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
 
+        # Build dynamic query filters
+        clauses = []
+        count_params = []
+        
         if selected_job:
-            cur.execute("""
-                SELECT
-                    a.id,
-                    j.title AS job_title,
-                    a.applied_at,
-                    a.applicant_name,
-                    a.email,
-                    a.phone,
-                    a.resume_url,
-                    a.cover_letter,
-                    a.status
-                FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                WHERE a.job_id = %s
-                ORDER BY a.id DESC
-            """, (selected_job,))
-        else:
-            cur.execute("""
-                SELECT
-                    a.id,
-                    j.title AS job_title,
-                    a.applied_at,
-                    a.applicant_name,
-                    a.email,
-                    a.phone,
-                    a.resume_url,
-                    a.cover_letter,
-                    a.status
-                FROM applications a
-                JOIN jobs j ON a.job_id = j.id
-                ORDER BY a.id DESC
-            """)
+            clauses.append("a.job_id = %s")
+            count_params.append(selected_job)
+            
+        if selected_status:
+            if selected_status == "Pending":
+                clauses.append("(a.status = 'Pending' OR a.status IS NULL OR a.status = '')")
+            else:
+                clauses.append("a.status = %s")
+                count_params.append(selected_status)
+                
+        if search_q:
+            clauses.append("(a.name ILIKE %s OR a.email ILIKE %s OR a.phone ILIKE %s)")
+            search_param = f"%{search_q}%"
+            count_params.extend([search_param, search_param, search_param])
 
+        # Get total records for pagination math
+        count_query = """
+            SELECT COUNT(*) as total 
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.id
+        """
+        if clauses:
+            count_query += " WHERE " + " AND ".join(clauses)
+            
+        cur.execute(count_query, tuple(count_params))
+        total_records = cur.fetchone()["total"]
+        total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+
+        # Base Data Query
+        base_query = """
+            SELECT
+                a.id,
+                j.title AS job_title,
+                a.applied_at,
+                a.name,
+                a.email,
+                a.phone,
+                a.resume_url,
+                a.cover_letter,
+                a.status
+            FROM applications a
+            JOIN jobs j ON a.job_id = j.id
+        """
+        
+        params = []
+        if clauses:
+            base_query += " WHERE " + " AND ".join(clauses)
+            params.extend(count_params)
+
+        base_query += " ORDER BY a.id DESC LIMIT %s OFFSET %s"
+        params.extend([per_page, offset])
+
+        cur.execute(base_query, tuple(params))
         applications = cur.fetchall()
         release_db(conn, cur)
+
     except Exception:
         jobs = supabase_rest.get_rows(
             "jobs",
             {"select": "id,title", "order": "created_at.desc"},
         )
-        # Try fetching with multiple fields to handle schema differences (old vs new)
-        selected_filter = {"select": "id,job_id,applicant_name,name,email,phone,resume_url,applied_at,created_at,cover_letter,status", "order": "created_at.desc"}
+        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,cover_letter,status", "order": "id.desc"}
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         
-        # Sometimes querying non-existent columns via REST causes error, so we fallback to selecting *
-        app_rows = supabase_rest.get_rows("applications", {"order": "created_at.desc"} if not selected_job else {"job_id": f"eq.{selected_job}", "order": "created_at.desc"})
+        all_app_rows = supabase_rest.get_rows("applications", selected_filter)
+        
+        # Apply local filters for status and search query in fallback
+        filtered_rows = []
+        for a in all_app_rows:
+            # status filter
+            st = a.get("status") or ""
+            if selected_status:
+                if selected_status == "Pending":
+                    if st not in ("Pending", "Pending (Default)", ""):
+                        continue
+                elif st.lower() != selected_status.lower():
+                    continue
+            
+            # search filter
+            if search_q:
+                name = (a.get("name") or "").lower()
+                email = (a.get("email") or "").lower()
+                phone = (a.get("phone") or "").lower()
+                sq = search_q.lower()
+                if sq not in name and sq not in email and sq not in phone:
+                    continue
+            
+            filtered_rows.append(a)
+            
+        # Paginate manual fallback results
+        total_records = len(filtered_rows)
+        total_pages = (total_records + per_page - 1) // per_page if total_records > 0 else 1
+        app_rows = filtered_rows[offset : offset + per_page]
         
         job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
         applications = [
             {
                 "id": a.get("id"),
                 "job_title": job_lookup.get(str(a.get("job_id")), "-"),
-                "applicant_name": a.get("applicant_name") or a.get("name") or "—",
+                "name": a.get("name") or "—",
                 "applied_at": _parse_iso_datetime(a.get("applied_at") or a.get("created_at")),
                 "email": a.get("email"),
                 "phone": a.get("phone"),
@@ -974,7 +1121,13 @@ def applications():
         "applications.html",
         applications=applications,
         jobs=jobs,
-        selected_job=selected_job
+        selected_job=selected_job,
+        search=search_q,
+        status=selected_status,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_records=total_records
     )
 
 
@@ -1018,6 +1171,8 @@ def import_applications_csv():
 
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
         jobs = cur.fetchall()
         job_lookup_by_id = {str(job.get("id")): job.get("id") for job in jobs}
@@ -1122,6 +1277,8 @@ def download_applications_csv_template():
 def delete_application(application_id):
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
         row = cur.fetchone()
@@ -1150,7 +1307,7 @@ def delete_application(application_id):
     return redirect("/applications")
 
 
-@app.route("/applications/update-status/<int:application_id>", methods=["POST"])
+@app.route("/applications/update-status/<application_id>", methods=["POST"])
 @login_required
 def update_application_status(application_id):
     data = request.get_json() or {}
@@ -1162,6 +1319,8 @@ def update_application_status(application_id):
         
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("SELECT id FROM applications WHERE id=%s", (application_id,))
         row = cur.fetchone()
         
@@ -1190,61 +1349,137 @@ def update_application_status(application_id):
 def download_excel():
 
     selected_job = request.args.get("job_id")
+    search_q = request.args.get("search", "").strip()
+    selected_status = request.args.get("status", "").strip()
+    
     conn = None
     cur = None
+    df = None
+    filename = f"applications_job_{selected_job}.xlsx" if selected_job else "applications.xlsx"
+
+    # ── Primary path: direct DB via psycopg2 connection ──────────────────────
     try:
         conn, cur = get_db()
+        if conn is None:
+            raise RuntimeError("No DB connection available")
 
         base_query = """
             SELECT
-                j.title AS Job,
-                a.applied_at AS Applied_At,
-                a.applicant_name AS Applicant,
-                a.email AS Email,
-                a.phone AS Phone,
-                a.resume_url AS Resume_URL,
-                a.cover_letter AS Cover_Letter,
-                a.status AS Status
+                j.title        AS "Job",
+                a.applied_at   AS "Applied_At",
+                a.name         AS "Applicant",
+                a.email        AS "Email",
+                a.phone        AS "Phone",
+                a.resume_url   AS "Resume_URL",
+                a.cover_letter AS "Cover_Letter",
+                a.status       AS "Status"
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
         """
 
+        clauses = []
+        params = []
         if selected_job:
-            query = base_query + " WHERE a.job_id = %s ORDER BY a.created_at DESC"
-            df = pd.read_sql(query, conn, params=(selected_job,))
-            filename = f"applications_job_{selected_job}.xlsx"
+            clauses.append("a.job_id = %s")
+            params.append(selected_job)
+        if selected_status:
+            if selected_status == "Pending":
+                clauses.append("(a.status = 'Pending' OR a.status IS NULL OR a.status = '')")
+            else:
+                clauses.append("a.status = %s")
+                params.append(selected_status)
+        if search_q:
+            clauses.append("(a.name ILIKE %s OR a.email ILIKE %s OR a.phone ILIKE %s)")
+            search_param = f"%{search_q}%"
+            params.extend([search_param, search_param, search_param])
+
+        query = base_query
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY a.applied_at DESC"
+
+        cur.execute(query, tuple(params))
+        rows = cur.fetchall()
+        print(f"[download_excel] DB rows fetched: {len(rows)}")
+
+        if rows:
+            cols = [desc[0] for desc in cur.description]
+            df = pd.DataFrame(rows, columns=cols)
         else:
-            query = base_query + " ORDER BY a.created_at DESC"
-            df = pd.read_sql(query, conn)
-            filename = "applications.xlsx"
+            raise ValueError("Zero rows from DB; trying Supabase")
 
-    except Exception:
-        jobs = supabase_rest.get_rows("jobs", {"select": "id,title"})
-        apps_filter = {"select": "id,job_id,name,email,phone,resume_url,created_at", "order": "created_at.desc"}
-        if selected_job:
-            apps_filter["job_id"] = f"eq.{selected_job}"
-        apps = supabase_rest.get_rows("applications", apps_filter)
-        job_lookup = {str(j.get("id")): j.get("title") for j in jobs}
-        records = [
-            {
-                "Job": job_lookup.get(str(a.get("job_id")), "-"),
-                "Applied_At": a.get("applied_at") or a.get("created_at"),
-                "Applicant": a.get("applicant_name") or a.get("name"),
-                "Email": a.get("email"),
-                "Phone": a.get("phone"),
-                "Resume_URL": a.get("resume_url"),
-                "Cover_Letter": a.get("cover_letter"),
-                "Status": a.get("status"),
+    except Exception as db_err:
+        print(f"[download_excel] DB path failed ({db_err}), falling back to Supabase REST")
+
+        # ── Fallback: Supabase REST ───────────────────────────────────────────
+        try:
+            jobs_list = supabase_rest.get_rows("jobs", {"select": "id,title"})
+            apps_filter = {
+                "select": "id,job_id,name,email,phone,resume_url,cover_letter,status,applied_at",
+                "order": "applied_at.desc",
             }
-            for a in apps
-        ]
-        df = pd.DataFrame(records)
-        filename = f"applications_job_{selected_job}.xlsx" if selected_job else "applications.xlsx"
-    finally:
-        if conn and cur:
-            release_db(conn, cur)
+            if selected_job:
+                apps_filter["job_id"] = f"eq.{selected_job}"
 
-    return _send_excel_dataframe(df, filename)
+            apps = supabase_rest.get_rows("applications", apps_filter)
+
+            # Python-side filtering for status and search query
+            filtered_apps = []
+            for a in apps:
+                # status
+                st = a.get("status") or ""
+                if selected_status:
+                    if selected_status == "Pending":
+                        if st not in ("Pending", "Pending (Default)", ""):
+                            continue
+                    elif st.lower() != selected_status.lower():
+                        continue
+                # search
+                if search_q:
+                    name = (a.get("name") or "").lower()
+                    email = (a.get("email") or "").lower()
+                    phone = (a.get("phone") or "").lower()
+                    sq = search_q.lower()
+                    if sq not in name and sq not in email and sq not in phone:
+                        continue
+                filtered_apps.append(a)
+
+            print(f"[download_excel] Supabase rows fetched and filtered: {len(filtered_apps)}")
+
+            job_lookup = {str(j.get("id")): j.get("title") for j in jobs_list}
+            records = [
+                {
+                    "Job":          job_lookup.get(str(a.get("job_id")), "-"),
+                    "Applied_At":   a.get("applied_at"),
+                    "Applicant":    a.get("name"),
+                    "Email":        a.get("email"),
+                    "Phone":        a.get("phone"),
+                    "Resume_URL":   a.get("resume_url"),
+                    "Cover_Letter": a.get("cover_letter"),
+                    "Status":       a.get("status"),
+                }
+                for a in filtered_apps
+            ]
+            df = pd.DataFrame(records)
+        except Exception as rest_err:
+            print(f"[download_excel] Supabase fallback also failed: {rest_err}")
+            df = pd.DataFrame()
+
+    finally:
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            release_db(conn, None)
+
+    if df is None or df.empty:
+        print("[download_excel] WARNING: DataFrame is empty — returning empty Excel")
+
+    return _send_excel_dataframe(df if df is not None else pd.DataFrame(), filename)
+
+
 
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
@@ -1266,21 +1501,25 @@ def settings():
                 
                 logo_url = f"/static/uploads/{local_filename}"
                 conn, cur = get_db(True)
-                try:
-                    cur.execute("SELECT id FROM company_settings LIMIT 1")
-                    if cur.fetchone():
-                        cur.execute("UPDATE company_settings SET logo_url = %s", (logo_url,))
-                    else:
-                        cur.execute("INSERT INTO company_settings (logo_url) VALUES (%s)", (logo_url,))
-                    conn.commit()
-                    message = "Company logo updated successfully!"
-                    message_type = "success"
-                except Exception as e:
-                    print("Error updating logo:", e)
-                    message = "Failed to update company logo."
+                if not conn:
+                    message = "Failed to update company logo. Database connection failed."
                     message_type = "error"
-                finally:
-                    release_db(conn, cur)
+                else:
+                    try:
+                        cur.execute("SELECT id FROM company_settings LIMIT 1")
+                        if cur.fetchone():
+                            cur.execute("UPDATE company_settings SET logo_url = %s", (logo_url,))
+                        else:
+                            cur.execute("INSERT INTO company_settings (logo_url) VALUES (%s)", (logo_url,))
+                        conn.commit()
+                        message = "Company logo updated successfully!"
+                        message_type = "success"
+                    except Exception as e:
+                        print("Error updating logo:", e)
+                        message = "Failed to update company logo."
+                        message_type = "error"
+                    finally:
+                        release_db(conn, cur)
         else:
             old_password = request.form.get("old_password", "").strip()
             new_password = request.form.get("new_password", "").strip()
@@ -1300,6 +1539,8 @@ def settings():
                 user_id = session.get("user_id")
                 try:
                     conn, cur = get_db(True)
+                    if not conn:
+                        raise psycopg2.OperationalError("Database connection failed")
                     cur.execute("SELECT password, email FROM hrms_users WHERE id = %s", (user_id,))
                     user = cur.fetchone()
 
@@ -1329,26 +1570,49 @@ def settings():
                     
                     release_db(conn, cur)
                 except Exception as e:
-                    print("Database password update failed, using Supabase fallback:", e)
+                    print("Database password update failed, using Supabase REST fallback:", e)
                     try:
-                        from supabase_client import supabase
-                        # Attempt Direct Table Update via Supabase Client
-                        hashed_password = generate_password_hash(new_password)
-                        res = supabase.table("hrms_users").update({"password": hashed_password}).eq("id", user_id).execute()
-                        if res.data:
-                            message = "Password updated successfully via Supabase!"
-                            message_type = "success"
-                        else:
-                            message = "Old password verification or update failed."
+                        # Verify old password via Supabase REST before updating
+                        user_row = supabase_rest.get_first_row(
+                            "hrms_users",
+                            {"select": "id,password", "id": f"eq.{user_id}"}
+                        )
+                        if not user_row:
+                            message = "User not found."
                             message_type = "error"
+                        else:
+                            stored = user_row.get("password") or ""
+                            old_ok = (
+                                check_password_hash(stored, old_password)
+                                if stored.startswith("pbkdf2:") or stored.startswith("scrypt:")
+                                else stored == old_password
+                            )
+                            if not old_ok:
+                                message = "Old password is incorrect"
+                                message_type = "error"
+                            else:
+                                hashed_password = generate_password_hash(new_password)
+                                rows = supabase_rest.update_rows(
+                                    "hrms_users",
+                                    {"id": f"eq.{user_id}"},
+                                    {"password": hashed_password}
+                                )
+                                if rows:
+                                    message = "Password updated successfully!"
+                                    message_type = "success"
+                                else:
+                                    message = "Password update failed. Please try again."
+                                    message_type = "error"
                     except Exception as ex:
-                        print("Supabase update failed:", ex)
-                        message = "Password update failed. Database and Supabase are unreachable."
+                        print("Supabase REST password update failed:", ex)
+                        message = "Password update failed. Database is unreachable."
                         message_type = "error"
 
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
         cur.execute("SELECT logo_url FROM company_settings LIMIT 1")
         company = cur.fetchone()
     except Exception:
@@ -1364,6 +1628,8 @@ def settings():
 def salary_records():
     try:
         conn, cur = get_db(True)
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
 
         cur.execute("""
             SELECT es.id,
@@ -1398,47 +1664,65 @@ def salary_records():
 def download_salary_records():
     conn = None
     cur = None
+    df = None
     try:
         conn, cur = get_db()
+        if conn is None:
+            raise RuntimeError("No DB connection available")
 
         query = """
-            SELECT 
-                e.full_name AS Employee,
+            SELECT
+                e.full_name AS "Employee",
                 CASE
                     WHEN es.monthly_salary IS NOT NULL
                         THEN CONCAT('Manual Salary (', es.monthly_salary, ')')
                     ELSE COALESCE(s.name, 'Not Assigned')
-                END AS Salary_Structure,
-                es.effective_from::text AS Effective_From,
-                es.monthly_salary AS Monthly_Amount,
-                COALESCE(es.annual_ctc, es.monthly_salary * 12) AS Annual_CTC
+                END AS "Salary_Structure",
+                es.effective_from::text AS "Effective_From",
+                es.monthly_salary AS "Monthly_Amount",
+                COALESCE(es.annual_ctc, es.monthly_salary * 12) AS "Annual_CTC"
             FROM employee_salary es
             JOIN hrms_employees e ON es.employee_id = e.id
             LEFT JOIN salary_structures s ON es.structure_id = s.id
             ORDER BY es.effective_from DESC
         """
 
-        df = pd.read_sql(query, conn)
-    except Exception as e:
-        print("Error downloading salary records:", e)
-        records = supabase_rest.list_salary_records()
-        df = pd.DataFrame(
-            [
-                {
-                    "Employee": record.get("employee_name"),
-                    "Salary_Structure": record.get("structure_name"),
-                    "Effective_From": record.get("effective_from"),
-                    "Monthly_Amount": record.get("monthly_salary") or 0.0,
-                    "Annual_CTC": record.get("annual_ctc") or ((record.get("monthly_salary") or 0.0) * 12.0),
-                }
-                for record in records
-            ]
-        )
-    finally:
-        if conn and cur:
-            release_db(conn, cur)
+        cur.execute(query)
+        rows = cur.fetchall()
+        cols = [desc[0] for desc in cur.description]
+        df = pd.DataFrame(rows, columns=cols)
 
-    return _send_excel_dataframe(df, "salary_records.xlsx")
+    except Exception as e:
+        print("[download_salary_records] DB path failed:", e)
+        # ── Supabase REST fallback ────────────────────────────────────────────
+        try:
+            records = supabase_rest.list_salary_records()
+            df = pd.DataFrame(
+                [
+                    {
+                        "Employee":         record.get("employee_name"),
+                        "Salary_Structure": record.get("structure_name"),
+                        "Effective_From":   record.get("effective_from"),
+                        "Monthly_Amount":   record.get("monthly_salary") or 0.0,
+                        "Annual_CTC":       record.get("annual_ctc") or ((record.get("monthly_salary") or 0.0) * 12.0),
+                    }
+                    for record in records
+                ]
+            )
+        except Exception as rest_err:
+            print("[download_salary_records] Supabase fallback also failed:", rest_err)
+            df = pd.DataFrame()
+    finally:
+        # Always release — cur may be None if get_db() failed, handled safely
+        if cur:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if conn:
+            release_db(conn, None)
+
+    return _send_excel_dataframe(df if df is not None else pd.DataFrame(), "salary_records.xlsx")
 
 
 # =========================

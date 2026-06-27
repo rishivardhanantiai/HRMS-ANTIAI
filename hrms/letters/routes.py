@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, flash, session, current_app, jsonify, send_file
+from flask import Blueprint, render_template, request, redirect, flash, session, current_app, jsonify, send_file, url_for
 from utils.auth import login_required, role_required
 from utils.db import get_db, release_db
 import os
@@ -111,11 +111,18 @@ DEFAULT_TEMPLATES = {
 }
 
 
-def _get_company(cur):
+def _get_company(cur=None):
     """Fetch company settings or return defaults."""
+    if cur:
+        try:
+            cur.execute("SELECT * FROM company_settings LIMIT 1")
+            company = cur.fetchone()
+            if company:
+                return company
+        except Exception:
+            pass
     try:
-        cur.execute("SELECT * FROM company_settings LIMIT 1")
-        company = cur.fetchone()
+        company = supabase_rest.get_first_row("company_settings")
         if company:
             return company
     except Exception:
@@ -130,16 +137,32 @@ def _get_company(cur):
     }
 
 
-def _ensure_templates(cur):
+def _ensure_templates(cur=None):
     """Auto-seed default templates if missing."""
-    cur.execute("SELECT template_name FROM letter_templates")
-    existing = [r["template_name"] for r in cur.fetchall()]
-    for name, html in DEFAULT_TEMPLATES.items():
-        if name not in existing:
-            cur.execute(
-                "INSERT INTO letter_templates (template_name, template_content) VALUES (%s, %s)",
-                (name, html),
-            )
+    if cur:
+        try:
+            cur.execute("SELECT template_name FROM letter_templates")
+            existing = [r["template_name"] for r in cur.fetchall()]
+            for name, html in DEFAULT_TEMPLATES.items():
+                if name not in existing:
+                    cur.execute(
+                        "INSERT INTO letter_templates (template_name, template_content) VALUES (%s, %s)",
+                        (name, html),
+                    )
+            return
+        except Exception:
+            pass
+    try:
+        existing_rows = supabase_rest.get_rows("letter_templates", {"select": "template_name"})
+        existing = [r["template_name"] for r in existing_rows] if existing_rows else []
+        for name, html in DEFAULT_TEMPLATES.items():
+            if name not in existing:
+                supabase_rest.insert_row("letter_templates", {
+                    "template_name": name,
+                    "template_content": html
+                })
+    except Exception as e:
+        print("Error seeding templates via REST fallback:", e)
 
 
 # ─── Generator Page ──────────────────────────────────────────────────────────
@@ -149,9 +172,9 @@ def _ensure_templates(cur):
 @role_required(["HR", "Admin"])
 def generator():
     conn, cur = get_db(True)
-    if not conn:
-        return redirect("/dashboard")
     try:
+        if not conn:
+            raise Exception("No DB connection")
         _ensure_templates(cur)
 
         cur.execute("SELECT * FROM letter_templates ORDER BY id")
@@ -174,23 +197,46 @@ def generator():
             company=company,
         )
     except Exception as e:
-        print("Error in generator:", e)
-        import traceback; traceback.print_exc()
-        return redirect("/dashboard")
+        print("Error in generator via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            _ensure_templates(None)
+            templates = supabase_rest.get_rows("letter_templates")
+            employees = supabase_rest.get_rows("hrms_employees", {
+                "select": "id,employee_code,full_name,department,designation,joining_date",
+                "status": "eq.Active",
+                "order": "full_name.asc"
+            })
+            company = _get_company(None)
+            return render_template(
+                "hrms/letters/generator.html",
+                templates=templates,
+                employees=employees,
+                company=company,
+            )
+        except Exception as rest_err:
+            print("REST fallback for generator failed:", rest_err)
+            return redirect("/dashboard")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
 
 
 # ─── Employee API (JSON) ─────────────────────────────────────────────────────
 
-@letters_bp.route("/api/employee/<int:emp_id>")
+# FIX: Removed <int:> from <emp_id>
+@letters_bp.route("/api/employee/<emp_id>")
 @login_required
 def api_get_employee(emp_id):
     print(f"SERVER LOG: Employee selected (ID: {emp_id})")
     conn, cur = get_db(True)
-    if not conn:
-        return jsonify({"error": "DB error"}), 500
     try:
+        if not conn:
+            raise Exception("No DB connection")
         cur.execute("""
             SELECT e.id, e.employee_code, e.full_name, e.department,
                    e.designation, e.joining_date, e.employment_type,
@@ -235,19 +281,84 @@ def api_get_employee(emp_id):
                 result["fnf"] = fnf_dict
         except Exception as fnf_err:
             print("FNF fetch note:", fnf_err)
-            pass  # table may not exist or have different schema
+            pass
 
         # Company info
         company = _get_company(cur)
-        result["_company_name"] = "ANTI.AI PRIVATE LIMITED"
+        result["_company_name"] = company.get("company_name", "ANTI.AI PRIVATE LIMITED")
 
         print("SERVER LOG: Data returned to frontend:", result)
         return jsonify(result)
     except Exception as e:
-        print("API employee error:", e)
-        return jsonify({"error": str(e)}), 500
+        print("Error getting employee via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            emp = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{emp_id}"})
+            if not emp:
+                print(f"SERVER LOG (REST): Employee not found (ID: {emp_id})")
+                return jsonify({"error": "Not found"}), 404
+
+            # fetch manager if any
+            manager_name = None
+            if emp.get("manager_id"):
+                mgr = supabase_rest.get_first_row("hrms_employees", {"select": "full_name", "id": f"eq.{emp['manager_id']}"})
+                if mgr:
+                    manager_name = mgr.get("full_name")
+
+            # fetch role if any
+            role_name = None
+            if emp.get("role_id"):
+                r = supabase_rest.get_first_row("hrms_roles", {"select": "role_name", "id": f"eq.{emp['role_id']}"})
+                if r:
+                    role_name = r.get("role_name")
+
+            result = {}
+            for k, v in emp.items():
+                if isinstance(v, (date, datetime)):
+                    result[k] = v.strftime("%Y-%m-%d")
+                elif isinstance(v, decimal.Decimal):
+                    result[k] = float(v)
+                else:
+                    result[k] = v
+            result["manager_name"] = manager_name
+            result["role_name"] = role_name
+
+            # FNF data
+            try:
+                fnf_rows = supabase_rest.get_rows("employee_fnf_records", {
+                    "employee_id": f"eq.{emp_id}",
+                    "order": "calculated_at.desc",
+                    "limit": "1"
+                })
+                if fnf_rows:
+                    fnf = fnf_rows[0]
+                    fnf_dict = {}
+                    for k, v in fnf.items():
+                        if isinstance(v, (date, datetime)):
+                            fnf_dict[k] = v.strftime("%Y-%m-%d")
+                        elif isinstance(v, decimal.Decimal):
+                            fnf_dict[k] = float(v)
+                        else:
+                            fnf_dict[k] = v
+                    result["fnf"] = fnf_dict
+            except Exception as fnf_err:
+                print("REST FNF fetch note:", fnf_err)
+
+            company = _get_company(None)
+            result["_company_name"] = company.get("company_name", "ANTI.AI PRIVATE LIMITED")
+
+            print("SERVER LOG (REST): Data returned to frontend:", result)
+            return jsonify(result)
+        except Exception as rest_err:
+            print("REST fallback for API employee failed:", rest_err)
+            return jsonify({"error": str(rest_err)}), 500
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
 
 
 # ─── Template Editor ─────────────────────────────────────────────────────────
@@ -257,18 +368,30 @@ def api_get_employee(emp_id):
 @role_required(["HR", "Admin"])
 def template_editor():
     conn, cur = get_db(True)
-    if not conn:
-        return redirect("/dashboard")
     try:
+        if not conn:
+            raise Exception("No DB connection")
         _ensure_templates(cur)
         cur.execute("SELECT * FROM letter_templates ORDER BY id")
         templates = cur.fetchall()
         return render_template("hrms/letters/template_editor.html", templates=templates)
     except Exception as e:
-        print("Error in templates:", e)
-        return redirect("/dashboard")
+        print("Error loading templates via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            _ensure_templates(None)
+            templates = supabase_rest.get_rows("letter_templates")
+            return render_template("hrms/letters/template_editor.html", templates=templates)
+        except Exception as rest_err:
+            print("REST fallback for templates failed:", rest_err)
+            return redirect("/dashboard")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
 
 
 @letters_bp.route("/templates/save", methods=["POST"])
@@ -285,6 +408,8 @@ def save_template():
 
     conn, cur = get_db(True)
     try:
+        if not conn:
+            raise Exception("No DB connection")
         # Version history: save old version before overwriting
         cur.execute("SELECT * FROM letter_templates WHERE template_name = %s", (template_name,))
         old = cur.fetchone()
@@ -307,27 +432,76 @@ def save_template():
         """, (template_name, template_content, user))
         flash("Template saved successfully.", "success")
     except Exception as e:
-        print("Error saving template:", e)
-        flash("Could not save template.", "error")
+        print("Error saving template via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            old = supabase_rest.get_first_row("letter_templates", {"template_name": f"eq.{template_name}"})
+            if old:
+                try:
+                    supabase_rest.insert_row("letter_templates_history", {
+                        "template_name": old["template_name"],
+                        "template_content": old["template_content"],
+                        "updated_by": old.get("updated_by", "System")
+                    })
+                except Exception as hist_err:
+                    print("REST history save fallback note:", hist_err)
+                
+                supabase_rest.update_rows("letter_templates", {"template_name": f"eq.{template_name}"}, {
+                    "template_content": template_content,
+                    "updated_by": user,
+                    "updated_at": datetime.now().isoformat()
+                })
+            else:
+                supabase_rest.insert_row("letter_templates", {
+                    "template_name": template_name,
+                    "template_content": template_content,
+                    "updated_by": user
+                })
+            flash("Template saved successfully.", "success")
+        except Exception as rest_err:
+            print("REST fallback for save template failed:", rest_err)
+            flash("Could not save template.", "error")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
 
     return redirect("/hrms/letters/templates")
 
 
-@letters_bp.route("/templates/delete/<int:tid>", methods=["POST"])
+# FIX: Removed <int:> from <tid>
+@letters_bp.route("/templates/delete/<tid>", methods=["POST"])
 @login_required
 @role_required(["HR", "Admin"])
 def delete_template(tid):
     conn, cur = get_db(True)
     try:
+        if not conn:
+            raise Exception("No DB connection")
         cur.execute("DELETE FROM letter_templates WHERE id = %s", (tid,))
         flash("Template deleted.", "success")
     except Exception as e:
-        print("Error deleting template:", e)
-        flash("Could not delete template.", "error")
+        print("Error deleting template via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            success = supabase_rest.delete_rows("letter_templates", {"id": f"eq.{tid}"})
+            if success:
+                flash("Template deleted.", "success")
+            else:
+                flash("Could not delete template.", "error")
+        except Exception as rest_err:
+            print("REST fallback for delete template failed:", rest_err)
+            flash("Could not delete template.", "error")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
     return redirect("/hrms/letters/templates")
 
 
@@ -340,12 +514,16 @@ def preview_pdf():
     html_content = request.form.get("html_content", "")
     conn, cur = get_db()
     try:
+        if not conn:
+            raise Exception("No DB connection")
         company = _get_company(cur)
-    except Exception:
+    except Exception as e:
+        print("Error fetching company for preview, trying REST:", e)
         company = _get_company(None)
     finally:
         if conn:
-            release_db(conn, cur)
+            try: release_db(conn, cur)
+            except: pass
 
     full_html = render_template(
         "hrms/letters/letterhead_base.html",
@@ -368,16 +546,23 @@ def generate_pdf():
 
     conn, cur = get_db()
     try:
+        if not conn:
+            raise Exception("No DB connection")
         company = _get_company(cur)
         cur.execute("SELECT employee_code FROM hrms_employees WHERE id = %s", (emp_id,))
         row = cur.fetchone()
         emp_code = row["employee_code"] if row else f"EMP{emp_id}"
     except Exception:
         company = _get_company(None)
-        emp_code = f"EMP{emp_id}"
+        try:
+            emp = supabase_rest.get_first_row("hrms_employees", {"select": "employee_code", "id": f"eq.{emp_id}"})
+            emp_code = emp["employee_code"] if emp else f"EMP{emp_id}"
+        except Exception:
+            emp_code = f"EMP{emp_id}"
     finally:
         if conn:
-            release_db(conn, cur)
+            try: release_db(conn, cur)
+            except: pass
 
     full_html = render_template(
         "hrms/letters/letterhead_base.html",
@@ -411,6 +596,8 @@ def generate_pdf():
             print("LOG: Storage upload success to", pdf_url)
             conn2, cur2 = get_db(True)
             try:
+                if not conn2:
+                    raise Exception("No DB connection")
                 # Lookup uploaded_by employee_id
                 uploader_employee_id = None
                 user_id = session.get("user_id")
@@ -462,9 +649,70 @@ def generate_pdf():
                         """, (emp_id, exit_id, document_type, pdf_url, session.get("user", "System")))
                     except Exception:
                         pass
+            except Exception as db_err2:
+                print("Error saving generated pdf meta via DB, trying REST fallback:", db_err2)
+                if conn2:
+                    try: release_db(conn2, cur2)
+                    except: pass
+                    conn2 = None
+                
+                try:
+                    uploader_employee_id = None
+                    user_id = session.get("user_id")
+                    if user_id:
+                        try:
+                            user_rec = supabase_rest.get_first_row("users", {"select": "employee_id", "id": f"eq.{user_id}"})
+                            if user_rec and user_rec.get("employee_id"):
+                                uploader_employee_id = user_rec["employee_id"]
+                        except Exception as e:
+                            print("Error looking up uploader employee_id via REST:", e)
+                    
+                    file_size = os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 0
+
+                    supabase_rest.insert_row("generated_letters", {
+                        "employee_id": emp_id,
+                        "document_type": document_type,
+                        "pdf_url": pdf_url,
+                        "generated_by": session.get("user", "System"),
+                        "status": "Generated",
+                        "pdf_path": pdf_path,
+                        "file_size": file_size
+                    })
+
+                    try:
+                        supabase_rest.insert_row("employee_documents", {
+                            "employee_id": emp_id,
+                            "document_name": f"{document_type}",
+                            "document_type": "Other",
+                            "description": "System generated letter via HRMS",
+                            "file_url": pdf_url,
+                            "file_size": file_size,
+                            "uploaded_by": uploader_employee_id,
+                            "file_name": file_name,
+                            "file_path": object_key,
+                            "s3_url": pdf_url,
+                            "mime_type": "application/pdf"
+                        })
+                    except Exception as doc_rest_err:
+                        print("Error inserting employee document via REST fallback:", doc_rest_err)
+
+                    if exit_id:
+                        try:
+                            supabase_rest.insert_row("employee_exit_documents", {
+                                "employee_id": emp_id,
+                                "exit_id": exit_id,
+                                "document_type": document_type,
+                                "pdf_url": pdf_url,
+                                "generated_by": session.get("user", "System")
+                            })
+                        except Exception as exit_doc_rest_err:
+                            print("Error inserting exit document via REST fallback:", exit_doc_rest_err)
+                except Exception as rest_err2:
+                    print("REST fallback for save generated pdf failed:", rest_err2)
             finally:
                 if conn2:
-                    release_db(conn2, cur2)
+                    try: release_db(conn2, cur2)
+                    except: pass
 
         return send_file(pdf_path, as_attachment=True, download_name=file_name)
 
@@ -486,8 +734,10 @@ def print_fallback():
     exit_id = session.pop("fallback_exit_id", None)
     
     if emp_id:
+        conn, cur = get_db(True)
         try:
-            conn, cur = get_db(True)
+            if not conn:
+                raise Exception("No DB connection")
             cur.execute("""
                 INSERT INTO generated_letters (employee_id, document_type, pdf_url, generated_by)
                 VALUES (%s, %s, %s, %s)
@@ -501,9 +751,36 @@ def print_fallback():
                 except Exception:
                     pass
             conn.commit()
-            release_db(conn, cur)
         except Exception as e:
-            print("Error saving printed letter in DB:", e)
+            print("Error saving printed letter via DB, trying REST fallback:", e)
+            if conn:
+                try: release_db(conn, cur)
+                except: pass
+                conn = None
+            try:
+                supabase_rest.insert_row("generated_letters", {
+                    "employee_id": emp_id,
+                    "document_type": doc_type,
+                    "pdf_url": "Browser Printed (Check Printer)",
+                    "generated_by": session.get("user", "System")
+                })
+                if exit_id:
+                    try:
+                        supabase_rest.insert_row("employee_exit_documents", {
+                            "employee_id": emp_id,
+                            "exit_id": exit_id,
+                            "document_type": doc_type,
+                            "pdf_url": "Browser Printed (Check Printer)",
+                            "generated_by": session.get("user", "System")
+                        })
+                    except Exception as exit_err:
+                        print("REST print exit document save fallback note:", exit_err)
+            except Exception as rest_err:
+                print("REST fallback for save printed letter failed:", rest_err)
+        finally:
+            if conn:
+                try: release_db(conn, cur)
+                except: pass
             
     return render_template("hrms/letters/print_fallback.html", html=html, doc_type=doc_type)
 
@@ -515,9 +792,9 @@ def print_fallback():
 @role_required(["HR", "Admin"])
 def letters_history():
     conn, cur = get_db(True)
-    if not conn:
-        return redirect("/dashboard")
     try:
+        if not conn:
+            raise Exception("No DB connection")
         emp_filter = request.args.get("emp", "")
         doc_filter = request.args.get("doc", "")
         date_filter = request.args.get("date", "")
@@ -562,22 +839,108 @@ def letters_history():
 
         return render_template("hrms/letters/history.html", letters=letters, employees=employees, doc_types=doc_types, stats=stats)
     except Exception as e:
-        print("History error:", e)
-        return render_template("hrms/letters/history.html", letters=[], employees=[], doc_types=[], stats={})
+        print("Error loading history via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            emp_filter = request.args.get("emp", "")
+            doc_filter = request.args.get("doc", "")
+            date_filter = request.args.get("date", "")
+
+            # Get letters and employees
+            letters_raw = supabase_rest.get_rows("generated_letters", {"order": "generated_at.desc"})
+            employees = supabase_rest.get_rows("hrms_employees", {"order": "full_name.asc"})
+            
+            emp_map = {str(emp["id"]): emp for emp in employees}
+
+            letters = []
+            doc_types_set = set()
+            
+            # stats
+            total = 0
+            exp_count = 0
+            fnf_count = 0
+            lor_count = 0
+
+            for letter in letters_raw:
+                emp_id_str = str(letter.get("employee_id"))
+                emp = emp_map.get(emp_id_str)
+                
+                # Check filters
+                if emp_filter and emp_id_str != str(emp_filter):
+                    continue
+                if doc_filter and letter.get("document_type") != doc_filter:
+                    continue
+                if date_filter:
+                    gen_at = letter.get("generated_at") or ""
+                    if gen_at[:10] != date_filter:
+                        continue
+
+                # Add employee info to letter
+                letter["full_name"] = emp.get("full_name") if emp else "-"
+                letter["employee_code"] = emp.get("employee_code") if emp else "-"
+                
+                letters.append(letter)
+                if letter.get("document_type"):
+                    doc_types_set.add(letter.get("document_type"))
+
+                doc_type = letter.get("document_type")
+                if doc_type == 'Experience Letter':
+                    exp_count += 1
+                elif doc_type == 'FNF Letter':
+                    fnf_count += 1
+                elif doc_type == 'LOR':
+                    lor_count += 1
+                total += 1
+
+            stats = {
+                "total": total,
+                "exp_count": exp_count,
+                "fnf_count": fnf_count,
+                "lor_count": lor_count
+            }
+            doc_types = sorted(list(doc_types_set))
+
+            return render_template("hrms/letters/history.html", letters=letters, employees=employees, doc_types=doc_types, stats=stats)
+        except Exception as rest_err:
+            print("REST fallback for letters history failed:", rest_err)
+            return render_template("hrms/letters/history.html", letters=[], employees=[], doc_types=[], stats={})
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
 
 
-@letters_bp.route("/history/delete/<int:lid>", methods=["POST"])
+# FIX: Removed <int:> from <lid>
+@letters_bp.route("/history/delete/<lid>", methods=["POST"])
 @login_required
 @role_required(["HR", "Admin"])
 def delete_letter(lid):
     conn, cur = get_db(True)
     try:
+        if not conn:
+            raise Exception("No DB connection")
         cur.execute("DELETE FROM generated_letters WHERE id = %s", (lid,))
         flash("Record deleted.", "success")
     except Exception as e:
-        flash("Could not delete record.", "error")
+        print("Error deleting letter via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            success = supabase_rest.delete_rows("generated_letters", {"id": f"eq.{lid}"})
+            if success:
+                flash("Record deleted.", "success")
+            else:
+                flash("Could not delete record.", "error")
+        except Exception as rest_err:
+            print("REST fallback for delete letter failed:", rest_err)
+            flash("Could not delete record.", "error")
     finally:
-        release_db(conn, cur)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
     return redirect("/hrms/letters/history")
