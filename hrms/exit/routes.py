@@ -11,12 +11,12 @@ exit_bp = Blueprint("exit_bp", __name__, url_prefix="/hrms/exit")
 @login_required
 @role_required(["HR", "Admin"])
 def manage_exit(emp_id):
-    conn, cur = get_db()
-    if not conn:
-        flash("Database connection error.", "error")
-        return redirect("/hrms/employees/ui")
-
+    conn, cur = None, None
     try:
+        conn, cur = get_db()
+        if not conn:
+            raise Exception("Database connection failed")
+
         cur.execute("SELECT * FROM hrms_employees WHERE id = %s", (emp_id,))
         employee = cur.fetchone()
 
@@ -242,10 +242,10 @@ def save_fnf(exit_id):
 @role_required(["HR", "Admin"])
 def exit_history():
     conn, cur = get_db()
-    if not conn:
-        return redirect("/dashboard")
-
     try:
+        if not conn:
+            raise Exception("Database connection failed")
+
         cur.execute("""
             SELECT e.*, emp.full_name, emp.department 
             FROM employee_exits e

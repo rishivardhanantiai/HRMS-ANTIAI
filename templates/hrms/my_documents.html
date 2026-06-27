@@ -279,7 +279,7 @@ select.form-control {
                         <div style="font-size: 11px; margin-top: 4px; color: #6b7280;">{{ (doc.file_size / 1024)|round(1) if doc.file_size else '0' }} KB</div>
                     </td>
                     <td>
-                        <form action="/hrms/employees/documents/{{ doc.id }}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this document?');">
+                        <form action="/hrms/employees/documents/{{ doc.id }}/delete" method="POST" style="display:inline;" onsubmit="event.preventDefault(); const f=this; window.customConfirm('Are you sure you want to delete this document?', function(){ f.submit(); });">
                             <button type="submit" class="btn-icon" title="Delete">🗑️</button>
                         </form>
                     </td>

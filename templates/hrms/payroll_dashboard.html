@@ -316,7 +316,7 @@
                                class="btn-action btn-edit">
                                Edit
                             </a>
-                            <form method="POST" action="/hrms/payroll/{{ run.payroll_id }}/delete" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this draft payroll?');">
+                            <form method="POST" action="/hrms/payroll/{{ run.payroll_id }}/delete" style="display:inline;" onsubmit="event.preventDefault(); const f=this; window.customConfirm('Are you sure you want to delete this draft payroll?', function(){ f.submit(); });">
                                 <button type="submit" class="btn-action btn-delete">
                                    Delete
                                 </button>

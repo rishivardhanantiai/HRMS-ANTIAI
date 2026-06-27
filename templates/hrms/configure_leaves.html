@@ -134,7 +134,7 @@
                             <td><span style="background: rgba(59,130,246,0.15); color: #60a5fa; padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 0.9rem;">{{ lt.annual_entitlement }} Days</span></td>
                             <td style="text-align: right; white-space: nowrap;">
                                 <button type="button" class="btn-action" onclick="editLeaveType('{{ lt.id }}', '{{ lt.name|e }}', '{{ (lt.description or '')|e }}', {{ lt.annual_entitlement }})">Edit</button>
-                                <form method="POST" action="/hrms/leave/configure/delete/{{ lt.id }}" style="display: inline-block;" onsubmit="return confirm('Are you sure you want to delete this leave type?');">
+                                <form method="POST" action="/hrms/leave/configure/delete/{{ lt.id }}" style="display: inline-block;" onsubmit="event.preventDefault(); const f=this; window.customConfirm('Are you sure you want to delete this leave type?', function(){ f.submit(); });">
                                     <button type="submit" class="btn-action" style="color: #ef4444; border-color: rgba(239,68,68,0.3);">Delete</button>
                                 </form>
                             </td>
