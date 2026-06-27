@@ -420,8 +420,8 @@
                     <td>
                         {% if app.applied_at %}
                             <div style="font-size:11px; line-height:1.4; color:#cbd5e1;">
-                                <div>{{ app.applied_at.strftime("%d %b %Y") }}</div>
-                                <div style="color:#94a3b8;">{{ app.applied_at.strftime("%I:%M %p") }}</div>
+                                <div>{{ app.applied_at | format_datetime("%d %b %Y") if app.applied_at else "-" }}</div>
+                                <div style="color:#94a3b8;">{{ app.applied_at | format_datetime("%I:%M %p") if app.applied_at else "-" }}</div>
                             </div>
                         {% else %}
                             <span style="opacity:0.4;">—</span>

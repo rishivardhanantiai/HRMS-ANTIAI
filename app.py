@@ -95,6 +95,15 @@ def _parse_iso_datetime(value):
     except (ValueError, TypeError):
         return None
 
+@app.template_filter('format_datetime')
+def format_datetime_filter(value, format="%Y-%m-%d"):
+    if not value:
+        return ""
+    dt = _parse_iso_datetime(value)
+    if dt:
+        return dt.strftime(format)
+    return str(value)
+
 
 def _send_excel_dataframe(df, filename):
     output = BytesIO()

@@ -314,8 +314,13 @@ Applications
 </a>
 
 <a href="/hrms/employees/ui"
-class="{% if request.path.startswith('/hrms/employees') %}active{% endif %}">
+class="{% if request.path == '/hrms/employees/ui' %}active{% endif %}">
 Employees
+</a>
+
+<a href="/hrms/employees/documents-hub"
+class="{% if request.path.startswith('/hrms/employees/documents') %}active{% endif %}">
+Documents
 </a>
 
 <a href="/hrms/performance/ui"

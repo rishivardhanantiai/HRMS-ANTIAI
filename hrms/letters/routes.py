@@ -5,13 +5,14 @@ import os
 import time
 from datetime import date, datetime
 from utils.supabase_rest import upload_file_bytes
+from utils import supabase_rest
 import json
 import decimal
 try:
-    from playwright.sync_api import sync_playwright
-    PLAYWRIGHT_AVAILABLE = True
+    from xhtml2pdf import pisa
+    PDF_GENERATOR_AVAILABLE = True
 except ImportError:
-    PLAYWRIGHT_AVAILABLE = False
+    PDF_GENERATOR_AVAILABLE = False
 
 letters_bp = Blueprint("letters_bp", __name__, url_prefix="/hrms/letters")
 
@@ -113,28 +114,30 @@ DEFAULT_TEMPLATES = {
 
 def _get_company(cur=None):
     """Fetch company settings or return defaults."""
+    company = None
     if cur:
         try:
             cur.execute("SELECT * FROM company_settings LIMIT 1")
             company = cur.fetchone()
-            if company:
-                return company
         except Exception:
             pass
-    try:
-        company = supabase_rest.get_first_row("company_settings")
-        if company:
-            return company
-    except Exception:
-        pass
-    return {
-        "company_name": "ANTI.AI PRIVATE LIMITED",
-        "company_address": "73 ROSE VILLA RAJENDRA NAGAR BHARATPUR RAJASTHAN, Rajasthan, 321001",
-        "company_email": "hr@antlai.com",
-        "company_phone": "+91-0000000000",
-        "company_website": "www.antlai.com",
-        "logo_url": None,
-    }
+    if not company:
+        try:
+            company = supabase_rest.get_first_row("company_settings")
+        except Exception:
+            pass
+            
+    if not company:
+        company = {}
+        
+    company["company_name"] = "ANTI AI"
+    company["company_address"] = company.get("company_address") or "73 ROSE VILLA RAJENDRA NAGAR BHARATPUR RAJASTHAN, Rajasthan, 321001"
+    company["company_email"] = company.get("company_email") or "hr@antiai.com"
+    company["company_phone"] = company.get("company_phone") or "+91-0000000000"
+    company["company_website"] = company.get("company_website") or "www.antiai.com"
+    company["logo_url"] = "/static/images/logo.png"
+    
+    return company
 
 
 def _ensure_templates(cur=None):
@@ -219,7 +222,8 @@ def generator():
             )
         except Exception as rest_err:
             print("REST fallback for generator failed:", rest_err)
-            return redirect("/dashboard")
+            import traceback
+            return "<pre>Generator REST Error:\n" + traceback.format_exc() + "</pre>", 500
     finally:
         if conn:
             try: release_db(conn, cur)
@@ -574,15 +578,13 @@ def generate_pdf():
     pdf_path = os.path.join(current_app.root_path, "uploads", f"doc_{int(time.time())}.pdf")
 
     try:
-        if not PLAYWRIGHT_AVAILABLE:
-            return "PDF generation not available on this server.", 503
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page()
-            page.set_content(full_html, wait_until="networkidle")
-            page.pdf(path=pdf_path, format="A4", print_background=True,
-                     margin={"top": "20px", "bottom": "20px", "left": "20px", "right": "20px"})
-            browser.close()
+        if not PDF_GENERATOR_AVAILABLE:
+            raise Exception("PDF generation (xhtml2pdf) not available on this server.")
+            
+        with open(pdf_path, "w+b") as result_file:
+            pisa_status = pisa.CreatePDF(full_html, dest=result_file)
+            if pisa_status.err:
+                raise Exception("Error generating PDF via xhtml2pdf")
 
         with open(pdf_path, "rb") as f:
             file_bytes = f.read()
@@ -621,20 +623,13 @@ def generate_pdf():
                 # Also insert into employee_documents so it shows up in Employee Profile
                 try:
                     cur2.execute("""
-                        INSERT INTO employee_documents (employee_id, document_name, document_type, description, file_url, file_size, uploaded_by, file_name, file_path, s3_url, mime_type)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO employee_documents (employee_id, document_title, document_type, file_url, verification_status)
+                        VALUES (%s, %s, %s, %s, 'Verified')
                     """, (
                         emp_id, 
                         f"{document_type}", 
                         "Other", 
-                        f"System generated letter via HRMS", 
-                        pdf_url, 
-                        file_size, 
-                        uploader_employee_id, 
-                        file_name, 
-                        object_key, 
-                        pdf_url, 
-                        "application/pdf"
+                        pdf_url
                     ))
                     print("LOG: employee_documents insert success")
                 except Exception as doc_err:
@@ -682,16 +677,10 @@ def generate_pdf():
                     try:
                         supabase_rest.insert_row("employee_documents", {
                             "employee_id": emp_id,
-                            "document_name": f"{document_type}",
+                            "document_title": f"{document_type}",
                             "document_type": "Other",
-                            "description": "System generated letter via HRMS",
                             "file_url": pdf_url,
-                            "file_size": file_size,
-                            "uploaded_by": uploader_employee_id,
-                            "file_name": file_name,
-                            "file_path": object_key,
-                            "s3_url": pdf_url,
-                            "mime_type": "application/pdf"
+                            "verification_status": "Verified"
                         })
                     except Exception as doc_rest_err:
                         print("Error inserting employee document via REST fallback:", doc_rest_err)

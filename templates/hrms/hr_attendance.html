@@ -66,10 +66,10 @@
                             <td><strong>{{ emp.full_name }}</strong></td>
                             <td>{{ emp.designation }}</td>
                             <td>
-                                {{ emp.check_in_time.strftime("%I:%M:%S %p") if emp.check_in_time else "-" }}
+                                {{ emp.check_in_time | format_datetime("%I:%M:%S %p") if emp.check_in_time else "-" }}
                             </td>
                             <td>
-                                {{ emp.check_out_time.strftime("%I:%M:%S %p") if emp.check_out_time else "-" }}
+                                {{ emp.check_out_time | format_datetime("%I:%M:%S %p") if emp.check_out_time else "-" }}
                             </td>
                             <td>
                                 {% set status_lower = emp.status|lower %}
@@ -187,12 +187,12 @@
                         {% for a in attendance %}
                         <tr>
                             <td>{{ a.full_name }}</td>
-                            <td>{{ a.attendance_date.strftime("%d %b %Y") if a.attendance_date and a.attendance_date.strftime is defined else a.attendance_date }}</td>
+                            <td>{{ a.attendance_date | format_datetime("%d %b %Y") if a.attendance_date else "-" }}</td>
                             <td>
-                                {{ a.check_in_time.strftime("%I:%M:%S %p") if a.check_in_time else "-" }}
+                                {{ a.check_in_time | format_datetime("%I:%M:%S %p") if a.check_in_time else "-" }}
                             </td>
                             <td>
-                                {{ a.check_out_time.strftime("%I:%M:%S %p") if a.check_out_time else "-" }}
+                                {{ a.check_out_time | format_datetime("%I:%M:%S %p") if a.check_out_time else "-" }}
                             </td>
                             <td>
                                 {% set hist_status_lower = a.status|lower %}

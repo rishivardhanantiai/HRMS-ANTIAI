@@ -481,9 +481,9 @@ def add_employee():
                 res = upload_document_to_supabase(doc_file, employee_id)
                 if res:
                     cur.execute("""
-                        INSERT INTO employee_documents (employee_id, document_type, document_title, file_url, created_at, verification_status, file_name, file_path, bucket_name, public_url, mime_type, uploaded_by)
-                        VALUES (%s, %s, %s, %s, %s, 'Verified', %s, %s, %s, %s, %s, %s)
-                    """, (employee_id, "Onboarding", doc_title, res["public_url"], datetime.now(), res["file_name"], res["file_path"], res["bucket_name"], res["public_url"], res["mime_type"], session.get("employee_id") or employee_id))
+                        INSERT INTO employee_documents (employee_id, document_type, document_title, file_url, created_at, verification_status)
+                        VALUES (%s, %s, %s, %s, %s, 'Verified')
+                    """, (employee_id, "Onboarding", doc_title, res["public_url"], datetime.now()))
 
         # Audit Log
         cur.execute("""
@@ -657,13 +657,7 @@ def add_employee():
                             "document_title":      doc_title,
                             "file_url":            res["public_url"],
                             "created_at":          _dt.now().isoformat(),
-                            "verification_status": "Verified",
-                            "file_name":           res["file_name"],
-                            "file_path":           res["file_path"],
-                            "bucket_name":         res["bucket_name"],
-                            "public_url":          res["public_url"],
-                            "mime_type":           res["mime_type"],
-                            "uploaded_by":         session.get("employee_id") or employee_id,
+                            "verification_status": "Verified"
                         })
 
             # Audit Log
@@ -1008,6 +1002,7 @@ def upload_document():
     doc_type = request.form.get("document_type")
     doc_title = request.form.get("document_title")
     description = request.form.get("description", "")
+    request_id = request.form.get("request_id")
     file_attachment = request.files.get("file_attachment")
 
     if not doc_type or not file_attachment or not file_attachment.filename:
@@ -1029,10 +1024,20 @@ def upload_document():
             raise Exception("Upload to storage failed")
 
         conn, cur = get_db(True)
-        cur.execute("""
-            INSERT INTO employee_documents (employee_id, document_type, document_title, description, file_url, file_size, uploaded_by, file_name, file_path, bucket_name, public_url, mime_type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (employee_id, doc_type, doc_title, description, res["public_url"], size_bytes, employee_id, res["file_name"], res["file_path"], res["bucket_name"], res["public_url"], res["mime_type"]))
+        if not conn:
+            raise Exception("No DB connection")
+            
+        if request_id:
+            cur.execute("""
+                UPDATE employee_documents 
+                SET file_url = %s, verification_status = 'Pending', document_title = %s, document_type = %s
+                WHERE id = %s AND employee_id = %s
+            """, (res["public_url"], doc_title, doc_type, request_id, employee_id))
+        else:
+            cur.execute("""
+                INSERT INTO employee_documents (employee_id, document_type, document_title, file_url, verification_status)
+                VALUES (%s, %s, %s, %s, 'Pending')
+            """, (employee_id, doc_type, doc_title, res["public_url"]))
         conn.commit()
         release_db(conn, cur)
         from flask import flash
@@ -1041,21 +1046,24 @@ def upload_document():
         print("Error saving document info to DB, trying REST fallback:", e)
         try:
             if 'res' in locals() and res:
-                supabase_rest.insert_row("employee_documents", {
-                    "employee_id": employee_id,
-                    "document_type": doc_type,
-                    "document_title": doc_title,
-                    "description": description,
-                    "file_url": res["public_url"],
-                    "file_size": size_bytes,
-                    "uploaded_by": employee_id,
-                    "file_name": res["file_name"],
-                    "file_path": res["file_path"],
-                    "bucket_name": res["bucket_name"],
-                    "public_url": res["public_url"],
-                    "mime_type": res["mime_type"],
-                    "verification_status": "Pending"
-                })
+                if request_id:
+                    supabase_rest.update_rows("employee_documents", 
+                        {"id": f"eq.{request_id}", "employee_id": f"eq.{employee_id}"},
+                        {
+                            "file_url": res["public_url"],
+                            "verification_status": "Pending",
+                            "document_title": doc_title,
+                            "document_type": doc_type
+                        }
+                    )
+                else:
+                    supabase_rest.insert_row("employee_documents", {
+                        "employee_id": employee_id,
+                        "document_type": doc_type,
+                        "document_title": doc_title,
+                        "file_url": res["public_url"],
+                        "verification_status": "Pending"
+                    })
                 from flask import flash
                 flash("Document uploaded successfully.", "success")
             else:
@@ -1085,7 +1093,7 @@ def view_document(doc_id):
         if not conn:
             raise Exception("Database connection failed")
             
-        cur.execute("SELECT public_url, file_url, bucket_name, file_path FROM employee_documents WHERE id=%s", (doc_id,))
+        cur.execute("SELECT file_url FROM employee_documents WHERE id=%s", (doc_id,))
         doc = cur.fetchone()
         if conn:
             release_db(conn, cur)
@@ -1098,7 +1106,7 @@ def view_document(doc_id):
                 pass
         try:
             doc = supabase_rest.get_first_row("employee_documents", {
-                "select": "public_url,file_url,bucket_name,file_path",
+                "select": "file_url",
                 "id": f"eq.{doc_id}"
             })
         except Exception as rest_err:
@@ -1109,7 +1117,7 @@ def view_document(doc_id):
         flash("Document not found.", "error")
         return redirect(request.referrer or "/hrms/employees/ui")
 
-    url = doc.get("public_url") or doc.get("file_url")
+    url = doc.get("file_url")
     if not url:
         from flask import flash
         flash("Document URL missing.", "error")
@@ -1209,10 +1217,8 @@ def employee_documents_hr(employee_id):
         emp = cur.fetchone()
         
         cur.execute("""
-            SELECT d.*, u.full_name as uploaded_by_name, v.full_name as verified_by_name 
+            SELECT d.id, d.employee_id, d.document_title, d.document_type, d.file_url, d.verification_status, d.created_at 
             FROM employee_documents d
-            LEFT JOIN hrms_employees u ON d.uploaded_by = u.id
-            LEFT JOIN hrms_employees v ON d.verified_by = v.id
             WHERE d.employee_id=%s ORDER BY d.created_at DESC
         """, (employee_id,))
         documents = cur.fetchall()
@@ -1236,20 +1242,8 @@ def employee_documents_hr(employee_id):
             })
             if documents:
                 for doc in documents:
-                    doc["uploaded_by_name"] = "Employee"
-                    doc["verified_by_name"] = "HR Admin"
-                    
-                    uploaded_by = doc.get("uploaded_by")
-                    if uploaded_by:
-                        u_emp = supabase_rest.get_first_row("hrms_employees", {"select": "full_name", "id": f"eq.{uploaded_by}"})
-                        if u_emp:
-                            doc["uploaded_by_name"] = u_emp.get("full_name") or "Employee"
-                            
-                    verified_by = doc.get("verified_by")
-                    if verified_by:
-                        v_emp = supabase_rest.get_first_row("hrms_employees", {"select": "full_name", "id": f"eq.{verified_by}"})
-                        if v_emp:
-                            doc["verified_by_name"] = v_emp.get("full_name") or "HR Admin"
+                    doc["uploaded_by_name"] = "System"
+                    doc["verified_by_name"] = "System"
         except Exception as rest_err:
             print("REST fallback for employee documents HR failed:", rest_err)
 
@@ -1352,3 +1346,136 @@ def api_pending_documents():
         if d.get('created_at'): d['created_at'] = str(d['created_at'])
 
     return {"documents": docs}, 200
+
+# =========================
+# DOCUMENTS HUB (HR)
+# =========================
+@employees_bp.route("/documents-hub", methods=["GET"])
+@login_required
+def documents_hub():
+    if not hr_admin_required():
+        return "Unauthorized", 403
+
+    status_filter = request.args.get("status", "")
+    role_filter = request.args.get("role", "")
+    search_filter = request.args.get("search", "").lower()
+
+    conn, cur = None, None
+    documents = []
+    roles = []
+    all_employees = []
+    try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("No database connection available")
+        
+        # Fetch Roles
+        cur.execute("SELECT id, role_name FROM hrms_roles ORDER BY role_name")
+        roles = cur.fetchall()
+
+        # Fetch Employees for the modal
+        cur.execute("SELECT id, full_name, employee_code FROM hrms_employees WHERE status='Active' ORDER BY full_name")
+        all_employees = cur.fetchall()
+
+        # Build query
+        query = """
+            SELECT d.*, e.full_name as employee_name, e.employee_code, r.role_name
+            FROM employee_documents d
+            JOIN hrms_employees e ON d.employee_id = e.id
+            LEFT JOIN hrms_roles r ON e.role_id = r.id
+            WHERE 1=1
+        """
+        params = []
+        if status_filter:
+            query += " AND d.verification_status = %s"
+            params.append(status_filter)
+        if role_filter:
+            query += " AND r.id = %s"
+            params.append(role_filter)
+        
+        query += " ORDER BY d.created_at DESC"
+        cur.execute(query, tuple(params))
+        documents = cur.fetchall()
+
+        if search_filter:
+            documents = [d for d in documents if search_filter in d.get("employee_name", "").lower() or search_filter in d.get("employee_code", "").lower()]
+
+    except Exception as e:
+        print("Error fetching documents hub via DB, trying REST fallback:", e)
+        try:
+            roles = supabase_rest.get_rows("hrms_roles", {"order": "role_name.asc"})
+            all_employees = supabase_rest.get_rows("hrms_employees", {"status": "eq.Active", "order": "full_name.asc", "select": "id, full_name, employee_code, role_id"})
+            
+            role_name_map = {r["id"]: r["role_name"] for r in roles}
+            emp_map = {e["id"]: e for e in all_employees}
+
+            docs_query = {"order": "created_at.desc"}
+            if status_filter:
+                docs_query["verification_status"] = f"eq.{status_filter}"
+            
+            raw_docs = supabase_rest.get_rows("employee_documents", docs_query)
+            
+            documents = []
+            for d in raw_docs:
+                emp = emp_map.get(d.get("employee_id"), {})
+                emp_name = emp.get("full_name", "Unknown")
+                emp_code = emp.get("employee_code", "")
+                
+                role_id = emp.get("role_id")
+                r_name = role_name_map.get(role_id, "")
+
+                if role_filter and str(role_id) != str(role_filter):
+                    continue
+
+                if search_filter:
+                    if search_filter not in emp_name.lower() and search_filter not in emp_code.lower():
+                        continue
+
+                d["employee_name"] = emp_name
+                d["employee_code"] = emp_code
+                d["role_name"] = r_name
+                documents.append(d)
+
+        except Exception as rest_err:
+            print("REST fallback for documents hub failed:", rest_err)
+    finally:
+        if conn: release_db(conn, cur)
+
+    return render_template("hrms/documents_hub.html", documents=documents, roles=roles, all_employees=all_employees)
+
+@employees_bp.route("/documents/request", methods=["POST"])
+@login_required
+def request_document():
+    if not hr_admin_required():
+        return "Unauthorized", 403
+
+    employee_id = request.form.get("employee_id")
+    document_type = request.form.get("document_type")
+    document_title = request.form.get("document_title") or document_type
+
+    conn, cur = get_db()
+    try:
+        if not conn:
+            raise Exception("No DB Connection")
+        cur.execute("""
+            INSERT INTO employee_documents (employee_id, document_type, document_title, verification_status)
+            VALUES (%s, %s, %s, 'Requested')
+        """, (employee_id, document_type, document_title))
+        flash("Document requested successfully.", "success")
+    except Exception as e:
+        print("DB Request Document Error:", e)
+        try:
+            supabase_rest.insert_row("employee_documents", {
+                "employee_id": employee_id,
+                "document_type": document_type,
+                "document_title": document_title,
+                "verification_status": "Requested"
+            })
+            flash("Document requested successfully (REST).", "success")
+        except Exception as rest_err:
+            print("REST Request Document Error:", rest_err)
+            flash("Failed to request document.", "error")
+    finally:
+        if conn: release_db(conn, cur)
+
+    return redirect("/hrms/employees/documents-hub")

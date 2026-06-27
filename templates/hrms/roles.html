@@ -102,7 +102,6 @@
     border-radius:7px;
     font-size:12px;
     transition:.3s;
-    margin-right:8px;
 }
 
 .btn-edit:hover{
@@ -187,17 +186,14 @@
                     <td>{{ role.description or "-" }}</td>
 
                     <td style="text-align:right;">
-
-                        <a href="/hrms/roles/edit/{{ role.id }}"
-                           class="btn-edit">
-                            Edit
-                        </a>
-
-                        <a href="/hrms/roles/delete/{{ role.id }}"
-                           class="btn-delete">
-                            Delete
-                        </a>
-
+                        <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                            <a href="/hrms/roles/edit/{{ role.id }}" class="btn-edit">
+                                Edit
+                            </a>
+                            <a href="/hrms/roles/delete/{{ role.id }}" class="btn-delete">
+                                Delete
+                            </a>
+                        </div>
                     </td>
 
                 </tr>

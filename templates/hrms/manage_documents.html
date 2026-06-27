@@ -136,7 +136,7 @@
             <tbody>
                 {% for doc in documents %}
                 <tr>
-                    <td>{{ doc.created_at.strftime('%m/%d/%y') if doc.created_at else '-' }}</td>
+                    <td>{{ doc.created_at | format_datetime('%m/%d/%y') if doc.created_at else '-' }}</td>
                     <td>
                         <strong style="color: #e5e7eb;">{{ doc.document_title }}</strong><br>
                         <span style="font-size: 12px;">{{ doc.document_type }}</span>
@@ -158,7 +158,7 @@
                         <div class="audit-trail">
                             <div>Uploaded by: {{ doc.uploaded_by_name or 'System' }}</div>
                             {% if doc.verified_by_name %}
-                            <div>Verified by: {{ doc.verified_by_name }}<br>On: {{ doc.verified_at.strftime('%m/%d/%y %H:%M') }}</div>
+                            <div>Verified by: {{ doc.verified_by_name }}<br>On: {{ doc.verified_at | format_datetime('%m/%d/%y %H:%M') }}</div>
                             {% endif %}
                         </div>
                     </td>
