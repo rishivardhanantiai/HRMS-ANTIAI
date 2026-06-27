@@ -243,6 +243,7 @@ def list_employees():
         "hrms_employees",
         {
             "select": "id,employee_code,full_name,email,phone,department,role_id,status,joining_date",
+            "status": "not.eq.Deleted",
             "order": "created_at.desc",
         },
     )
@@ -331,7 +332,7 @@ def update_employee_status(employee_id, status):
 
 
 def soft_delete_employee(employee_id):
-    rows = update_rows("hrms_employees", {"id": f"eq.{employee_id}"}, {"status": "deleted"})
+    rows = update_rows("hrms_employees", {"id": f"eq.{employee_id}"}, {"status": "Deleted"})
     return rows[0] if rows else None
 
 

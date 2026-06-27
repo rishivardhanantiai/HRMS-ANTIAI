@@ -877,9 +877,18 @@
         fetch("/hrms/employees/add", {
             method: "POST",
             body: formData
-        }).then(res => {
-            if (res.ok) return res.json();
-            throw new Error("Form submit failed");
+        }).then(async res => {
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                if (!res.ok) throw new Error("Server error (Status " + res.status + ")");
+                throw new Error("Invalid JSON response");
+            }
+            if (!res.ok) {
+                throw new Error(data.error || "Form submit failed");
+            }
+            return data;
         }).then(data => {
             if (data && data.error) {
                 showToast("Error: " + data.error, "error");
@@ -894,7 +903,7 @@
             }
         }).catch(err => {
             console.error(err);
-            showToast("Something went wrong during employee creation.", "error");
+            showToast(err.message || "Something went wrong during employee creation.", "error");
             btn.disabled = false;
             btn.innerText = "Confirm Employee";
         });

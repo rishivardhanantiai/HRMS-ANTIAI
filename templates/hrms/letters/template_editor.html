@@ -169,11 +169,11 @@ function previewTemplate() {
 function deleteTemplate() {
     const sel = document.getElementById("doc-select");
     const name = sel.options[sel.selectedIndex].getAttribute("data-name");
-    if (confirm("Are you sure you want to delete \"" + name + "\"? This cannot be undone.")) {
+    window.customConfirm("Are you sure you want to delete \"" + name + "\"? This cannot be undone.", function() {
         const form = document.getElementById("delete-form");
         form.action = "/hrms/letters/templates/delete/" + sel.value;
         form.submit();
-    }
+    });
 }
 
 function openAddModal() {
@@ -187,7 +187,7 @@ function validateAddForm() {
     const name = document.getElementById("add-tpl-name").value.trim();
     const content = document.getElementById("add-tpl-content").value.trim();
     if (!name || !content) {
-        alert("Both Template Name and Content are required.");
+        window.showToast("Both Template Name and Content are required.", "error");
         return false;
     }
     return true;
@@ -241,7 +241,7 @@ async function showVersionHistory() {
                             <span style="font-size:0.8rem; color:#9ca3af;">Saved on ${v.created_at} by ${v.created_by || 'System'}</span>
                         </div>
                         <form action="/hrms/letters/templates/restore/${v.id}" method="POST" style="margin:0;">
-                            <button type="submit" class="btn-success" style="padding:6px 12px; font-size:12px;" onclick="return confirm('Restore this version?')">Restore</button>
+                            <button type="submit" class="btn-success" style="padding:6px 12px; font-size:12px;" onclick="event.preventDefault(); const f=this.closest('form'); window.customConfirm('Restore this version?', function(){ f.submit(); })">Restore</button>
                         </form>
                     </div>
                 `;

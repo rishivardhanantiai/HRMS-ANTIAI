@@ -198,7 +198,7 @@
                                     <a href="{{ letter.pdf_url }}" class="dropdown-item" download>⬇ Download PDF</a>
                                     {% endif %}
                                     <a href="/hrms/letters/generator?doc={{ letter.document_type|urlencode }}&emp={{ letter.employee_id }}" class="dropdown-item">🔄 Regenerate</a>
-                                    <form action="/hrms/letters/history/delete/{{ letter.id }}" method="POST" style="margin:0;" onsubmit="return confirm('Delete this record?');">
+                                    <form action="/hrms/letters/history/delete/{{ letter.id }}" method="POST" style="margin:0;" onsubmit="event.preventDefault(); const f=this; window.customConfirm('Delete this record?', function(){ f.submit(); });">
                                         <button type="submit" class="dropdown-item" style="color:#ef4444;">🗑 Delete</button>
                                     </form>
                                 </div>

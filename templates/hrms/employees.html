@@ -537,16 +537,17 @@
         }
     }
 
-    async function deleteEmployee(id) {
-        if (!confirm("Are you sure you want to delete this employee?")) return;
-        const res = await fetch(`/hrms/employees/${id}/delete`, { method: "POST" });
-        const data = await res.json();
-        if (data.error) {
-            showToast(data.error, "error");
-        } else {
-            showToast("Employee deleted successfully!", "success");
-            loadEmployees();
-        }
+    function deleteEmployee(id) {
+        window.customConfirm("Delete Employee", "Are you sure you want to delete this employee? This action cannot be undone.", async () => {
+            const res = await fetch(`/hrms/employees/${id}/delete`, { method: "POST" });
+            const data = await res.json();
+            if (data.error) {
+                showToast(data.error, "error");
+            } else {
+                showToast("Employee deleted successfully!", "success");
+                loadEmployees();
+            }
+        });
     }
 
     loadEmployees();

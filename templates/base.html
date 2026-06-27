@@ -110,10 +110,97 @@ input:focus, textarea:focus, select:focus {
     }
 }
 
+/* ========================= */
+/* CUSTOM CONFIRM MODAL */
+/* ========================= */
+.confirm-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+.confirm-modal-overlay.active {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+}
+.confirm-modal {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 25px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    border: 1px solid #334155;
+    text-align: center;
+    transform: scale(0.9);
+    transition: 0.2s;
+}
+.confirm-modal-overlay.active .confirm-modal {
+    transform: scale(1);
+}
+.confirm-modal h3 {
+    color: #fff;
+    margin: 0 0 10px 0;
+    font-size: 1.25rem;
+}
+.confirm-modal p {
+    color: #cbd5e1;
+    margin: 0 0 25px 0;
+    font-size: 0.95rem;
+}
+.confirm-modal-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+.confirm-modal-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: 0.2s;
+}
+.btn-cancel {
+    background: #334155;
+    color: #cbd5e1;
+}
+.btn-cancel:hover {
+    background: #475569;
+}
+.btn-confirm {
+    background: #ef4444;
+    color: #fff;
+}
+.btn-confirm:hover {
+    background: #dc2626;
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 </style>
 </head>
 
 <body>
+
+<!-- CUSTOM CONFIRM MODAL -->
+<div id="customConfirmModal" class="confirm-modal-overlay">
+    <div class="confirm-modal">
+        <h3 id="confirmModalTitle">Are you sure?</h3>
+        <p id="confirmModalMessage">You are about to perform this action.</p>
+        <div class="confirm-modal-actions">
+            <button id="confirmBtnCancel" class="btn-cancel">Cancel</button>
+            <button id="confirmBtnOk" class="btn-confirm">Yes, Delete</button>
+        </div>
+    </div>
+</div>
 
 <!-- ========================= -->
 <!-- FLASH TOAST MESSAGES -->
@@ -341,6 +428,34 @@ window.showToast = function(message, category = "success") {
         toast.style.opacity = "0";
         setTimeout(() => toast.remove(), 500);
     }, 4000);
+};
+
+window.customConfirm = function(title, message, onConfirm) {
+    const overlay = document.getElementById("customConfirmModal");
+    const titleEl = document.getElementById("confirmModalTitle");
+    const msgEl = document.getElementById("confirmModalMessage");
+    const cancelBtn = document.getElementById("confirmBtnCancel");
+    const okBtn = document.getElementById("confirmBtnOk");
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+
+    overlay.classList.add("active");
+
+    const closeFn = () => {
+        overlay.classList.remove("active");
+        cancelBtn.removeEventListener("click", cancelFn);
+        okBtn.removeEventListener("click", okFn);
+    };
+
+    const cancelFn = () => closeFn();
+    const okFn = () => {
+        closeFn();
+        onConfirm();
+    };
+
+    cancelBtn.addEventListener("click", cancelFn);
+    okBtn.addEventListener("click", okFn);
 };
 </script>
 <script src="/static/js/main.js"></script>

@@ -156,7 +156,7 @@ def add_employee_ui():
         managers = cur.fetchall()
 
         # Generate next Employee Code (e.g., EMP-0001)
-        cur.execute("SELECT employee_code FROM hrms_employees WHERE employee_code LIKE 'EMP-%' ORDER BY id DESC LIMIT 1")
+        cur.execute("SELECT employee_code FROM hrms_employees WHERE employee_code LIKE 'EMP-%' ORDER BY created_at DESC LIMIT 1")
         last_emp = cur.fetchone()
         next_code = "EMP-0001"
         if last_emp and last_emp["employee_code"]:
@@ -179,7 +179,7 @@ def add_employee_ui():
         except Exception:
             managers = []
         try:
-            last_emp = supabase_rest.get_first_row("hrms_employees", {"select": "employee_code", "employee_code": "like.EMP-%", "order": "id.desc", "limit": 1})
+            last_emp = supabase_rest.get_first_row("hrms_employees", {"select": "employee_code", "employee_code": "like.EMP-*", "order": "created_at.desc", "limit": 1})
             next_code = "EMP-0001"
             if last_emp and last_emp.get("employee_code"):
                 try:
@@ -519,30 +519,41 @@ def add_employee():
             joining_date = data.get("joining_date") or str(date.today())
 
             # Duplicate checks
+            if supabase_rest.get_first_row("hrms_employees", {"select": "id", "employee_code": f"eq.{data['employee_code']}"}):
+                return jsonify({"error": f"Employee code {data['employee_code']} already exists"}), 400
             if supabase_rest.get_first_row("hrms_employees", {"select": "id", "email": f"eq.{data['email']}"}):
                 return jsonify({"error": "Employee email already exists"}), 400
             if supabase_rest.get_first_row("hrms_users", {"select": "id", "email": f"eq.{data['email']}"}):
                 return jsonify({"error": "Login email already exists"}), 400
 
             # Step 1: Create Employee Record
-            emp_row = supabase_rest.insert_row("hrms_employees", {
+            base_payload = {
                 "employee_code":   data["employee_code"],
                 "full_name":       data["full_name"],
                 "email":           data["email"],
                 "phone":           data.get("phone"),
                 "department":      data.get("department"),
-                "designation":     data.get("designation", "Employee"),
                 "role_id":         data["role_id"],
                 "joining_date":    str(joining_date),
                 "status":          "Active",
+            }
+            full_payload = base_payload.copy()
+            full_payload.update({
+                "designation":     data.get("designation", "Employee"),
                 "manager_id":      data.get("manager_id") or None,
                 "gender":          data.get("gender"),
                 "date_of_birth":   data.get("date_of_birth") or None,
                 "office_location": data.get("office_location"),
                 "employment_type": data.get("employment_type", "Full Time"),
             })
+
+            emp_row = supabase_rest.insert_row("hrms_employees", full_payload)
             if not emp_row:
-                return jsonify({"error": "Could not create employee record via fallback."}), 500
+                print("Failed to insert full payload, trying base payload...")
+                emp_row = supabase_rest.insert_row("hrms_employees", base_payload)
+                
+            if not emp_row:
+                return jsonify({"error": "Could not create employee record via fallback. Check Supabase logs."}), 500
 
             employee_id = emp_row.get("id")
 
@@ -571,12 +582,18 @@ def add_employee():
 
             if annual_ctc > 0:
                 monthly_gross = annual_ctc / 12.0
-                supabase_rest.insert_row("employee_salary", {
+                sal_row = supabase_rest.insert_row("employee_salary", {
                     "employee_id":    employee_id,
                     "annual_ctc":     annual_ctc,
                     "monthly_salary": monthly_gross,
                     "effective_from": str(joining_date),
                 })
+                if not sal_row:
+                    supabase_rest.insert_row("employee_salary", {
+                        "employee_id":    employee_id,
+                        "monthly_salary": monthly_gross,
+                        "effective_from": str(joining_date),
+                    })
                 
                 # Save basic breakdown to employee_salary_components
                 basic = annual_ctc * 0.50
