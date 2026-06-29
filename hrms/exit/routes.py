@@ -167,6 +167,7 @@ def update_status(exit_id):
         if new_status == "Exit Closed":
             cur.execute("UPDATE hrms_employees SET status = 'Exited' WHERE id = %s", (emp_id,))
             
+        conn.commit()
         flash(f"Exit status updated to {new_status}.", "success")
     except Exception as e:
         print("Error updating exit status via DB, trying REST fallback:", e)

@@ -430,6 +430,7 @@ def save_template():
                 updated_by = EXCLUDED.updated_by,
                 updated_at = CURRENT_TIMESTAMP
         """, (template_name, template_content, user))
+        conn.commit()
         flash("Template saved successfully.", "success")
     except Exception as e:
         print("Error saving template via DB, trying REST fallback:", e)
@@ -482,6 +483,7 @@ def delete_template(tid):
         if not conn:
             raise Exception("No DB connection")
         cur.execute("DELETE FROM letter_templates WHERE id = %s", (tid,))
+        conn.commit()
         flash("Template deleted.", "success")
     except Exception as e:
         print("Error deleting template via DB, trying REST fallback:", e)
@@ -649,6 +651,7 @@ def generate_pdf():
                         """, (emp_id, exit_id, document_type, pdf_url, session.get("user", "System")))
                     except Exception:
                         pass
+                conn2.commit()
             except Exception as db_err2:
                 print("Error saving generated pdf meta via DB, trying REST fallback:", db_err2)
                 if conn2:
@@ -923,6 +926,7 @@ def delete_letter(lid):
         if not conn:
             raise Exception("No DB connection")
         cur.execute("DELETE FROM generated_letters WHERE id = %s", (lid,))
+        conn.commit()
         flash("Record deleted.", "success")
     except Exception as e:
         print("Error deleting letter via DB, trying REST fallback:", e)
