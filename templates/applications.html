@@ -509,7 +509,7 @@
                                     {% if app.status=='Future Reference' %}selected{% endif %}>Future Ref</option>
                             </select>
                             <form method="POST" action="/applications/delete/{{ app.id }}"
-                                  onsubmit="event.preventDefault(); const f=this; window.customConfirm('Delete this application?', function(){ f.submit(); });"
+                                  onsubmit="event.preventDefault(); const f=this; window.customConfirm('Delete this application?', 'Are you sure you want to delete this application?', function(){ f.submit(); });"
                                   style="margin:0;">
                                 {% if selected_job %}
                                     <input type="hidden" name="job_id" value="{{ selected_job }}">
