@@ -6,92 +6,77 @@
     <style>
         @page {
             size: A4;
-            margin: 0;
+            margin: 10mm 15mm;
         }
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            color: #1a1a1a;
-            line-height: 1.7;
+            font-family: Helvetica, Arial, sans-serif;
+            color: #222;
+            line-height: 1.6;
             margin: 0;
-            padding: 50px 60px 80px 60px;
-            font-size: 14px;
-        }
-        .letterhead {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            border-bottom: 3px solid #1e3a5f;
-            padding-bottom: 15px;
-            margin-bottom: 30px;
-        }
-        .letterhead-left {
-            flex: 1;
-        }
-        .company-name {
-            font-size: 22px;
-            font-weight: 700;
-            color: #1e3a5f;
-            letter-spacing: 1px;
-            margin-bottom: 2px;
-        }
-        .company-tagline {
-            font-size: 11px;
-            color: #666;
-            letter-spacing: 0.5px;
-        }
-        .letterhead-right {
-            text-align: right;
-            font-size: 11px;
-            color: #555;
-            line-height: 1.5;
+            padding: 20px;
+            font-size: 11pt;
         }
         .content {
-            font-size: 14px;
+            font-size: 11pt;
             min-height: 600px;
+            text-align: justify;
         }
         .content h2, .content h3 {
-            color: #1e3a5f;
+            color: #111827;
         }
         .content table {
-            font-size: 13px;
+            font-size: 10pt;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .content table th, .content table td {
+            border: 1px solid #d1d5db;
+            padding: 8px;
+        }
+        .content table th {
+            background-color: #f3f4f6;
+            text-align: left;
         }
         .footer {
             text-align: center;
-            font-size: 10px;
-            color: #888;
-            border-top: 2px solid #1e3a5f;
-            padding-top: 10px;
-            position: fixed;
-            bottom: 30px;
-            left: 60px;
-            right: 60px;
+            font-size: 9pt;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+            margin-top: 50px;
         }
     </style>
 </head>
 <body>
 
-    <div class="letterhead">
-        <div class="letterhead-left">
-            {% if company.logo_url %}
-            <img src="{{ company.logo_url }}" alt="Logo" style="height:45px; margin-bottom:5px;">
-            {% endif %}
-            <div class="company-name">{{ company.company_name or 'ANTI.AI PRIVATE LIMITED' }}</div>
-            <div class="company-tagline">{{ company.company_address or '73 ROSE VILLA RAJENDRA NAGAR BHARATPUR RAJASTHAN, Rajasthan, 321001' }}</div>
-        </div>
-        <div class="letterhead-right">
-            {% if company.company_phone %}📞 {{ company.company_phone }}<br>{% endif %}
-            {% if company.company_email %}✉ {{ company.company_email }}<br>{% endif %}
-            {% if company.company_website %}🌐 {{ company.company_website }}{% endif %}
-        </div>
-    </div>
+    <!-- Header Table for xhtml2pdf compatibility -->
+    <table style="width: 100%; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 35px;">
+        <tr>
+            <td style="vertical-align: top; width: 60%;">
+                {% if company.logo_url %}
+                <img src="{{ company.logo_url }}" alt="Logo" style="height: 50px; margin-bottom: 10px;">
+                {% endif %}
+                <div style="font-size: 24px; font-weight: bold; color: #111827;">{{ company.company_name or 'ANTI AI' }}</div>
+                <div style="font-size: 10pt; color: #4b5563;">{{ company.company_address }}</div>
+            </td>
+            <td style="vertical-align: top; text-align: right; width: 40%; font-size: 9pt; color: #4b5563; line-height: 1.5;">
+                <div style="background: #f9fafb; padding: 12px; border-radius: 6px; display: inline-block; text-align: left; border: 1px solid #e5e7eb;">
+                    {% if company.company_phone %}<strong>P:</strong> {{ company.company_phone }}<br>{% endif %}
+                    {% if company.company_email %}<strong>E:</strong> {{ company.company_email }}<br>{% endif %}
+                    {% if company.company_website %}<strong>W:</strong> {{ company.company_website }}{% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
 
     <div class="content">
         {{ content | safe }}
     </div>
 
     <div class="footer">
-        This is a system-generated document from {{ company.company_name or 'ANTI.AI PRIVATE LIMITED' }}.
-        {% if company.gst_pan %}| GST/PAN: {{ company.gst_pan }}{% endif %}
+        <strong style="color: #4b5563;">{{ company.company_name or 'ANTI AI' }}</strong><br>
+        This is a system-generated document and requires no physical signature.
+        {% if company.gst_pan %}<br>GST/PAN: {{ company.gst_pan }}{% endif %}
     </div>
 
 </body>

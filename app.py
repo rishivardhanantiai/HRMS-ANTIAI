@@ -95,6 +95,15 @@ def _parse_iso_datetime(value):
     except (ValueError, TypeError):
         return None
 
+@app.template_filter('format_datetime')
+def format_datetime_filter(value, format="%Y-%m-%d"):
+    if not value:
+        return ""
+    dt = _parse_iso_datetime(value)
+    if dt:
+        return dt.strftime(format)
+    return str(value)
+
 
 def _send_excel_dataframe(df, filename):
     output = BytesIO()
@@ -1039,7 +1048,7 @@ def applications():
             base_query += " WHERE " + " AND ".join(clauses)
             params.extend(count_params)
 
-        base_query += " ORDER BY a.id DESC LIMIT %s OFFSET %s"
+        base_query += " ORDER BY a.applied_at DESC NULLS LAST, a.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, offset])
 
         cur.execute(base_query, tuple(params))
@@ -1051,7 +1060,7 @@ def applications():
             "jobs",
             {"select": "id,title", "order": "created_at.desc"},
         )
-        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,cover_letter,status", "order": "id.desc"}
+        selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,cover_letter,status", "order": "applied_at.desc,id.desc"}
         if selected_job:
             selected_filter["job_id"] = f"eq.{selected_job}"
         

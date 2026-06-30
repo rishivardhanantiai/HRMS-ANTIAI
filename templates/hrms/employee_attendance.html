@@ -60,10 +60,10 @@
                         {% endif %}
 
                         <div class="calendar-day {{ cell_class }}"
-                             data-date="{{ current_date.strftime('%d %b %Y') }}"
+                             data-date="{{ current_date | format_datetime('%d %b %Y') }}"
                              data-status="{{ record.status if record else ('Weekend' if current_date.weekday() == 6 else 'Not Marked') }}"
-                             data-checkin="{{ record.check_in_time.strftime('%I:%M %p') if record and record.check_in_time else '-' }}"
-                             data-checkout="{{ record.check_out_time.strftime('%I:%M %p') if record and record.check_out_time else '-' }}"
+                             data-checkin="{{ record.check_in_time | format_datetime('%I:%M %p') if record and record.check_in_time else '-' }}"
+                             data-checkout="{{ record.check_out_time | format_datetime('%I:%M %p') if record and record.check_out_time else '-' }}"
                              data-duration="{% if record and record.duration %}{{ '%02d:%02d'|format(record.duration // 60, record.duration % 60) }}{% else %}-{% endif %}"
                              onclick="showDayDetails(this)">
                             {{ day }}
@@ -97,14 +97,14 @@
             <tbody>
                 {% for a in attendance %}
                 <tr>
-                    <td>{{ a.attendance_date.strftime("%d %b %Y") if a.attendance_date else "-" }}</td>
+                    <td>{{ a.attendance_date | format_datetime("%d %b %Y") if a.attendance_date else "-" }}</td>
                     <td>
                         <span class="status-indicator-badge {% if a.status == 'Present' %}badge-green{% elif a.status == 'WFH' %}badge-teal{% elif a.status == 'Absent' %}badge-red{% elif a.status == 'Leave' %}badge-orange{% elif a.status in ['Half-day', 'Half-Day'] %}badge-purple{% else %}badge-gray{% endif %}">
                             {{ a.status }}
                         </span>
                     </td>
-                    <td>{{ a.check_in_time.strftime("%I:%M %p") if a.check_in_time else "-" }}</td>
-                    <td>{{ a.check_out_time.strftime("%I:%M %p") if a.check_out_time else "-" }}</td>
+                    <td>{{ a.check_in_time | format_datetime("%I:%M %p") if a.check_in_time else "-" }}</td>
+                    <td>{{ a.check_out_time | format_datetime("%I:%M %p") if a.check_out_time else "-" }}</td>
                     <td>
                         {% if a.duration %}
                             {% set hours = a.duration // 60 %}

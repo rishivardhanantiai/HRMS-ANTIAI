@@ -228,6 +228,37 @@ select.form-control {
       {% endif %}
     {% endwith %}
 
+    {% set requested_docs = documents | selectattr('verification_status', 'equalto', 'Requested') | list %}
+    {% set other_docs = documents | rejectattr('verification_status', 'equalto', 'Requested') | list %}
+    
+    {% if requested_docs %}
+    <div class="docs-card" style="border-color: #f59e0b; background: rgba(245,158,11,0.05);">
+        <h3 style="color:#f59e0b; margin-top:0;">⚠️ Action Required: Requested Documents</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Requested Details</th>
+                    <th>Date Requested</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requested_docs %}
+                <tr>
+                    <td style="color:#f3f4f6;">{{ req.document_type }}</td>
+                    <td style="color:#f3f4f6;">{{ req.document_title }}</td>
+                    <td>{{ (req.created_at|string)[:10] if req.created_at else '-' }}</td>
+                    <td>
+                        <button onclick="fulfillRequest('{{ req.id }}', '{{ req.document_type }}', '{{ req.document_title }}')" class="btn-upload" style="padding: 6px 12px; font-size: 12px; background: #10b981;">Upload Now</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     <div class="docs-card">
         <div class="filters-wrapper">
             <input type="text" id="searchFilter" class="form-control" placeholder="Search Title or Description...">
@@ -262,9 +293,9 @@ select.form-control {
                 </tr>
             </thead>
             <tbody>
-                {% for doc in documents %}
+                {% for doc in other_docs %}
                 <tr class="doc-row" data-type="{{ doc.document_type }}" data-status="{{ doc.verification_status }}">
-                    <td style="white-space: nowrap;">{{ doc.created_at.strftime('%m/%d/%y') if doc.created_at else '-' }}</td>
+                    <td style="white-space: nowrap;">{{ doc.created_at | format_datetime('%m/%d/%y') if doc.created_at else '-' }}</td>
                     <td>{{ doc.document_type }}</td>
                     <td class="doc-title">{{ doc.document_title }}</td>
                     <td class="doc-desc">{{ doc.description or '-' }}</td>
@@ -296,6 +327,7 @@ select.form-control {
     <div class="upload-section">
         <h3>Upload new documents (* is mandatory)</h3>
         <form action="/hrms/employees/documents/upload" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="request_id" id="fulfill_request_id" value="">
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="form-group">
@@ -372,6 +404,28 @@ select.form-control {
     searchInput.addEventListener('input', filterRows);
     typeSelect.addEventListener('change', filterRows);
     statusSelect.addEventListener('change', filterRows);
+
+    function fulfillRequest(id, type, title) {
+        document.getElementById('fulfill_request_id').value = id;
+        
+        let typeSelect = document.querySelector('select[name="document_type"]');
+        let typeOption = Array.from(typeSelect.options).find(o => o.value === type);
+        if(typeOption) {
+            typeSelect.value = type;
+        } else {
+            let opt = document.createElement('option');
+            opt.value = type;
+            opt.innerHTML = type;
+            typeSelect.appendChild(opt);
+            typeSelect.value = type;
+        }
+        document.querySelector('input[name="document_title"]').value = title;
+        
+        const uploadSection = document.querySelector('.upload-section');
+        uploadSection.scrollIntoView({behavior: 'smooth'});
+        uploadSection.style.border = '2px solid #10b981';
+        setTimeout(() => { uploadSection.style.border = '1px solid #1f2937'; }, 2000);
+    }
 </script>
 
 {% endblock %}

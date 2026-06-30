@@ -190,7 +190,7 @@
                 {% for doc in docs %}
                     <li style="margin-bottom:10px;">
                         <a href="{{ doc.pdf_url }}" style="color:#38bdf8; text-decoration:none;">📄 {{ doc.document_type }}</a>
-                        <span style="font-size:0.8rem; color:#6b7280;">({{ doc.generated_at.strftime('%Y-%m-%d') }})</span>
+                        <span style="font-size:0.8rem; color:#6b7280;">({{ doc.generated_at | format_datetime('%Y-%m-%d') }})</span>
                     </li>
                 {% endfor %}
                 </ul>

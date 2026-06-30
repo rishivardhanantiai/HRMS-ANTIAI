@@ -53,7 +53,7 @@ select.form-control { appearance:none; background-image:url("data:image/svg+xml;
                 {% endfor %}
             </select>
             {% for t in templates %}
-            <input type="hidden" id="tpl_{{ t.id }}" value="{{ t.template_content | forceescape }}">
+            <input type="hidden" id="tpl_{{ t.id }}" value="{{ (t.template_content or '') | forceescape }}">
             {% endfor %}
         </div>
 
@@ -62,7 +62,8 @@ select.form-control { appearance:none; background-image:url("data:image/svg+xml;
             <select id="emp-select" class="form-control" onchange="autoFillEmployee()">
                 <option value="">Select Employee...</option>
                 {% for e in employees %}
-                {% set code = e.employee_code if e.employee_code else ('EMP%03d' % e.id) %}
+                {% set emp_id_str = e.id | string %}
+                {% set code = e.employee_code if e.employee_code else ('EMP-' ~ emp_id_str[0:8]) %}
                 <option value="{{ e.id }}" data-code="{{ code }}" data-name="{{ e.full_name }}" data-dept="{{ e.department }}" data-desg="{{ e.designation }}" data-join="{{ e.joining_date }}">{{ e.full_name }} ({{ code }})</option>
                 {% endfor %}
             </select>
@@ -324,44 +325,14 @@ async function generateDocument(isPreview) {
         }
     } else {
         showToast("Generating document... Please wait.");
-        const formData = new FormData();
-        formData.append("html_content", finalHtml);
-        formData.append("document_type", document.getElementById("final-doc-type").value);
-        formData.append("employee_id", document.getElementById("final-emp-id").value);
+        const form = document.getElementById("generate-form");
+        form.querySelector("#final-doc-type").value = document.getElementById("final-doc-type").value;
+        form.querySelector("#final-emp-id").value = document.getElementById("final-emp-id").value;
         if (document.getElementById("final-exit-id").value) {
-            formData.append("exit_id", document.getElementById("final-exit-id").value);
+            form.querySelector("#final-exit-id").value = document.getElementById("final-exit-id").value;
         }
-
-        try {
-            const response = await fetch("/hrms/letters/generate_pdf", { method: "POST", body: formData });
-            if (response.ok) {
-                // Get filename from Content-Disposition header if possible
-                const disposition = response.headers.get('Content-Disposition');
-                let filename = 'Document.pdf';
-                if (disposition && disposition.indexOf('filename=') !== -1) {
-                    filename = disposition.split('filename=')[1].replace(/["']/g, '');
-                }
-                
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-
-                showToast("Letter generated successfully! Redirecting...");
-                setTimeout(() => { window.location.href = "/hrms/letters/history"; }, 1500);
-            } else {
-                const errText = await response.text();
-                showToast("Error: " + errText, true);
-            }
-        } catch (e) {
-            console.error("Generate error:", e);
-            showToast("Failed to generate PDF.", true);
-        }
+        form.submit();
+        setTimeout(() => { showToast("If generation succeeded, your download should start shortly."); }, 2000);
     }
 }
 

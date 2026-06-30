@@ -183,7 +183,7 @@
                         </form>
                     </td>
                     <td>{{ letter.generated_by or 'System' }}</td>
-                    <td>{{ letter.generated_at.strftime('%d %b %Y, %I:%M %p') if letter.generated_at else '-' }}</td>
+                    <td>{{ letter.generated_at | format_datetime('%d %b %Y, %I:%M %p') if letter.generated_at else '-' }}</td>
                     <td>{{ (letter.file_size / 1024)|round(1) if letter.file_size else '0' }} KB</td>
                     <td style="text-align: right;">
                         <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
