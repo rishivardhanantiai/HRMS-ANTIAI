@@ -186,7 +186,7 @@ def generator():
         cur.execute("""
             SELECT id, employee_code, full_name, department, designation, joining_date
             FROM hrms_employees
-            WHERE status != 'Deleted' OR status IS NULL
+            WHERE status != 'Deleted'
             ORDER BY full_name
         """)
         employees = cur.fetchall()

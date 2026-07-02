@@ -1,6 +1,6 @@
 print("HRMS ROLES ROUTES LOADED")
 
-from flask import Blueprint, render_template, request, redirect
+from flask import Blueprint, render_template, request, redirect, session
 from utils.auth import login_required
 from utils.db import get_db, release_db
 from utils import supabase_rest

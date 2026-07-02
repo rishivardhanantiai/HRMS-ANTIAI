@@ -136,31 +136,17 @@ def _supabase_rest_base_url():
     return f"{url}/rest/v1" if url else None
 
 
-def _supabase_auth_base_url():
-    url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    return f"{url}/auth/v1" if url else None
 
 
 def _fallback_login_via_supabase(email, password, role):
     """Fallback login when DATABASE_URL is missing/unreachable.
-    Validates email/password with Supabase Auth and reads role from employees+roles.
+    Validates email/password against hrms_users password hash (no Supabase auth.users).
     """
-    auth_base = _supabase_auth_base_url()
     rest_base = _supabase_rest_base_url()
-    anon_headers = _supabase_headers(use_service=False)
     service_headers = _supabase_headers(use_service=True)
 
-    if not auth_base or not rest_base or not anon_headers or not service_headers:
+    if not rest_base or not service_headers:
         return None
-
-    # 1) Validate password against Supabase Auth
-    token_url = f"{auth_base}/token?grant_type=password"
-    token_resp = httpx.post(
-        token_url,
-        headers=anon_headers,
-        json={"email": email, "password": password},
-        timeout=20.0,
-    )
 
     # Fetch user from hrms_users
     users_url = f"{rest_base}/hrms_users"
@@ -178,16 +164,15 @@ def _fallback_login_via_supabase(email, password, role):
 
     user = user_rows[0]
 
-    # If Auth user is missing/out-of-sync, validate password using hrms_users hash
-    if token_resp.status_code != 200:
-        stored_password = str(user.get("password") or "")
-        password_ok = (
-            check_password_hash(stored_password, password)
-            if stored_password.startswith("pbkdf2:") or stored_password.startswith("scrypt:")
-            else stored_password == password
-        )
-        if not password_ok:
-            return None
+    # Validate password against hrms_users hash
+    stored_password = str(user.get("password") or "")
+    password_ok = (
+        check_password_hash(stored_password, password)
+        if stored_password.startswith("pbkdf2:") or stored_password.startswith("scrypt:")
+        else stored_password == password
+    )
+    if not password_ok:
+        return None
 
     role_id = user.get("role_id")
     if not role_id:

@@ -26,7 +26,10 @@ def run_leave_migration():
         except Exception:
             pass
 
-run_leave_migration()
+try:
+    run_leave_migration()
+except Exception as _migration_err:
+    print("Skipping leave migration on startup (DB may not be ready):", _migration_err)
 
 
 # ======================================

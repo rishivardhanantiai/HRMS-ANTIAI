@@ -363,16 +363,11 @@ def add_employee():
     try:
         conn, cur = get_db(True)
 
-        # Check duplicate emails
+        # Check duplicate emails — only check hrms_employees
         cur.execute("SELECT id FROM hrms_employees WHERE email=%s", (data["email"],))
         if cur.fetchone():
             release_db(conn, cur)
             return jsonify({"error": "Employee email already exists"}), 400
-
-        cur.execute("SELECT id FROM hrms_users WHERE email=%s", (data["email"],))
-        if cur.fetchone():
-            release_db(conn, cur)
-            return jsonify({"error": "Login email already exists"}), 400
 
         plain_password = data.get("password")
         hashed_password = generate_password_hash(plain_password)
@@ -518,13 +513,11 @@ def add_employee():
             hashed_password = generate_password_hash(plain_password)
             joining_date = data.get("joining_date") or str(date.today())
 
-            # Duplicate checks
+            # Duplicate checks — only check hrms_employees
             if supabase_rest.get_first_row("hrms_employees", {"select": "id", "employee_code": f"eq.{data['employee_code']}"}):
                 return jsonify({"error": f"Employee code {data['employee_code']} already exists"}), 400
             if supabase_rest.get_first_row("hrms_employees", {"select": "id", "email": f"eq.{data['email']}"}):
                 return jsonify({"error": "Employee email already exists"}), 400
-            if supabase_rest.get_first_row("hrms_users", {"select": "id", "email": f"eq.{data['email']}"}):
-                return jsonify({"error": "Login email already exists"}), 400
 
             # Step 1: Create Employee Record
             base_payload = {
@@ -557,8 +550,7 @@ def add_employee():
 
             employee_id = emp_row.get("id")
 
-            # Step 2: Create Login Account
-            supabase_rest.create_auth_user(data["email"], plain_password)
+            # Step 2: Create Login Account in hrms_users (no Supabase auth.users)
             supabase_rest.insert_row("hrms_users", {
                 "email":       data["email"],
                 "password":    hashed_password,
