@@ -186,7 +186,7 @@ def generator():
         cur.execute("""
             SELECT id, employee_code, full_name, department, designation, joining_date
             FROM hrms_employees
-            WHERE status = 'Active'
+            WHERE status != 'Deleted'
             ORDER BY full_name
         """)
         employees = cur.fetchall()
@@ -210,7 +210,7 @@ def generator():
             templates = supabase_rest.get_rows("letter_templates")
             employees = supabase_rest.get_rows("hrms_employees", {
                 "select": "id,employee_code,full_name,department,designation,joining_date",
-                "status": "eq.Active",
+                "status": "neq.Deleted",
                 "order": "full_name.asc"
             })
             company = _get_company(None)
@@ -904,6 +904,43 @@ def letters_history():
             try: release_db(conn, cur)
             except: pass
 
+
+# ==========================================
+# UPDATE STATUS
+# ==========================================
+@letters_bp.route("/history/update_status/<lid>", methods=["POST"])
+@login_required
+@role_required(["HR", "Admin"])
+def update_status(lid):
+    new_status = request.form.get("status")
+    if not new_status:
+        flash("Status cannot be empty.", "error")
+        return redirect("/hrms/letters/history")
+
+    conn, cur = get_db(True)
+    try:
+        if not conn:
+            raise Exception("No DB connection")
+        cur.execute("UPDATE generated_letters SET status = %s WHERE id = %s", (new_status, lid))
+        flash(f"Status updated to {new_status}.", "success")
+    except Exception as e:
+        print("Error updating status via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            supabase_rest.update_rows("generated_letters", {"id": f"eq.{lid}"}, {"status": new_status})
+            flash(f"Status updated to {new_status}.", "success")
+        except Exception as rest_err:
+            print("REST fallback for update status failed:", rest_err)
+            flash("Could not update status.", "error")
+    finally:
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            
+    return redirect("/hrms/letters/history")
 
 # FIX: Removed <int:> from <lid>
 @letters_bp.route("/history/delete/<lid>", methods=["POST"])

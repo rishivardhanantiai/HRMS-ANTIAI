@@ -1,7 +1,7 @@
 print("HRMS EMPLOYEES ROUTES LOADED")
 
 from flask import Blueprint, request, render_template, jsonify, redirect, session, flash
-from datetime import date
+from datetime import date, datetime
 from utils.db import get_db, release_db
 from utils import supabase_rest
 from utils.auth import login_required
@@ -363,16 +363,11 @@ def add_employee():
     try:
         conn, cur = get_db(True)
 
-        # Check duplicate emails
+        # Check duplicate emails — only check hrms_employees
         cur.execute("SELECT id FROM hrms_employees WHERE email=%s", (data["email"],))
         if cur.fetchone():
             release_db(conn, cur)
             return jsonify({"error": "Employee email already exists"}), 400
-
-        cur.execute("SELECT id FROM hrms_users WHERE email=%s", (data["email"],))
-        if cur.fetchone():
-            release_db(conn, cur)
-            return jsonify({"error": "Login email already exists"}), 400
 
         plain_password = data.get("password")
         hashed_password = generate_password_hash(plain_password)
@@ -518,13 +513,11 @@ def add_employee():
             hashed_password = generate_password_hash(plain_password)
             joining_date = data.get("joining_date") or str(date.today())
 
-            # Duplicate checks
+            # Duplicate checks — only check hrms_employees
             if supabase_rest.get_first_row("hrms_employees", {"select": "id", "employee_code": f"eq.{data['employee_code']}"}):
                 return jsonify({"error": f"Employee code {data['employee_code']} already exists"}), 400
             if supabase_rest.get_first_row("hrms_employees", {"select": "id", "email": f"eq.{data['email']}"}):
                 return jsonify({"error": "Employee email already exists"}), 400
-            if supabase_rest.get_first_row("hrms_users", {"select": "id", "email": f"eq.{data['email']}"}):
-                return jsonify({"error": "Login email already exists"}), 400
 
             # Step 1: Create Employee Record
             base_payload = {
@@ -557,8 +550,7 @@ def add_employee():
 
             employee_id = emp_row.get("id")
 
-            # Step 2: Create Login Account
-            supabase_rest.create_auth_user(data["email"], plain_password)
+            # Step 2: Create Login Account in hrms_users (no Supabase auth.users)
             supabase_rest.insert_row("hrms_users", {
                 "email":       data["email"],
                 "password":    hashed_password,
@@ -869,21 +861,37 @@ def delete_employee(employee_id):
     if not hr_admin_required():
         return redirect("/dashboard")
 
+    conn = None
+    cur = None
     try:
         conn, cur = get_db(True)
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
+        # 1. Soft delete the employee profile
         cur.execute("""
             UPDATE hrms_employees
             SET status='Deleted'
             WHERE id=%s
         """, (employee_id,))
 
+        # 2. Delete the login credentials from hrms_users to revoke login & free up the email
+        cur.execute("DELETE FROM hrms_users WHERE employee_id=%s", (employee_id,))
+
         conn.commit()
-        release_db(conn, cur)
-    except Exception:
+    except Exception as e:
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        print("DB delete error, trying REST fallback:", e)
+        # Fallback via Supabase REST
         supabase_rest.soft_delete_employee(employee_id)
+        supabase_rest.delete_rows("hrms_users", {"employee_id": f"eq.{employee_id}"})
+    finally:
+        if conn and cur:
+            release_db(conn, cur)
 
     return {"message": "Employee deleted"}, 200
 

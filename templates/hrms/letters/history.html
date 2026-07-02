@@ -151,7 +151,7 @@
             </thead>
             <tbody>
                 {% for letter in letters %}
-                <tr onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('select')) openPreviewModal('{{ letter.pdf_url }}')">
+                <tr onclick="if(!event.target.closest('button') && !event.target.closest('a') && !event.target.closest('select') && '{{ letter.pdf_url }}' && !'{{ letter.pdf_url }}'.includes('Browser Printed')) openPreviewModal('{{ letter.pdf_url }}')">
                     <td>{{ loop.index }}</td>
                     <td>
                         <strong>{{ letter.full_name }}</strong><br>
@@ -187,14 +187,14 @@
                     <td>{{ (letter.file_size / 1024)|round(1) if letter.file_size else '0' }} KB</td>
                     <td style="text-align: right;">
                         <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
-                            {% if letter.pdf_url %}
+                            {% if letter.pdf_url and 'Browser Printed' not in letter.pdf_url %}
                             <button class="btn-sm btn-open" onclick="openPreviewModal('{{ letter.pdf_url }}')">👁 Open</button>
                             {% endif %}
                             
                             <div class="dropdown">
                                 <button class="icon-btn" onclick="toggleDropdown('menu-{{ letter.id }}')">⋮</button>
                                 <div id="menu-{{ letter.id }}" class="dropdown-content">
-                                    {% if letter.pdf_url %}
+                                    {% if letter.pdf_url and 'Browser Printed' not in letter.pdf_url %}
                                     <a href="{{ letter.pdf_url }}" class="dropdown-item" download>⬇ Download PDF</a>
                                     {% endif %}
                                     <a href="/hrms/letters/generator?doc={{ letter.document_type|urlencode }}&emp={{ letter.employee_id }}" class="dropdown-item">🔄 Regenerate</a>

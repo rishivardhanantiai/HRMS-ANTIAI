@@ -145,33 +145,6 @@ def delete_rows(table, filters):
     return response is not None and response.status_code in (200, 204)
 
 
-def create_auth_user(email, password):
-    supabase_url = _supabase_url()
-    service_key = os.getenv("SERVICE_KEY")
-    if not supabase_url or not service_key:
-        return False
-
-    headers = {
-        "apikey": service_key,
-        "Authorization": f"Bearer {service_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {"email": email, "password": password, "email_confirm": True}
-
-    try:
-        response = httpx.post(
-            f"{supabase_url}/auth/v1/admin/users",
-            headers=headers,
-            json=payload,
-            timeout=20.0,
-        )
-        if response.status_code in (200, 201):
-            return True
-
-        body = response.text.lower()
-        return "already" in body or "registered" in body or "duplicate" in body
-    except Exception:
-        return False
 
 
 def list_roles():

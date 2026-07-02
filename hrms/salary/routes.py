@@ -15,6 +15,8 @@ def assign_employee_salary():
     if role not in ["HR", "Admin"]:
         return redirect("/dashboard")
 
+    conn = None
+    cur = None
     try:
         conn, cur = get_db(True)
 

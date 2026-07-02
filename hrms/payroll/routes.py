@@ -49,10 +49,11 @@ def payroll_dashboard():
 
         payroll_runs = cur.fetchall()
 
-        # ✅ UPDATED EMPLOYEE QUERY (designation added)
+        # ✅ UPDATED EMPLOYEE QUERY (designation added, deleted employees excluded)
         cur.execute("""
             SELECT id, full_name, designation
             FROM hrms_employees
+            WHERE status != 'Deleted'
             ORDER BY full_name
         """)
         employees = cur.fetchall()
@@ -67,6 +68,7 @@ def payroll_dashboard():
                 "designation": e.get("designation") or "Employee",
             }
             for e in supabase_rest.list_employees()
+            if e.get("status") != "Deleted"
         ]
 
     return render_template(
