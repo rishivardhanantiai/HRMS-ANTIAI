@@ -363,8 +363,8 @@ def add_employee():
     try:
         conn, cur = get_db(True)
 
-        # Check duplicate emails — only check hrms_employees
-        cur.execute("SELECT id FROM hrms_employees WHERE email=%s", (data["email"],))
+        # Check duplicate emails — exclude soft-deleted employees so they can be re-added
+        cur.execute("SELECT id FROM hrms_employees WHERE email=%s AND status != 'Deleted'", (data["email"],))
         if cur.fetchone():
             release_db(conn, cur)
             return jsonify({"error": "Employee email already exists"}), 400
@@ -516,7 +516,7 @@ def add_employee():
             # Duplicate checks — only check hrms_employees
             if supabase_rest.get_first_row("hrms_employees", {"select": "id", "employee_code": f"eq.{data['employee_code']}"}):
                 return jsonify({"error": f"Employee code {data['employee_code']} already exists"}), 400
-            if supabase_rest.get_first_row("hrms_employees", {"select": "id", "email": f"eq.{data['email']}"}):
+            if supabase_rest.get_first_row("hrms_employees", {"select": "id", "email": f"eq.{data['email']}", "status": "not.eq.Deleted"}):
                 return jsonify({"error": "Employee email already exists"}), 400
 
             # Step 1: Create Employee Record
@@ -863,19 +863,34 @@ def delete_employee(employee_id):
 
     conn = None
     cur = None
+    import time as _time
+    deleted_suffix = f"_deleted_{int(_time.time())}"
+
     try:
         conn, cur = get_db(True)
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
-        # 1. Soft delete the employee profile
-        cur.execute("""
-            UPDATE hrms_employees
-            SET status='Deleted'
-            WHERE id=%s
-        """, (employee_id,))
+        # Fetch the current email before deleting
+        cur.execute("SELECT email FROM hrms_employees WHERE id=%s", (employee_id,))
+        row = cur.fetchone()
+        original_email = row["email"] if row else None
 
-        # 2. Delete the login credentials from hrms_users to revoke login & free up the email
+        # 1. Soft delete: mark as Deleted AND rename the email to free the unique constraint
+        if original_email:
+            cur.execute("""
+                UPDATE hrms_employees
+                SET status='Deleted', email=%s
+                WHERE id=%s
+            """, (original_email + deleted_suffix, employee_id))
+        else:
+            cur.execute("""
+                UPDATE hrms_employees
+                SET status='Deleted'
+                WHERE id=%s
+            """, (employee_id,))
+
+        # 2. Delete login credentials from hrms_users to revoke access & free up the email
         cur.execute("DELETE FROM hrms_users WHERE employee_id=%s", (employee_id,))
 
         conn.commit()
@@ -887,7 +902,16 @@ def delete_employee(employee_id):
                 pass
         print("DB delete error, trying REST fallback:", e)
         # Fallback via Supabase REST
-        supabase_rest.soft_delete_employee(employee_id)
+        try:
+            emp = supabase_rest.get_first_row("hrms_employees", {"select": "email", "id": f"eq.{employee_id}"})
+            original_email = emp.get("email") if emp else None
+            new_email = (original_email + deleted_suffix) if original_email else None
+            update_payload = {"status": "Deleted"}
+            if new_email:
+                update_payload["email"] = new_email
+            supabase_rest.update_rows("hrms_employees", {"id": f"eq.{employee_id}"}, update_payload)
+        except Exception as rest_err:
+            print("REST soft delete error:", rest_err)
         supabase_rest.delete_rows("hrms_users", {"employee_id": f"eq.{employee_id}"})
     finally:
         if conn and cur:
