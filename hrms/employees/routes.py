@@ -1,7 +1,7 @@
 print("HRMS EMPLOYEES ROUTES LOADED")
 
 from flask import Blueprint, request, render_template, jsonify, redirect, session, flash
-from datetime import date
+from datetime import date, datetime
 from utils.db import get_db, release_db
 from utils import supabase_rest
 from utils.auth import login_required
@@ -869,21 +869,37 @@ def delete_employee(employee_id):
     if not hr_admin_required():
         return redirect("/dashboard")
 
+    conn = None
+    cur = None
     try:
         conn, cur = get_db(True)
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
+        # 1. Soft delete the employee profile
         cur.execute("""
             UPDATE hrms_employees
             SET status='Deleted'
             WHERE id=%s
         """, (employee_id,))
 
+        # 2. Delete the login credentials from hrms_users to revoke login & free up the email
+        cur.execute("DELETE FROM hrms_users WHERE employee_id=%s", (employee_id,))
+
         conn.commit()
-        release_db(conn, cur)
-    except Exception:
+    except Exception as e:
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        print("DB delete error, trying REST fallback:", e)
+        # Fallback via Supabase REST
         supabase_rest.soft_delete_employee(employee_id)
+        supabase_rest.delete_rows("hrms_users", {"employee_id": f"eq.{employee_id}"})
+    finally:
+        if conn and cur:
+            release_db(conn, cur)
 
     return {"message": "Employee deleted"}, 200
 

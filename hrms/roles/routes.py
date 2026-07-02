@@ -50,6 +50,8 @@ def roles_ui():
 @roles_bp.route("/add", methods=["GET", "POST"])
 @login_required
 def add_role():
+    if session.get("role") not in ["HR", "Admin"]:
+        return redirect("/dashboard")
 
     if request.method == "POST":
 
@@ -96,6 +98,9 @@ def add_role():
 @roles_bp.route("/edit/<role_id>", methods=["GET", "POST"])
 @login_required
 def edit_role(role_id):
+    if session.get("role") not in ["HR", "Admin"]:
+        return redirect("/dashboard")
+
     try:
         conn, cur = get_db(True)
 
@@ -177,6 +182,9 @@ def edit_role(role_id):
 @roles_bp.route("/delete/<role_id>")
 @login_required
 def delete_role(role_id):
+    if session.get("role") not in ["HR", "Admin"]:
+        return redirect("/dashboard")
+
     try:
         conn, cur = get_db(True)
 
