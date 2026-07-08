@@ -185,8 +185,8 @@ def create_role(role_name, description=""):
     return insert_row("hrms_roles", {"role_name": role_name, "description": description})
 
 
-def update_role(role_id, role_name):
-    rows = update_rows("hrms_roles", {"id": f"eq.{role_id}"}, {"role_name": role_name})
+def update_role(role_id, role_name, description=""):
+    rows = update_rows("hrms_roles", {"id": f"eq.{role_id}"}, {"role_name": role_name, "description": description})
     return rows[0] if rows else None
 
 
