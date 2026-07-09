@@ -159,18 +159,19 @@ def edit_role(role_id):
 
         role = {
             "id": role_obj.get("id"),
-            "role_name": role_obj.get("name"),
-            "description": "",
+            "role_name": role_obj.get("role_name"),
+            "description": role_obj.get("description") or "",
         }
 
         if request.method == "POST":
             role_name = request.form.get("role_name", "").strip()
+            description = request.form.get("description", "").strip()
             if not role_name:
                 return "Role name required", 400
             dup = supabase_rest.get_role_by_name(role_name)
             if dup and str(dup.get("id")) != str(role_id):
                 return "Role already exists", 400
-            if not supabase_rest.update_role(role_id, role_name):
+            if not supabase_rest.update_role(role_id, role_name, description):
                 return "Could not update role", 500
             return redirect("/hrms/roles/ui")
 
