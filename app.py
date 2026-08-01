@@ -1307,7 +1307,7 @@ def update_application_status(application_id):
     data = request.get_json() or {}
     status = data.get("status")
     
-    valid_statuses = ["Selected", "Rejected", "Backup", "Future Reference", "Pending", "Pending (Default)", ""]
+    valid_statuses = ["Selected", "Rejected", "Backup", "Future Reference", "Screening", "Pending", "Pending (Default)", ""]
     if status not in valid_statuses:
         return {"error": "Invalid status value"}, 400
         

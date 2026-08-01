@@ -25,6 +25,7 @@
 .badge-success { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 .badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
 .badge-info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.badge-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 
 .btn-primary { background: #3b82f6; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; }
 .btn-primary:hover { background: #2563eb; }
@@ -64,6 +65,7 @@
                     <option value="">All Statuses</option>
                     <option value="Verified" {% if request.args.get('status') == 'Verified' %}selected{% endif %}>Verified</option>
                     <option value="Pending" {% if request.args.get('status') == 'Pending' %}selected{% endif %}>Pending Approval</option>
+                    <option value="Rejected" {% if request.args.get('status') == 'Rejected' %}selected{% endif %}>Rejected</option>
                     <option value="Requested" {% if request.args.get('status') == 'Requested' %}selected{% endif %}>Requested (Open)</option>
                 </select>
             </div>
@@ -81,6 +83,7 @@
             <button class="tab-btn {% if not request.args.get('status') %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub'">All Documents</button>
             <button class="tab-btn {% if request.args.get('status') == 'Pending' %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub?status=Pending'">Pending Review</button>
             <button class="tab-btn {% if request.args.get('status') == 'Requested' %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub?status=Requested'">Open Requests</button>
+            <button class="tab-btn {% if request.args.get('status') == 'Rejected' %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub?status=Rejected'">Rejected</button>
         </div>
 
         <div style="overflow-x: auto;">
@@ -109,6 +112,8 @@
                         <td>
                             {% if doc.verification_status == 'Verified' %}
                                 <span class="badge badge-success">Verified</span>
+                            {% elif doc.verification_status == 'Rejected' %}
+                                <span class="badge badge-danger">Rejected</span>
                             {% elif doc.verification_status == 'Requested' %}
                                 <span class="badge badge-warning">Action Required (Employee)</span>
                             {% else %}
