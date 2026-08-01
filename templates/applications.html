@@ -337,6 +337,7 @@
     <select name="status" class="select" style="flex: 10 1 0%; min-width: 130px; width: 100%; box-sizing: border-box; margin-bottom: 0;">
         <option value="">All Statuses</option>
         <option value="Pending" {% if status == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="Screening" {% if status == 'Screening' %}selected{% endif %}>Screening</option>
         <option value="Selected" {% if status == 'Selected' %}selected{% endif %}>Selected</option>
         <option value="Rejected" {% if status == 'Rejected' %}selected{% endif %}>Rejected</option>
         <option value="Backup" {% if status == 'Backup' %}selected{% endif %}>Backup</option>
@@ -499,6 +500,8 @@
                                 <option value="Pending"
                                     {% if not app.status or app.status in ('Pending','') %}selected{% endif %}>
                                     Pending</option>
+                                <option value="Screening"
+                                    {% if app.status=='Screening' %}selected{% endif %}>Screening</option>
                                 <option value="Selected"
                                     {% if app.status=='Selected' %}selected{% endif %}>Selected</option>
                                 <option value="Rejected"
