@@ -2,94 +2,187 @@
 
 {% block content %}
 <style>
-.history-container {
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-    color: #e5e7eb;
-}
-.history-card {
-    background: #111827;
-    border: 1px solid #1f2937;
-    border-radius: 8px;
-    padding: 20px;
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #1f2937;
-}
-th {
-    color: #9ca3af;
-    font-weight: 600;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-}
-tr:hover {
-    background: #1f2937;
-}
-.badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-.badge-blue { background: #1e3a8a; color: #60a5fa; }
-.badge-green { background: #064e3b; color: #34d399; }
-.badge-red { background: #7f1d1d; color: #f87171; }
-.btn-sm {
-    background: #374151;
-    color: #fff;
-    padding: 5px 10px;
-    border-radius: 4px;
-    text-decoration: none;
-    font-size: 0.8rem;
-    margin-right: 5px;
-}
-.btn-sm:hover { background: #4b5563; }
+    .history-container {
+        padding: 24px;
+        max-width: 1250px;
+        margin: 0 auto;
+        color: #e5e7eb;
+    }
+
+    .history-card {
+        background: #0f172a;
+        border: 1px solid #1e293b;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    .history-table th {
+        background: #1e293b;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 12px 16px;
+        text-align: left;
+    }
+
+    .history-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #1e293b;
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .badge-green {
+        background: rgba(34, 197, 94, 0.15);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .badge-red {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .badge-blue {
+        background: rgba(59, 130, 246, 0.15);
+        color: #3b82f6;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .badge-yellow {
+        background: rgba(245, 158, 11, 0.15);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-sm {
+        background: #3b82f6;
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .btn-sm:hover {
+        background: #2563eb;
+    }
+
+    .drive-link {
+        color: #38bdf8;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .drive-link:hover {
+        text-decoration: underline;
+    }
 </style>
 
 <div class="history-container">
-    <h2>Exit History</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+            <h2 style="margin:0; font-size:1.5rem; color:#fff;">Exit History & Offboarding Dashboard</h2>
+            <p style="margin:4px 0 0 0; color:#9ca3af; font-size:0.875rem;">View and manage all employee exit processes,
+                resignations, and settlements.</p>
+        </div>
+        <a href="/hrms/employees/ui" class="btn-sm" style="background:#374151; padding:8px 16px; font-size:0.9rem;">←
+            Back to Directory</a>
+    </div>
+
     <div class="history-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Exit Type</th>
-                    <th>Last Working Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for exit in exits %}
-                <tr>
-                    <td>
-                        <div style="font-weight:600;">{{ exit.full_name }}</div>
-                        <div style="font-size:0.8rem; color:#9ca3af;">{{ exit.department }}</div>
-                    </td>
-                    <td>{{ exit.exit_type }}</td>
-                    <td>{{ exit.last_working_date }}</td>
-                    <td>
-                        <span class="badge {% if exit.status == 'Exit Closed' %}badge-green{% elif exit.status == 'Termination' %}badge-red{% else %}badge-blue{% endif %}">
-                            {{ exit.status }}
-                        </span>
-                    </td>
-                    <td>
-                        <a href="/hrms/exit/manage/{{ exit.employee_id }}" class="btn-sm">Manage</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="5" style="text-align:center; padding: 20px; color:#6b7280;">No exit records found.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div style="overflow-x: auto;">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Employee Details</th>
+                        <th>Exit Type</th>
+                        <th>Notice Period</th>
+                        <th>Last Working Date</th>
+                        <th>Deliverables / Work Drive</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exit in exits %}
+                    <tr>
+                        <td>
+                            <a href="/hrms/exit/manage/{{ exit.employee_id }}"
+                                style="font-weight:600; color:#38bdf8; text-decoration:none;"
+                                title="Manage Exit & View Offboarding Details">
+                                {{ exit.full_name }} ↗
+                            </a>
+                            <div style="font-size:0.8rem; color:#9ca3af;">
+                                {{ exit.employee_code or exit.employee_id[:8] }} | {{ exit.department or '-' }} ({{
+                                exit.designation or '-' }})
+                            </div>
+                        </td>
+                        <td>
+                            <span style="font-weight:500; color:#cbd5e1;">{{ exit.exit_type }}</span>
+                        </td>
+                        <td>{{ exit.notice_period or '-' }}</td>
+                        <td>{{ exit.last_working_date if exit.last_working_date else '-' }}</td>
+                        <td>
+                            {% set drive = exit.work_drive_link or exit.emp_work_drive %}
+                            {% if drive %}
+                            <a href="{{ drive }}" target="_blank" class="drive-link">
+                                📁 View Work Drive ↗
+                            </a>
+                            {% else %}
+                            <span style="color:#6b7280; font-size:0.8rem;">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set is_ended = exit.last_working_date and (exit.last_working_date|string) <=
+                                (none|default(now)|format_datetime('%Y-%m-%d')) and exit.status !='Exit Closed' and
+                                exit.status !='Resignation Rejected' %} <span
+                                class="badge {% if exit.status == 'Exit Closed' %}badge-green{% elif exit.status in ['Termination', 'Resignation Rejected'] %}badge-red{% elif exit.status == 'Resignation Applied' or is_ended %}badge-yellow{% else %}badge-blue{% endif %}">
+                                {% if is_ended %}⚠️ Notice Ended - Action Required{% else %}{{ exit.status }}{% endif %}
+                                </span>
+                        </td>
+                        <td
+                            style="text-align:right; display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+                            <a href="/hrms/exit/manage/{{ exit.employee_id }}" class="btn-sm">Manage Exit</a>
+                            <form action="/hrms/exit/delete/{{ exit.id }}" method="POST"
+                                style="margin:0; display:inline;"
+                                onsubmit="return confirm('Are you sure you want to delete this exit record completely?');">
+                                <button type="submit" class="btn-sm"
+                                    style="background:#ef4444; border:none; cursor:pointer;">🗑️ Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align:center; padding: 30px; color:#6b7280;">No exit records found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

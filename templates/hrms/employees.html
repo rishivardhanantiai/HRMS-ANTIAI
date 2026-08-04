@@ -240,14 +240,24 @@
         display: none;
         position: absolute;
         right: 0;
+        top: 100%;
+        margin-top: 5px;
         background-color: #1e293b;
-        min-width: 220px;
-        box-shadow: 0px 10px 20px 0px rgba(0, 0, 0, 0.5);
-        z-index: 10;
+        min-width: 230px;
+        box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.6);
+        z-index: 9999;
         border-radius: 8px;
         border: 1px solid #334155;
         overflow: hidden;
         text-align: left;
+    }
+
+    .dropdown-content.dropup {
+        top: auto;
+        bottom: 100%;
+        margin-top: 0;
+        margin-bottom: 5px;
+        box-shadow: 0px -10px 25px rgba(0, 0, 0, 0.6);
     }
 
     .dropdown-content a {
@@ -494,10 +504,16 @@
                         <a href="#" onclick="event.stopPropagation(); toggleStatus('${emp.id}', '${emp.status === 'Active' ? 'Inactive' : 'Active'}')">
                             ${emp.status === 'Active' ? '⏸️ Deactivate Employee' : '▶️ Activate Employee'}
                         </a>
-                        <a href="#" onclick="event.stopPropagation(); deleteEmployee('${emp.id}')" style="color: #ef4444; border-top: 1px solid #1e293b;">
-                            🗑️ Delete Employee
-                        </a>
-                        <a href="/hrms/exit/manage/${emp.id}" style="color: #ef4444; border-top: 1px solid #1e293b; padding-top: 10px; margin-top: 5px;">🚪 Exit Management</a>
+                        <a href="/hrms/exit/manage/${emp.id}" style="color: #f59e0b; border-top: 1px solid #1e293b; padding-top: 8px; margin-top: 5px;">🚪 Exit Management</a>
+                        ${(emp.exit_completed || emp.status === 'Exited') ? `
+                            <a href="#" onclick="event.stopPropagation(); deleteEmployee('${emp.id}')" style="color: #ef4444; border-top: 1px solid #1e293b;">
+                                🗑️ Delete Employee
+                            </a>
+                        ` : `
+                            <a href="#" onclick="event.stopPropagation(); showToast('Cannot delete employee! Exit management must be completed (Exit Closed) first.', 'warning');" style="color: #64748b; border-top: 1px solid #1e293b; cursor: not-allowed; opacity: 0.6;" title="Exit management must be completed before deleting this employee">
+                                🔒 Delete (Requires Exit Completion)
+                            </a>
+                        `}
                     </div>
                 </div>
             </td>
@@ -506,18 +522,31 @@
     }
 
     function toggleDropdown(button) {
+        const dropdownMenu = button.nextElementSibling;
+        const isShowing = dropdownMenu.classList.contains("show");
+
         document.querySelectorAll(".dropdown-content").forEach(el => {
-            if (el !== button.nextElementSibling) {
-                el.classList.remove("show");
-            }
+            el.classList.remove("show");
+            el.classList.remove("dropup");
         });
-        button.nextElementSibling.classList.toggle("show");
+
+        if (!isShowing) {
+            const rect = button.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 320) {
+                dropdownMenu.classList.add("dropup");
+            } else {
+                dropdownMenu.classList.remove("dropup");
+            }
+            dropdownMenu.classList.add("show");
+        }
     }
 
     window.onclick = function(event) {
         if (!event.target.matches('.btn-more')) {
             document.querySelectorAll(".dropdown-content").forEach(el => {
                 el.classList.remove("show");
+                el.classList.remove("dropup");
             });
         }
     };

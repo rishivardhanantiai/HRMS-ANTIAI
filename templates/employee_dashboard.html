@@ -38,6 +38,42 @@
         <p>Your personal HR dashboard workspace</p>
     </div>
 
+    {% if active_exit and active_exit.status == 'Resignation Rejected' %}
+    <!-- RESIGNATION REJECTED ALERT BANNER FOR EMPLOYEE -->
+    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 16px; padding: 18px 22px; margin-bottom: 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:14px;">
+            <span style="font-size:1.8rem;">❌</span>
+            <div>
+                <h3 style="margin:0; color:#ef4444; font-size:1.1rem; font-weight:700;">Resignation Application Rejected</h3>
+                <p style="margin:3px 0 0 0; color:#e5e7eb; font-size:0.9rem;">Your recent resignation application was reviewed and rejected by HR/Management.</p>
+                {% if active_exit.remarks %}
+                <p style="margin:4px 0 0 0; color:#9ca3af; font-size:0.85rem;"><strong>HR Remarks:</strong> "{{ active_exit.remarks }}"</p>
+                {% endif %}
+            </div>
+        </div>
+        <form action="/hrms/exit/dismiss_rejection/{{ active_exit.id }}" method="POST" style="margin:0;">
+            <button type="submit" style="background:rgba(239, 68, 68, 0.2); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.4); padding:6px 14px; border-radius:8px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                ✕ Dismiss Notice
+            </button>
+        </form>
+    </div>
+    {% elif active_exit and active_exit.status != 'Exit Closed' %}
+    <!-- ACTIVE EXIT STATUS CARD FOR EMPLOYEE -->
+    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 16px; padding: 18px 22px; margin-bottom: 25px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:14px;">
+                <span style="font-size:1.8rem;">📌</span>
+                <div>
+                    <h3 style="margin:0; color:#f59e0b; font-size:1.1rem; font-weight:700;">Resignation Process Active (Status: {{ active_exit.status }})</h3>
+                    <p style="margin:3px 0 0 0; color:#e5e7eb; font-size:0.9rem;">
+                        Your exit process is currently in progress. Last Working Date: <strong style="color:#38bdf8;">{{ active_exit.last_working_date or 'Pending HR Confirmation' }}</strong>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="emp-dashboard-grid">
         <div class="left-col">
             <div class="widget-card" id="dashboard-attendance-content">
@@ -137,11 +173,68 @@
                     <a href="/hrms/my-payroll" class="link-btn"><span class="link-icon">💰</span><span class="link-label">Payroll</span></a>
                     <a href="/hrms/employees/my-documents" class="link-btn"><span class="link-icon">📂</span><span class="link-label">Docs</span></a>
                 </div>
-                <a href="/settings" class="btn-primary-dashboard" style="background:#111; border:1px solid #222; margin-top:20px;">Settings Panel</a>
+                {% if active_exit and active_exit.status not in ['Exit Closed', 'Resignation Rejected'] %}
+                <button type="button" disabled class="btn-primary-dashboard" style="background:rgba(245, 158, 11, 0.15); color:#f59e0b; border:1px solid rgba(245, 158, 11, 0.3); margin-top:15px; opacity:0.8; cursor:not-allowed;">
+                    📌 Resignation Active ({{ active_exit.status }})
+                </button>
+                {% else %}
+                <button type="button" onclick="openResignationModal()" class="btn-primary-dashboard" style="background:rgba(239, 68, 68, 0.15); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3); margin-top:15px;">
+                    🚪 Apply for Resignation
+                </button>
+                {% endif %}
+                <a href="/settings" class="btn-primary-dashboard" style="background:#111; border:1px solid #222; margin-top:10px;">Settings Panel</a>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Resignation Application Modal -->
+<div id="resignationModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.75); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:#111827; border:1px solid #374151; border-radius:12px; max-width:520px; width:90%; padding:24px; color:#fff;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <h3 style="margin:0; font-size:1.2rem; color:#ef4444;">🚪 Apply for Resignation</h3>
+            <button type="button" onclick="closeResignationModal()" style="background:none; border:none; color:#9ca3af; font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
+        
+        <form action="/hrms/exit/apply_resignation" method="POST">
+            <input type="hidden" name="employee_id" value="{{ session.get('employee_id') }}">
+            
+            <div style="margin-bottom:14px;">
+                <label style="display:block; font-size:0.85rem; color:#9ca3af; margin-bottom:6px;">Requested Last Working Date</label>
+                <input type="date" name="last_working_date" required style="width:100%; padding:10px; background:#030712; border:1px solid #374151; border-radius:6px; color:#fff;">
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block; font-size:0.85rem; color:#9ca3af; margin-bottom:6px;">Exit Reason</label>
+                <input type="text" name="exit_reason" required placeholder="Primary reason for resignation" style="width:100%; padding:10px; background:#030712; border:1px solid #374151; border-radius:6px; color:#fff;">
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block; font-size:0.85rem; color:#9ca3af; margin-bottom:6px;">Work Deliverables / Google Drive Link (Optional)</label>
+                <input type="text" name="work_drive_link" placeholder="e.g. drive.google.com/... or https://..." style="width:100%; padding:10px; background:#030712; border:1px solid #374151; border-radius:6px; color:#fff;">
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="display:block; font-size:0.85rem; color:#9ca3af; margin-bottom:6px;">Remarks / Handover Notes</label>
+                <textarea name="remarks" rows="3" placeholder="Any additional notes..." style="width:100%; padding:10px; background:#030712; border:1px solid #374151; border-radius:6px; color:#fff;"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" onclick="closeResignationModal()" style="background:#374151; color:#fff; border:none; padding:10px 18px; border-radius:6px; cursor:pointer;">Cancel</button>
+                <button type="submit" style="background:#ef4444; color:#fff; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-weight:600;">Submit Resignation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openResignationModal() {
+    document.getElementById("resignationModal").style.display = "flex";
+}
+function closeResignationModal() {
+    document.getElementById("resignationModal").style.display = "none";
+}
+</script>
 
 <script>
 function dashboardCheckIn() {

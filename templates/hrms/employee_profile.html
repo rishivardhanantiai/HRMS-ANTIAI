@@ -140,7 +140,7 @@
     <div id="tab-profile" class="tab-content active">
         <h2 style="color:#fff; margin-top:0;">Basic Information</h2>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; color:#d1d5db;">
-            <div><strong>Email:</strong> {{ emp.email }}</div>
+            <div><strong>Email:</strong> {{ emp.email.split('_deleted_')[0] if emp.email and '_deleted_' in emp.email else emp.email }}</div>
             <div><strong>Phone:</strong> {{ emp.phone or 'N/A' }}</div>
             <div><strong>Gender:</strong> {{ emp.gender or 'N/A' }}</div>
             <div><strong>Date of Birth:</strong> {{ emp.date_of_birth or 'N/A' }}</div>

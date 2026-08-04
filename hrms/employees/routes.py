@@ -47,13 +47,18 @@ def employees_ui():
                 e.joining_date,
                 e.employment_type,
                 e.profile_photo_url,
+                e.work_drive_link,
                 m.full_name as manager_name,
-                r.role_name
+                r.role_name,
+                (e.status = 'Exited' OR EXISTS(
+                    SELECT 1 FROM employee_exits ex 
+                    WHERE ex.employee_id::text = e.id::text AND ex.status = 'Exit Closed'
+                )) as exit_completed
             FROM hrms_employees e
             LEFT JOIN hrms_roles r ON e.role_id = r.id
-            LEFT JOIN hrms_employees m ON e.manager_id = m.id
+            LEFT JOIN hrms_employees m ON e.manager_id::text = m.id::text
             WHERE e.status != 'Deleted'
-            ORDER BY e.id DESC
+            ORDER BY e.created_at DESC
         """)
 
         employees = cur.fetchall()
@@ -871,10 +876,22 @@ def delete_employee(employee_id):
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
-        # Fetch the current email before deleting
-        cur.execute("SELECT email FROM hrms_employees WHERE id=%s", (employee_id,))
+        # Check if exit management is completed
+        cur.execute("SELECT status, email FROM hrms_employees WHERE id=%s", (str(employee_id),))
         row = cur.fetchone()
-        original_email = row["email"] if row else None
+        if not row:
+            return jsonify({"error": "Employee not found."}), 404
+            
+        emp_status = row["status"]
+        original_email = row["email"]
+
+        cur.execute("SELECT id FROM employee_exits WHERE employee_id=%s AND status='Exit Closed'", (str(employee_id),))
+        exit_record = cur.fetchone()
+
+        if emp_status != "Exited" and not exit_record:
+            return jsonify({
+                "error": "Deletion Restricted! Exit management must be fully completed (Exit Closed) before an employee can be deleted."
+            }), 400
 
         # 1. Soft delete: mark as Deleted AND rename the email to free the unique constraint
         if original_email:

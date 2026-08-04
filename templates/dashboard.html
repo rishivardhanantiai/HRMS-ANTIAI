@@ -399,6 +399,98 @@
         </a>
     </div>
 
+    {% if resignation_alerts %}
+    <!-- PENDING RESIGNATION APPLICATION ALERT BANNER -->
+    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 16px; padding: 20px; margin-bottom: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:1.6rem;">📩</span>
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:#f59e0b;">Pending Resignation Application(s)</h3>
+                    <p style="margin:2px 0 0 0; color:#9ca3af; font-size:0.85rem;">The following employee(s) submitted a resignation request. HR action is required to review, approve, or reject.</p>
+                </div>
+            </div>
+            <a href="/hrms/exit/history" class="btn-blue" style="background:#f59e0b; color:#000; font-size:0.8rem; padding:8px 14px; font-weight:600;">View All Exits</a>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            {% for ex in resignation_alerts %}
+            <div style="background: #0b0b0b; border: 1px solid #1f2937; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <div style="font-weight: 600; color: #fff; font-size: 0.95rem;">
+                        {{ ex.full_name }} 
+                        <span style="color:#9ca3af; font-weight:normal; font-size:0.85rem;">({{ ex.employee_code or 'ID: ' ~ ex.employee_id[:8] }})</span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #9ca3af; margin-top: 3px;">
+                        Department: <strong style="color:#cbd5e1;">{{ ex.department or '-' }}</strong> | 
+                        Reason: <span style="color:#e5e7eb;">"{{ ex.exit_reason or 'No reason provided' }}"</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap:wrap;">
+                    <span style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4);">
+                        Resignation Applied
+                    </span>
+                    
+                    <a href="/hrms/exit/manage/{{ ex.employee_id }}" class="btn-blue" style="background:#10b981; white-space:nowrap; text-decoration:none;">
+                        🔍 Review & Approve
+                    </a>
+                    <form action="/hrms/exit/delete/{{ ex.exit_id }}" method="POST" style="margin:0; display:inline;" onsubmit="return confirm('Are you sure you want to delete this resignation application?');">
+                        <input type="hidden" name="employee_id" value="{{ ex.employee_id }}">
+                        <button type="submit" class="btn-blue" style="background:rgba(239, 68, 68, 0.2); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.4); white-space:nowrap; cursor:pointer;">
+                            🗑️ Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if notice_ended_alerts %}
+    <!-- NOTICE PERIOD ENDED / OFFBOARDING ALERT BANNER FOR HR -->
+    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 16px; padding: 20px; margin-bottom: 25px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:1.6rem;">🚨</span>
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; color:#ef4444;">Notice Period Ended / Offboarding Action Required</h3>
+                    <p style="margin:2px 0 0 0; color:#9ca3af; font-size:0.85rem;">The following employee(s) have reached or passed their last working date. Prompting HR to update exit status or mark Exit Closed.</p>
+                </div>
+            </div>
+            <a href="/hrms/exit/history" class="btn-blue" style="background:#ef4444; font-size:0.8rem; padding:8px 14px;">View All Exits</a>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            {% for ex in notice_ended_alerts %}
+            <div style="background: #0b0b0b; border: 1px solid #1f2937; border-radius: 10px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <div style="font-weight: 600; color: #fff; font-size: 0.95rem;">
+                        {{ ex.full_name }} 
+                        <span style="color:#9ca3af; font-weight:normal; font-size:0.85rem;">({{ ex.employee_code or 'ID: ' ~ ex.employee_id[:8] }})</span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #9ca3af; margin-top: 3px;">
+                        Department: <strong style="color:#cbd5e1;">{{ ex.department or '-' }}</strong> | 
+                        Last Working Date: <strong style="color:#ef4444;">{{ ex.last_working_date or 'N/A' }}</strong>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap:wrap;">
+                    <span style="padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.4);">
+                        ⚠️ Notice Ended
+                    </span>
+                    
+                    <a href="/hrms/exit/manage/{{ ex.employee_id }}" class="btn-blue" style="background:#3b82f6; white-space:nowrap; text-decoration:none;">
+                        ⚡ Change Status & Complete Exit
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="dashboard-grid">
         <!-- LEFT COLUMN -->
         <div class="left-col">
