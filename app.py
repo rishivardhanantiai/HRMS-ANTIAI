@@ -605,7 +605,7 @@ def dashboard():
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
-        cur.execute("SELECT COUNT(*) AS total FROM jobs")
+        cur.execute("SELECT COUNT(*) AS total FROM jobs WHERE deleted_at IS NULL")
         total_jobs = cur.fetchone()["total"]
 
         cur.execute("SELECT COUNT(*) AS total FROM applications")
@@ -754,7 +754,7 @@ def dashboard():
     except Exception as e:
         print("Error fetching dashboard metrics:", e)
         try:
-            total_jobs = supabase_rest.get_count("jobs")
+            total_jobs = supabase_rest.get_count("jobs", {"deleted_at": "is.null"})
             total_applications = supabase_rest.get_count("applications")
             total_employees = supabase_rest.get_count("hrms_employees", {"status": "in.(active,Active)"})
             pending_leaves = supabase_rest.get_count("leave_applications", {"status": "eq.Pending"})
@@ -825,11 +825,15 @@ def jobs():
             ))
             conn.commit()
 
-        cur.execute("SELECT * FROM jobs ORDER BY created_at DESC")
+        show_deleted = request.args.get("show_deleted", "0") == "1"
+        if show_deleted:
+            cur.execute("SELECT * FROM jobs ORDER BY deleted_at DESC NULLS LAST, created_at DESC")
+        else:
+            cur.execute("SELECT * FROM jobs WHERE deleted_at IS NULL ORDER BY created_at DESC")
         jobs = cur.fetchall()
 
         release_db(conn, cur)
-        return render_template("jobs.html", jobs=jobs)
+        return render_template("jobs.html", jobs=jobs, show_deleted=show_deleted)
     except Exception:
         if request.method == "POST":
             created = supabase_rest.insert_row(
@@ -844,14 +848,15 @@ def jobs():
             if not created:
                 flash("Could not create job. Please try again.", "error")
 
-        jobs = supabase_rest.get_rows(
-            "jobs",
-            {
-                "select": "id,title,description,location,department,created_at",
-                "order": "created_at.desc",
-            },
-        )
-        return render_template("jobs.html", jobs=jobs)
+        show_deleted = request.args.get("show_deleted", "0") == "1"
+        params = {
+            "select": "id,title,description,location,department,created_at,deleted_at",
+            "order": "created_at.desc",
+        }
+        if not show_deleted:
+            params["deleted_at"] = "is.null"
+        jobs = supabase_rest.get_rows("jobs", params)
+        return render_template("jobs.html", jobs=jobs, show_deleted=show_deleted)
 
 
 @app.route("/delete-job/<job_id>")
@@ -861,11 +866,28 @@ def delete_job(job_id):
         conn, cur = get_db()
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
-        cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
+        cur.execute("UPDATE jobs SET deleted_at = NOW() WHERE id=%s AND deleted_at IS NULL", (job_id,))
         conn.commit()
         release_db(conn, cur)
     except Exception:
-        supabase_rest.delete_rows("jobs", {"id": f"eq.{job_id}"})
+        supabase_rest.update_rows("jobs", {"id": f"eq.{job_id}", "deleted_at": "is.null"}, {"deleted_at": datetime.now().isoformat()})
+    flash("Job archived successfully. Applications are preserved.", "success")
+    return redirect("/jobs")
+
+
+@app.route("/restore-job/<job_id>")
+@login_required
+def restore_job(job_id):
+    try:
+        conn, cur = get_db()
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
+        cur.execute("UPDATE jobs SET deleted_at = NULL WHERE id=%s", (job_id,))
+        conn.commit()
+        release_db(conn, cur)
+    except Exception:
+        supabase_rest.update_rows("jobs", {"id": f"eq.{job_id}"}, {"deleted_at": None})
+    flash("Job restored successfully.", "success")
     return redirect("/jobs")
 
 
@@ -1040,7 +1062,7 @@ def applications():
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
-        cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
+        cur.execute("SELECT id, title, deleted_at FROM jobs ORDER BY deleted_at NULLS FIRST, created_at DESC")
         jobs = cur.fetchall()
 
         # Build dynamic query filters
@@ -1107,7 +1129,7 @@ def applications():
     except Exception:
         jobs = supabase_rest.get_rows(
             "jobs",
-            {"select": "id,title", "order": "created_at.desc"},
+            {"select": "id,title,deleted_at", "order": "created_at.desc"},
         )
         selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,cover_letter,status", "order": "applied_at.desc,id.desc"}
         if selected_job:

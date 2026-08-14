@@ -327,9 +327,10 @@
     <select name="job_id" class="select" style="flex: 75 1 0%; min-width: 200px; width: 100%; box-sizing: border-box; margin-bottom: 0;">
         <option value="">All Jobs</option>
         {% for job in jobs %}
+            {% set is_archived = job.deleted_at is defined and job.deleted_at %}
             <option value="{{ job.id }}"
                 {% if selected_job and selected_job == job.id|string %}selected{% endif %}>
-                {{ job.title }}
+                {{ job.title }}{% if is_archived %} (Archived){% endif %}
             </option>
         {% endfor %}
     </select>
