@@ -892,6 +892,42 @@ def restore_job(job_id):
     return redirect("/jobs")
 
 
+@app.route("/hard-delete-job/<job_id>")
+@login_required
+def hard_delete_job(job_id):
+    error_msg = None
+    try:
+        conn, cur = get_db()
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
+        
+        try:
+            cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
+            conn.commit()
+            flash("Job permanently deleted.", "success")
+        except Exception as e:
+            conn.rollback()
+            err_str = str(e).lower()
+            if "foreign key" in err_str or "violates" in err_str:
+                error_msg = "Cannot permanently delete this job because candidates have already applied to it."
+            else:
+                raise e
+        finally:
+            release_db(conn, cur)
+            
+        if error_msg:
+            flash(error_msg, "error")
+            
+    except Exception:
+        success = supabase_rest.delete_rows("jobs", {"id": f"eq.{job_id}"})
+        if success:
+            flash("Job permanently deleted.", "success")
+        else:
+            flash("Cannot permanently delete this job because candidates have already applied to it.", "error")
+            
+    return redirect("/jobs?show_deleted=1")
+
+
 @app.route("/edit-job/<job_id>", methods=["GET", "POST"])
 @login_required
 def edit_job(job_id):
