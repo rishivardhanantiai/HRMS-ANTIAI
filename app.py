@@ -370,6 +370,7 @@ def dashboard():
         leave_summary = {"pending": 0, "approved": 0, "rejected": 0, "recent": []}
         doc_summary = {"verified": 0, "pending": 0, "rejected": 0, "recent": []}
         eval_summary = {"latest_score": None, "latest_grade": None, "total": 0}
+        active_exit = None
         
         if emp_id:
             conn, cur = None, None
