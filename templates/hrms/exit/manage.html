@@ -3,23 +3,49 @@
 {% block content %}
 <style>
 .exit-container {
-    padding: 20px;
-    max-width: 1200px;
+    padding: 24px;
+    max-width: 1250px;
     margin: 0 auto;
-    color: #e5e7eb;
+    color: #f3f4f6;
 }
 .exit-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 }
 .exit-card {
     background: #111827;
     border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+.emp-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    background: #0b0f19;
+    padding: 16px;
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
+    border: 1px solid #1f2937;
+    margin-top: 15px;
+}
+.detail-item label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9ca3af;
+    margin-bottom: 4px;
+}
+.detail-item span {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #e5e7eb;
+    word-break: break-all;
+    overflow-wrap: anywhere;
 }
 .form-grid {
     display: grid;
@@ -30,29 +56,64 @@
     display: block;
     font-size: 0.85rem;
     color: #9ca3af;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
+    font-weight: 500;
 }
 .form-control {
     width: 100%;
-    padding: 10px;
+    padding: 10px 14px;
     background: #030712;
     border: 1px solid #374151;
     color: #fff;
-    border-radius: 6px;
+    border-radius: 8px;
+    outline: none;
+    font-size: 0.9rem;
+}
+.form-control:focus {
+    border-color: #3b82f6;
 }
 .btn-primary {
     background: #3b82f6;
     color: #fff;
     padding: 10px 20px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.btn-primary:hover {
+    background: #2563eb;
+}
+.btn-success {
+    background: #10b981;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+}
+.btn-danger {
+    background: #ef4444;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
 }
 .timeline {
     display: flex;
     justify-content: space-between;
     padding: 20px 0;
     position: relative;
+    overflow-x: auto;
 }
 .timeline::before {
     content: '';
@@ -68,50 +129,156 @@
     position: relative;
     z-index: 1;
     background: #111827;
-    padding: 10px 20px;
+    padding: 8px 16px;
     border-radius: 20px;
     border: 2px solid #374151;
     color: #9ca3af;
     font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
 }
 .timeline-step.active {
     border-color: #3b82f6;
-    color: #3b82f6;
+    color: #60a5fa;
     background: #1e3a8a;
 }
-
+.drive-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.drive-badge:hover {
+    background: rgba(59, 130, 246, 0.25);
+}
 @media (max-width: 768px) {
-    .timeline {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-        padding-left: 20px;
-    }
-    .timeline::before {
-        left: 35px;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        height: auto;
-    }
-    .timeline-step {
-        width: auto;
-        box-sizing: border-box;
-    }
     .form-grid {
         grid-template-columns: 1fr;
-        gap: 15px;
     }
 }
 </style>
 
 <div class="exit-container">
     <div class="exit-header">
-        <h2>Employee Exit History: {{ emp.full_name }} ({{ emp.id }})</h2>
-        <a href="/hrms/employees/ui" class="btn-primary" style="background:#374151;">Back to Directory</a>
+        <div>
+            <h2 style="margin:0; font-size:1.5rem; color:#fff;">Exit Management: {{ emp.full_name }}</h2>
+            <p style="margin:4px 0 0 0; color:#9ca3af; font-size:0.875rem;">Manage employee offboarding, resignation requests, FNF calculation, and exit letters.</p>
+        </div>
+        <a href="/hrms/employees/ui" class="btn-primary" style="background:#374151;">← Back to Directory</a>
     </div>
 
-    {% if not active_exit %}
+    <!-- Employee Profile Summary Card -->
+    <div class="exit-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <h3 style="margin:0; font-size:1.1rem; color:#f3f4f6;">👤 Employee Information</h3>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <a href="/hrms/employees/{{ emp.id }}/profile?tab=profile" target="_blank" class="btn-sm" style="background:#3b82f6; text-decoration:none; color:#fff; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600;">
+                    👤 View Full Profile & Documents ↗
+                </a>
+                {% if emp.work_drive_link %}
+                    <a href="{{ emp.work_drive_link }}" target="_blank" class="drive-badge">
+                        📁 View Deliverables / Work Drive ↗
+                    </a>
+                {% else %}
+                    <span style="font-size:0.8rem; color:#6b7280;">No Work Drive Linked</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="emp-details-grid">
+            <div class="detail-item">
+                <label>Employee Code</label>
+                <span>{{ emp.employee_code or emp.id[:8] }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Department</label>
+                <span>{{ emp.department or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Designation</label>
+                <span>{{ emp.designation or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Email</label>
+                <span>{{ emp.email.split('_deleted_')[0] if emp.email and '_deleted_' in emp.email else emp.email }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Phone</label>
+                <span>{{ emp.phone or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Joining Date</label>
+                <span>{{ emp.joining_date if emp.joining_date else '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Reporting Manager</label>
+                <span>{{ emp.manager_name or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Employment Type</label>
+                <span>{{ emp.employment_type or 'Full Time' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Current Status</label>
+                <span style="color:{% if emp.status == 'Active' %}#22c55e{% elif emp.status in ['Exited', 'Deleted'] %}#ef4444{% else %}#eab308{% endif %}; font-weight:600;">
+                    {{ emp.status }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if active_exit and active_exit.status == 'Resignation Applied' %}
+    <!-- Resignation Review Banner for HR -->
+    <div class="exit-card" style="border-color: #f59e0b; background: rgba(245, 158, 11, 0.05);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+                <h3 style="margin:0 0 10px 0; color:#f59e0b;">📩 Pending Resignation Application</h3>
+                <p style="margin:0 0 15px 0; color:#d1d5db; font-size:0.9rem;">
+                    This employee submitted a resignation application on {{ active_exit.created_at | format_datetime('%Y-%m-%d') }}.
+                </p>
+                <div style="background:#0b0f19; padding:15px; border-radius:8px; border:1px solid #374151; margin-bottom:15px;">
+                    <p style="margin:0 0 6px 0;"><strong>Reason:</strong> {{ active_exit.exit_reason }}</p>
+                    <p style="margin:0 0 6px 0;"><strong>Requested Last Working Date:</strong> {{ active_exit.last_working_date or 'Not specified' }}</p>
+                    {% if active_exit.remarks %}
+                        <p style="margin:0 0 6px 0;"><strong>Remarks:</strong> {{ active_exit.remarks }}</p>
+                    {% endif %}
+                    {% if active_exit.work_drive_link %}
+                        <p style="margin:0;"><strong>Work Drive Link:</strong> <a href="{{ active_exit.work_drive_link }}" target="_blank" style="color:#38bdf8;">{{ active_exit.work_drive_link }}</a></p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; border-top:1px solid #374151; padding-top:15px;">
+            <form action="/hrms/exit/approve_resignation/{{ active_exit.id }}" method="POST" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                <input type="text" name="notice_period" class="form-control" style="width:160px;" placeholder="Notice Period (e.g. 30 Days)" value="{{ active_exit.notice_period or '30 Days' }}">
+                <input type="date" name="last_working_date" class="form-control" style="width:160px;" value="{{ active_exit.last_working_date }}">
+                <button type="submit" class="btn-success">✓ Approve & Initiate Exit</button>
+            </form>
+
+            <form action="/hrms/exit/reject_resignation/{{ active_exit.id }}" method="POST" onsubmit="event.preventDefault(); const f=this; window.customConfirm('Reject Resignation', 'Are you sure you want to reject this resignation application?', function(){ f.submit(); });">
+                <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                <button type="submit" class="btn-danger">✕ Reject Resignation</button>
+            </form>
+
+            <form action="/hrms/exit/delete/{{ active_exit.id }}" method="POST" onsubmit="event.preventDefault(); const f=this; window.customConfirm('Delete Exit Record', 'Are you sure you want to delete this exit record completely?', function(){ f.submit(); });">
+                <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                <button type="submit" class="btn-danger" style="background:#374151; border:1px solid #4b5563;">🗑️ Delete Exit Record</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not active_exit or active_exit.status == 'Resignation Rejected' %}
+    <!-- Initiate Exit Process Form -->
     <div class="exit-card">
         <h3>Initiate Exit Process</h3>
         <form action="/hrms/exit/initiate" method="POST">
@@ -135,21 +302,30 @@
                 </div>
                 <div class="form-group">
                     <label>Exit Reason</label>
-                    <input type="text" name="exit_reason" class="form-control" required>
+                    <input type="text" name="exit_reason" class="form-control" placeholder="Primary reason for exit" required>
                 </div>
             </div>
-            <div class="form-group" style="margin-top: 20px;">
-                <label>Remarks</label>
-                <textarea name="remarks" class="form-control" rows="3"></textarea>
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Work Deliverables / GDrive Folder Link (Optional)</label>
+                <input type="text" name="work_drive_link" class="form-control" placeholder="e.g. drive.google.com/... or https://..." value="{{ emp.work_drive_link or '' }}">
             </div>
-            <button type="submit" class="btn-primary" style="margin-top: 20px;">Initiate Exit</button>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Remarks / Notes</label>
+                <textarea name="remarks" class="form-control" rows="3" placeholder="Additional notes or instructions..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary" style="margin-top: 20px;">🚪 Initiate Exit Process</button>
         </form>
     </div>
     {% else %}
     
-    {% set stages = ['Initiated', 'Notice Period', 'Documents Generated', 'FNF Pending', 'FNF Completed', 'Exit Closed'] %}
+    {% set stages = ['Resignation Applied', 'Initiated', 'Notice Period', 'Documents Generated', 'FNF Pending', 'FNF Completed', 'Exit Closed'] %}
+    
+    <!-- Exit Workflow Timeline & Status Updater -->
     <div class="exit-card">
-        <h3>Exit Workflow</h3>
+        <h3 style="margin-top:0;">Exit Workflow Tracker</h3>
         <div class="timeline">
             {% for stage in stages %}
             <div class="timeline-step {% if active_exit.status == stage %}active{% endif %}">
@@ -158,49 +334,90 @@
             {% endfor %}
         </div>
         
-        <form action="/hrms/exit/update_status/{{ active_exit.id }}" method="POST" style="margin-top: 20px;">
+        <form action="/hrms/exit/update_status/{{ active_exit.id }}" method="POST" style="margin-top: 20px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="employee_id" value="{{ emp.id }}">
-            <div style="display:flex; gap:10px; align-items:center;">
-                <select name="status" class="form-control" style="width:200px;">
-                    {% for stage in stages %}
-                    <option value="{{ stage }}" {% if active_exit.status == stage %}selected{% endif %}>{{ stage }}</option>
-                    {% endfor %}
-                </select>
-                <button type="submit" class="btn-primary">Update Status</button>
-            </div>
+            <select name="status" class="form-control" style="width:240px;">
+                {% for stage in stages %}
+                <option value="{{ stage }}" {% if active_exit.status == stage %}selected{% endif %}>{{ stage }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn-primary">Update Exit Status</button>
         </form>
     </div>
 
+    <!-- Exit Info & FNF Settlement Calculator -->
     <div class="form-grid">
         <div class="exit-card">
-            <h3>Exit Information</h3>
-            <p><strong>Type:</strong> {{ active_exit.exit_type }}</p>
-            <p><strong>Last Working Date:</strong> {{ active_exit.last_working_date }}</p>
-            <p><strong>Reason:</strong> {{ active_exit.exit_reason }}</p>
-            <hr style="border-color:#1f2937; margin: 15px 0;">
-            <h4>Quick Actions</h4>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                <a href="/hrms/letters/generator?doc=Experience+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#10b981;">📄 Generate Experience Letter</a>
-                <a href="/hrms/letters/generator?doc=FNF+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#f59e0b;">📄 Generate FNF Letter</a>
-                <a href="/hrms/letters/generator?doc=LOR&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#8b5cf6;">📄 Generate LOR</a>
+            <h3>Exit Overview & Edit Details</h3>
+            <form action="/hrms/exit/update_info/{{ active_exit.id }}" method="POST">
+                <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div class="form-group">
+                        <label>Exit Type</label>
+                        <select name="exit_type" class="form-control">
+                            <option value="Resignation" {% if active_exit.exit_type == 'Resignation' %}selected{% endif %}>Resignation</option>
+                            <option value="Termination" {% if active_exit.exit_type == 'Termination' %}selected{% endif %}>Termination</option>
+                            <option value="Retirement" {% if active_exit.exit_type == 'Retirement' %}selected{% endif %}>Retirement</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notice Period</label>
+                        <input type="text" name="notice_period" class="form-control" value="{{ active_exit.notice_period or '30 Days' }}">
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div class="form-group">
+                        <label>Last Working Date</label>
+                        <input type="date" name="last_working_date" class="form-control" value="{{ active_exit.last_working_date or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Exit Reason</label>
+                        <input type="text" name="exit_reason" class="form-control" value="{{ active_exit.exit_reason or '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label>Work Deliverables / Work Drive Link</label>
+                    <input type="text" name="work_drive_link" class="form-control" placeholder="e.g. drive.google.com/... or https://..." value="{{ active_exit.work_drive_link or emp.work_drive_link or '' }}">
+                </div>
+
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label>Remarks / Notes</label>
+                    <textarea name="remarks" class="form-control" rows="2">{{ active_exit.remarks or '' }}</textarea>
+                </div>
+
+                <button type="submit" class="btn-primary" style="background:#3b82f6; width:100%; justify-content:center;">💾 Save Exit Details & Links</button>
+            </form>
+
+            <hr style="border-color:#1f2937; margin: 20px 0;">
+            
+            <h4>Quick Actions - Letters</h4>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                <a href="/hrms/letters/generator?doc=Experience+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#10b981;">📄 Experience Letter</a>
+                <a href="/hrms/letters/generator?doc=Relieving+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#3b82f6;">📄 Relieving Letter</a>
+                <a href="/hrms/letters/generator?doc=FNF+Letter&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#f59e0b;">📄 FNF Letter</a>
+                <a href="/hrms/letters/generator?doc=LOR&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#8b5cf6;">📄 LOR</a>
+                <a href="/hrms/letters/generator?doc=NOC&emp={{ emp.id }}&exit={{ active_exit.id }}" class="btn-primary" style="font-size:12px; background:#6366f1;">📄 NOC / Clearance</a>
             </div>
-            <h4>Generated Documents</h4>
+
+            <h4>Generated Offboarding Documents</h4>
             {% if docs %}
                 <ul style="list-style:none; padding:0;">
                 {% for doc in docs %}
-                    <li style="margin-bottom:10px;">
-                        <a href="{{ doc.pdf_url }}" style="color:#38bdf8; text-decoration:none;">📄 {{ doc.document_type }}</a>
-                        <span style="font-size:0.8rem; color:#6b7280;">({{ doc.generated_at | format_datetime('%Y-%m-%d') }})</span>
+                    <li style="margin-bottom:10px; padding:8px 12px; background:#030712; border-radius:6px; border:1px solid #1f2937; display:flex; justify-content:space-between; align-items:center;">
+                        <a href="{{ doc.pdf_url }}" target="_blank" style="color:#38bdf8; text-decoration:none; font-weight:500;">📄 {{ doc.document_type }}</a>
+                        <span style="font-size:0.8rem; color:#6b7280;">{{ doc.generated_at | format_datetime('%Y-%m-%d') }}</span>
                     </li>
                 {% endfor %}
                 </ul>
             {% else %}
-                <p style="color:#6b7280; font-size:0.9rem;">No documents generated yet.</p>
+                <p style="color:#6b7280; font-size:0.9rem;">No exit documents generated yet.</p>
             {% endif %}
         </div>
 
         <div class="exit-card">
-            <h3>FNF Calculator</h3>
+            <h3>Full & Final (FNF) Calculator</h3>
             <form action="/hrms/exit/save_fnf/{{ active_exit.id }}" method="POST">
                 <input type="hidden" name="employee_id" value="{{ emp.id }}">
                 <div class="form-group">
@@ -212,21 +429,21 @@
                     <input type="number" step="0.01" id="leave_encashment" name="leave_encashment" class="form-control" value="{{ fnf.leave_encashment if fnf else 0 }}">
                 </div>
                 <div class="form-group" style="margin-top:10px;">
-                    <label>Bonus/Incentives (+)</label>
+                    <label>Bonus / Incentives (+)</label>
                     <input type="number" step="0.01" id="bonus" name="bonus" class="form-control" value="{{ fnf.bonus if fnf else 0 }}">
                 </div>
                 <div class="form-group" style="margin-top:10px;">
                     <label>Reimbursements (+)</label>
-                    <input type="number" step="0.01" id="reimbursement" name="reimbursement" class="form-control" value="{{ fnf.reimbursement if fnf else 0 }}">
+                    <input type="number" step="0.01" id="reimbursement" name="reimbursement" class="form-control" value="{{ fnf.reimbursement if fnf and fnf.reimbursement else (fnf.reimbursements if fnf else 0) }}">
                 </div>
                 <div class="form-group" style="margin-top:10px;">
                     <label>Deductions / Notice Recovery (-)</label>
                     <input type="number" step="0.01" id="deductions" name="deductions" class="form-control" value="{{ fnf.deductions if fnf else 0 }}">
                 </div>
-                <div style="margin-top:20px; padding:15px; background:#030712; border:1px solid #1f2937; border-radius:6px;">
-                    <h4 style="margin:0;">Net Payable: <span id="net_payable_val" style="color:#22c55e;">₹ {{ fnf.net_amount if fnf else 0 }}</span></h4>
+                <div style="margin-top:20px; padding:16px; background:#030712; border:1px solid #1f2937; border-radius:8px;">
+                    <h4 style="margin:0; font-size:1.1rem;">Net Payable: <span id="net_payable_val" style="color:#22c55e;">₹ {{ fnf.net_payable if fnf and fnf.net_payable else (fnf.net_amount if fnf else 0) }}</span></h4>
                 </div>
-                <button type="submit" class="btn-primary" style="margin-top: 20px; width:100%;">Save FNF</button>
+                <button type="submit" class="btn-primary" style="margin-top: 20px; width:100%; justify-content:center;">💾 Save FNF Settlement</button>
             </form>
         </div>
     </div>

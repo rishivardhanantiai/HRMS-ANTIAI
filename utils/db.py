@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+if DATABASE_URL.startswith("xpostgresql://"):
+    DATABASE_URL = DATABASE_URL[1:]
 
 db_pool = None
 
@@ -17,36 +19,51 @@ db_pool = None
 # =========================
 def init_db_pool():
     global db_pool
-    if not db_pool:
+    if not db_pool and DATABASE_URL:
         try:
             db_pool = pool.SimpleConnectionPool(
-                minconn=1,
-                maxconn=20,
-                dsn=DATABASE_URL,
-                sslmode="require"
+                1,
+                20,
+                DATABASE_URL
             )
         except Exception as e:
-            err_msg = str(e)
-            import re
-            cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
-            print("Database pool init error:", cleaned_err)
-            db_pool = None
+            try:
+                db_pool = pool.SimpleConnectionPool(
+                    1,
+                    20,
+                    dsn=DATABASE_URL
+                )
+            except Exception as pool_err:
+                err_msg = str(pool_err)
+                import re
+                cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
+                print("Database pool init error:", cleaned_err)
+                db_pool = None
 
 # =========================
 # GET DATABASE CONNECTION
 # =========================
 def get_db(dict_cursor=False):
     init_db_pool()
-    if not db_pool:
-        return None, None
-    
-    try:
-        conn = db_pool.getconn()
-    except Exception as e:
-        err_msg = str(e)
-        import re
-        cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
-        print("Database connection error:", cleaned_err)
+    conn = None
+    if db_pool:
+        try:
+            conn = db_pool.getconn()
+        except Exception as e:
+            print("Pool getconn error, trying direct connect:", e)
+            conn = None
+            
+    if not conn and DATABASE_URL:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+        except Exception as e:
+            err_msg = str(e)
+            import re
+            cleaned_err = re.sub(r'(x?postgresql://[^\s"\']+)', '[DATABASE_URL]', err_msg)
+            print("Direct DB connection error:", cleaned_err)
+            return None, None
+
+    if not conn:
         return None, None
 
     if dict_cursor:

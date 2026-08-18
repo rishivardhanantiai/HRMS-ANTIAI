@@ -456,6 +456,14 @@ def dashboard():
                 cur.execute("SELECT COUNT(*) as total FROM performance_evaluations WHERE employee_id = %s", (emp_id,))
                 eval_summary["total"] = cur.fetchone()["total"]
 
+                # Fetch Active Exit for Employee Notification
+                cur.execute("""
+                    SELECT * FROM employee_exits 
+                    WHERE employee_id::text = %s 
+                    ORDER BY created_at DESC LIMIT 1
+                """, (str(emp_id),))
+                active_exit = cur.fetchone()
+
             except Exception as e:
                 print("Error fetching employee dashboard stats, trying REST fallback:", e)
                 if conn:
@@ -548,6 +556,12 @@ def dashboard():
                     eval_summary["total"] = supabase_rest.get_count("performance_evaluations", {
                         "employee_id": f"eq.{emp_id}"
                     })
+
+                    # Active exit fallback
+                    active_exit = supabase_rest.get_first_row("employee_exits", {
+                        "employee_id": f"eq.{emp_id}",
+                        "order": "created_at.desc"
+                    })
                 except Exception as rest_err:
                     print("REST fallback for employee dashboard failed:", rest_err)
             finally:
@@ -563,7 +577,8 @@ def dashboard():
             today_attendance=today_attendance,
             leave_summary=leave_summary,
             doc_summary=doc_summary,
-            eval_summary=eval_summary
+            eval_summary=eval_summary,
+            active_exit=active_exit
         )
 
     total_jobs = 0
@@ -590,7 +605,7 @@ def dashboard():
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
-        cur.execute("SELECT COUNT(*) AS total FROM jobs")
+        cur.execute("SELECT COUNT(*) AS total FROM jobs WHERE deleted_at IS NULL")
         total_jobs = cur.fetchone()["total"]
 
         cur.execute("SELECT COUNT(*) AS total FROM applications")
@@ -710,14 +725,61 @@ def dashboard():
         """)
         perf_metrics["bottom_performers"] = cur.fetchall()
 
+        # Fetch Resignation & Notice Period Ended Alerts for HR (Deduplicated per employee)
+        resignation_alerts = []
+        notice_ended_alerts = []
+        try:
+            cur.execute("""
+                SELECT DISTINCT ON (e.employee_id) 
+                       e.id as exit_id, e.employee_id, e.last_working_date, e.notice_period, 
+                       e.exit_reason, e.status as exit_status, emp.full_name, emp.employee_code, emp.department
+                FROM employee_exits e
+                JOIN hrms_employees emp ON e.employee_id::text = emp.id::text
+                WHERE e.status NOT IN ('Exit Closed', 'Resignation Rejected')
+                ORDER BY e.employee_id, e.created_at DESC
+            """)
+            exits = cur.fetchall()
+            today_str = str(date.today())
+            for ex in exits:
+                st = ex.get("exit_status")
+                lwd = str(ex.get("last_working_date") or "")
+                if st == "Resignation Applied":
+                    resignation_alerts.append(ex)
+                elif lwd and lwd <= today_str:
+                    ex["is_notice_ended"] = True
+                    notice_ended_alerts.append(ex)
+        except Exception as _ex_err:
+            print("Error fetching exit alerts:", _ex_err)
+
     except Exception as e:
         print("Error fetching dashboard metrics:", e)
         try:
-            total_jobs = supabase_rest.get_count("jobs")
+            total_jobs = supabase_rest.get_count("jobs", {"deleted_at": "is.null"})
             total_applications = supabase_rest.get_count("applications")
             total_employees = supabase_rest.get_count("hrms_employees", {"status": "in.(active,Active)"})
             pending_leaves = supabase_rest.get_count("leave_applications", {"status": "eq.Pending"})
             pending_docs = supabase_rest.get_count("employee_documents", {"verification_status": "eq.Pending"})
+            
+            # Fallback for exit alerts
+            try:
+                raw_exits = supabase_rest.get_rows("employee_exits", {"status": "not.in.(Exit Closed,Resignation Rejected)"})
+                today_str = str(date.today())
+                for ex in raw_exits:
+                    emp = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{ex.get('employee_id')}"})
+                    if emp:
+                        ex["full_name"] = emp.get("full_name")
+                        ex["employee_code"] = emp.get("employee_code")
+                        ex["department"] = emp.get("department")
+                        st = ex.get("status")
+                        lwd = str(ex.get("last_working_date") or "")
+                        ex["exit_status"] = st
+                        if st == "Resignation Applied":
+                            resignation_alerts.append(ex)
+                        elif lwd and lwd <= today_str:
+                            ex["is_notice_ended"] = True
+                            notice_ended_alerts.append(ex)
+            except Exception:
+                pass
             
             # Simple fallback for company average
             perf_metrics["avg_company_score"] = 0
@@ -735,7 +797,9 @@ def dashboard():
         pending_leaves=pending_leaves,
         pending_docs=pending_docs,
         perf_metrics=perf_metrics,
-        notifications=notifications
+        notifications=notifications,
+        resignation_alerts=resignation_alerts,
+        notice_ended_alerts=notice_ended_alerts
     )
 
 # =========================
@@ -761,11 +825,15 @@ def jobs():
             ))
             conn.commit()
 
-        cur.execute("SELECT * FROM jobs ORDER BY created_at DESC")
+        show_deleted = request.args.get("show_deleted", "0") == "1"
+        if show_deleted:
+            cur.execute("SELECT * FROM jobs ORDER BY deleted_at DESC NULLS LAST, created_at DESC")
+        else:
+            cur.execute("SELECT * FROM jobs WHERE deleted_at IS NULL ORDER BY created_at DESC")
         jobs = cur.fetchall()
 
         release_db(conn, cur)
-        return render_template("jobs.html", jobs=jobs)
+        return render_template("jobs.html", jobs=jobs, show_deleted=show_deleted)
     except Exception:
         if request.method == "POST":
             created = supabase_rest.insert_row(
@@ -780,14 +848,15 @@ def jobs():
             if not created:
                 flash("Could not create job. Please try again.", "error")
 
-        jobs = supabase_rest.get_rows(
-            "jobs",
-            {
-                "select": "id,title,description,location,department,created_at",
-                "order": "created_at.desc",
-            },
-        )
-        return render_template("jobs.html", jobs=jobs)
+        show_deleted = request.args.get("show_deleted", "0") == "1"
+        params = {
+            "select": "id,title,description,location,department,created_at,deleted_at",
+            "order": "created_at.desc",
+        }
+        if not show_deleted:
+            params["deleted_at"] = "is.null"
+        jobs = supabase_rest.get_rows("jobs", params)
+        return render_template("jobs.html", jobs=jobs, show_deleted=show_deleted)
 
 
 @app.route("/delete-job/<job_id>")
@@ -797,11 +866,28 @@ def delete_job(job_id):
         conn, cur = get_db()
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
-        cur.execute("DELETE FROM jobs WHERE id=%s", (job_id,))
+        cur.execute("UPDATE jobs SET deleted_at = NOW() WHERE id=%s AND deleted_at IS NULL", (job_id,))
         conn.commit()
         release_db(conn, cur)
     except Exception:
-        supabase_rest.delete_rows("jobs", {"id": f"eq.{job_id}"})
+        supabase_rest.update_rows("jobs", {"id": f"eq.{job_id}", "deleted_at": "is.null"}, {"deleted_at": datetime.now().isoformat()})
+    flash("Job archived successfully. Applications are preserved.", "success")
+    return redirect("/jobs")
+
+
+@app.route("/restore-job/<job_id>")
+@login_required
+def restore_job(job_id):
+    try:
+        conn, cur = get_db()
+        if not conn:
+            raise psycopg2.OperationalError("Database connection failed")
+        cur.execute("UPDATE jobs SET deleted_at = NULL WHERE id=%s", (job_id,))
+        conn.commit()
+        release_db(conn, cur)
+    except Exception:
+        supabase_rest.update_rows("jobs", {"id": f"eq.{job_id}"}, {"deleted_at": None})
+    flash("Job restored successfully.", "success")
     return redirect("/jobs")
 
 
@@ -976,7 +1062,7 @@ def applications():
         if not conn:
             raise psycopg2.OperationalError("Database connection failed")
 
-        cur.execute("SELECT id, title FROM jobs ORDER BY created_at DESC")
+        cur.execute("SELECT id, title, deleted_at FROM jobs ORDER BY deleted_at NULLS FIRST, created_at DESC")
         jobs = cur.fetchall()
 
         # Build dynamic query filters
@@ -1043,7 +1129,7 @@ def applications():
     except Exception:
         jobs = supabase_rest.get_rows(
             "jobs",
-            {"select": "id,title", "order": "created_at.desc"},
+            {"select": "id,title,deleted_at", "order": "created_at.desc"},
         )
         selected_filter = {"select": "id,job_id,name,email,phone,resume_url,applied_at,cover_letter,status", "order": "applied_at.desc,id.desc"}
         if selected_job:
