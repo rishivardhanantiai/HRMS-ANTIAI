@@ -598,6 +598,8 @@ def dashboard():
     }
     
     notifications = []
+    resignation_alerts = []
+    notice_ended_alerts = []
     conn, cur = None, None
 
     try:
@@ -726,8 +728,6 @@ def dashboard():
         perf_metrics["bottom_performers"] = cur.fetchall()
 
         # Fetch Resignation & Notice Period Ended Alerts for HR (Deduplicated per employee)
-        resignation_alerts = []
-        notice_ended_alerts = []
         try:
             cur.execute("""
                 SELECT DISTINCT ON (e.employee_id) 
