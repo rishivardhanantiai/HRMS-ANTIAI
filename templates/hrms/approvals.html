@@ -53,6 +53,7 @@
         <thead>
             <tr>
                 <th>Action</th>
+                <th>Target</th>
                 <th>Requested By</th>
                 <th>Status</th>
                 <th>Resolved By</th>
@@ -63,7 +64,13 @@
         <tbody>
             {% for req in history %}
             <tr>
-                <td>{{ req.action_type }}</td>
+                <td style="font-weight:bold;">
+                    {% if req.action_type == 'template_edit' %} Template Edit
+                    {% elif req.action_type == 'appearance_change' %} Appearance Change
+                    {% elif req.action_type == 'delete_offer' %} Delete Offer
+                    {% else %} {{ req.action_type }} {% endif %}
+                </td>
+                <td>{{ req.target_table }} {% if req.target_id %}({{ req.target_id }}){% endif %}</td>
                 <td>{{ req.requested_by }}</td>
                 <td>
                     <span class="badge {% if req.status == 'Approved' %}badge-success{% else %}badge-danger{% endif %}">{{ req.status }}</span>

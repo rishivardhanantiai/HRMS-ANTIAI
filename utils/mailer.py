@@ -348,3 +348,59 @@ sent automatically — you'll see them appear in the Onboarding Pipeline shortly
         body_html=body,
     )
     return send_email(hr_email, f"NDA signed: {candidate_name}", html)
+
+
+# =====================================================================
+# CALENDAR / INTERVIEW INVITES
+# =====================================================================
+
+def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method="REQUEST"):
+    """Send an email with an attached .ics calendar invite."""
+    app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
+
+    if not app_password:
+        print("--- EMAIL NOT SENT (EMAIL_APP_PASSWORD not configured) ---")
+        print(f"To: {to_name or ''} <{to_email}>")
+        print(f"Subject: {subject}")
+        print("--------------------------------------------------------")
+        return False
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = formataddr((SENDER_NAME, SENDER_EMAIL))
+    msg["To"] = formataddr((to_name, to_email)) if to_name else to_email
+    msg.set_content("This email requires an HTML-capable email client to view.")
+    
+    html = _wrap_html(
+        title=subject,
+        preheader="Meeting Invitation",
+        body_html=html_body,
+    )
+    
+    msg.add_alternative(html, subtype="html")
+
+    logo_path = _logo_path()
+    if logo_path:
+        html_part = msg.get_payload()[-1]
+        with open(logo_path, "rb") as f:
+            html_part.add_related(f.read(), maintype="image", subtype="png", cid="<company_logo>")
+
+    # Add the .ics attachment
+    msg.add_attachment(
+        ics_bytes,
+        maintype="text",
+        subtype="calendar"
+    )
+    
+    # Set the method parameter on the newly added attachment
+    msg.get_payload()[-1].set_param("method", method)
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, app_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Meeting invite send failed ({to_email}): {e}")
+        return False

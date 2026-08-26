@@ -71,8 +71,9 @@
 <div class="hrms-wrapper">
     <a class="back-link" href="/hrms/offers/">← Back to Offer Letters</a>
 
-    <div class="hrms-title">
-        Offer for {{ offer.candidate_name }}
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="hrms-title">
+            Offer for {{ offer.candidate_name }}
         {% if offer.status == 'Draft' %}<span class="status-badge st-draft">Draft</span>
         {% elif offer.status == 'Pending Approval' %}<span class="status-badge st-pending">Pending Approval</span>
         {% elif offer.status == 'Changes Requested' %}<span class="status-badge st-changes">Changes Requested</span>
@@ -81,6 +82,11 @@
         {% elif offer.status == 'Signed' %}<span class="status-badge st-signed">Awaiting HR Countersign</span>
         {% elif offer.status == 'Countersigned' %}<span class="status-badge st-countersigned">Fully Executed</span>
         {% endif %}
+        </div>
+        <button class="btn-mini primary" onclick="openScheduleModal()" style="display:flex; align-items:center; gap:6px;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            Schedule Interview
+        </button>
     </div>
     <div class="hrms-subtitle">{{ offer.designation }}{% if offer.department %} &middot; {{ offer.department }}{% endif %} &middot; {{ offer.candidate_email }}</div>
 
@@ -182,6 +188,65 @@ async function requestChanges() {
     if (data.error) { showToast(data.error, "error"); }
     else { showToast("Change request sent to HR.", "success"); setTimeout(() => location.reload(), 900); }
 }
+
+function openScheduleModal() {
+    document.getElementById('scheduleModal').style.display = 'flex';
+}
+
+function closeScheduleModal() {
+    document.getElementById('scheduleModal').style.display = 'none';
+}
+
+async function submitSchedule(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitSchedule');
+    btn.disabled = true;
+    btn.innerText = "Sending...";
+    
+    const fd = new FormData();
+    fd.append('employee_id', '{{ offer.employee_id }}');
+    fd.append('date', document.getElementById('sched_date').value);
+    fd.append('time', document.getElementById('sched_time').value);
+    fd.append('duration_minutes', document.getElementById('sched_duration').value);
+    fd.append('location', document.getElementById('sched_location').value);
+    
+    try {
+        const res = await fetch(`/hrms/interviews/schedule`, { method: 'POST', body: fd });
+        const data = await res.json();
+        if(data.error) { showToast(data.error, "error"); btn.disabled = false; btn.innerText = "Send Invite"; }
+        else { showToast("Interview scheduled & email sent!", "success"); closeScheduleModal(); }
+    } catch(err) {
+        showToast("Network error.", "error");
+        btn.disabled = false;
+        btn.innerText = "Send Invite";
+    }
+}
 </script>
+
+<!-- Schedule Interview Modal -->
+<div id="scheduleModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(2,6,23,0.7); z-index:2000; align-items:center; justify-content:center;">
+    <div class="modal-content" style="background:#0f172a; padding:30px; border-radius:12px; width:100%; max-width:400px; border:1px solid #1e293b;">
+        <h2 style="margin-top:0; color:#f8fafc; font-size:18px;">Schedule Interview</h2>
+        <form id="scheduleForm" onsubmit="submitSchedule(event)">
+            
+            <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px; font-weight:600;">Date</label>
+            <input type="date" id="sched_date" required style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:16px; box-sizing:border-box;">
+            
+            <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px; font-weight:600;">Time</label>
+            <input type="time" id="sched_time" required style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:16px; box-sizing:border-box;">
+            
+            <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px; font-weight:600;">Duration (minutes)</label>
+            <input type="number" id="sched_duration" required value="30" style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:16px; box-sizing:border-box;">
+            
+            <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px; font-weight:600;">Location / Video Link</label>
+            <input type="text" id="sched_location" required value="Google Meet" style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:24px; box-sizing:border-box;">
+            
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="closeScheduleModal()" style="flex:1; padding:10px; border-radius:6px; border:none; background:#334155; color:#f8fafc; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit" id="btnSubmitSchedule" style="flex:1; padding:10px; border-radius:6px; border:none; background:#3b82f6; color:#fff; font-weight:600; cursor:pointer;">Send Invite</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {% endblock %}

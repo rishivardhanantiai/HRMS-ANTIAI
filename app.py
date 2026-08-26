@@ -38,6 +38,9 @@ from hrms.onboarding.routes import onboarding_bp, onboarding_public_bp
 from hrms.offers.routes import offers_bp, offers_public_bp
 from hrms.notifications.routes import notifications_bp
 from hrms.approvals.routes import approvals_bp
+from hrms.interviews.routes import interviews_bp
+from hrms.announcements.routes import announcements_bp
+from hrms.announcements.scheduler import start_scheduler
 
 load_dotenv()
 
@@ -61,6 +64,12 @@ app.register_blueprint(offers_bp)
 app.register_blueprint(offers_public_bp)
 app.register_blueprint(notifications_bp)
 app.register_blueprint(approvals_bp)
+app.register_blueprint(interviews_bp)
+app.register_blueprint(announcements_bp)
+
+# Start background scheduler for announcements
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    start_scheduler(app)
 
 # Vercel runtime is read-only except for /tmp, so use /tmp there.
 if os.getenv("VERCEL") == "1":
@@ -1857,4 +1866,8 @@ def download_salary_records():
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    # Only start scheduler in the main process to avoid double running with Werkzeug reloader
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from hrms.announcements.scheduler import start_scheduler
+        start_scheduler(app)
     app.run(host="0.0.0.0", port=port, debug=True)

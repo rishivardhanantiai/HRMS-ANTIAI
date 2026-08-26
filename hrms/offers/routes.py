@@ -1055,7 +1055,7 @@ def save_template(template_type):
     if session.get("role") == "Admin":
         if not _save_offer_template(template_type, content):
             return jsonify({"error": "Failed to save template"}), 500
-        create_approval_request("template_edit", "offer_templates", template_type, payload_before, {"content": content})
+        create_approval_request("template_edit", "offer_templates", template_type, payload_before, {"content": content}, auto_approve=True)
         return jsonify({"success": True})
     else:
         create_approval_request("template_edit", "offer_templates", template_type, payload_before, {"content": content})
@@ -1167,7 +1167,7 @@ def save_appearance():
     if session.get("role") == "Admin":
         if not _update_company_settings(fields):
             return jsonify({"error": "Failed to save appearance settings"}), 500
-        create_approval_request("appearance_change", "company_settings", None, payload_before, fields)
+        create_approval_request("appearance_change", "company_settings", None, payload_before, fields, auto_approve=True)
         return jsonify({"success": True})
     else:
         create_approval_request("appearance_change", "company_settings", None, payload_before, fields)
@@ -1656,7 +1656,7 @@ def delete_offer(offer_id):
             
     if session.get("role") == "Admin":
         from hrms.approvals.routes import create_approval_request
-        create_approval_request("delete_offer", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "employee_id": offer["employee_id"]}, None)
+        create_approval_request("delete_offer", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "employee_id": offer["employee_id"]}, None, auto_approve=True)
         
     return jsonify({"success": True})
 

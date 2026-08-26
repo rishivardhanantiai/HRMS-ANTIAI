@@ -8,30 +8,37 @@ from hrms.offers.routes import _save_offer_template, _update_company_settings
 
 approvals_bp = Blueprint("approvals", __name__, url_prefix="/hrms/approvals")
 
-def create_approval_request(action_type, target_table, target_id, payload_before, payload_after):
+def create_approval_request(action_type, target_table, target_id, payload_before, payload_after, auto_approve=False):
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
         if not conn:
             raise Exception("no db")
             
-        cur.execute("""
+        status = "Approved" if auto_approve else "Pending"
+        resolved_by = session.get("user", "Admin") if auto_approve else None
+        resolved_at = "NOW()" if auto_approve else "NULL"
+        
+        cur.execute(f"""
             INSERT INTO admin_approval_queue 
-            (action_type, target_table, target_id, payload_before, payload_after, requested_by)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            (action_type, target_table, target_id, payload_before, payload_after, requested_by, status, resolved_by, resolved_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, {resolved_at})
             RETURNING id
-        """, (action_type, target_table, target_id, json.dumps(payload_before), json.dumps(payload_after), session.get("user", "HR")))
+        """, (action_type, target_table, target_id, json.dumps(payload_before), json.dumps(payload_after), session.get("user", "HR"), status, resolved_by))
         
         req_id = cur.fetchone()["id"]
         conn.commit()
         
-        # Notify Admin
-        action_names = {
-            "template_edit": "Template edit",
-            "appearance_change": "Appearance change",
-            "delete_offer": "Delete offer request"
-        }
-        create_notification("Admin", "approval_queue", f"{action_names.get(action_type, 'Action')} awaiting your review", "/hrms/approvals/")
+        # Notify Admin if it's pending
+        if not auto_approve:
+            action_names = {
+                "template_edit": "Template edit",
+                "appearance_change": "Appearance change",
+                "delete_offer": "Delete offer request",
+                "bulk_send": "Bulk email send"
+            }
+            create_notification("Admin", "approval_queue", f"{action_names.get(action_type, 'Action')} awaiting your review", "/hrms/approvals/")
+
         return True
     except Exception as e:
         print(f"Error creating approval request: {e}")
@@ -121,6 +128,18 @@ def resolve_request(req_id):
                     cur.execute("DELETE FROM employee_offers WHERE id=%s", (req["target_id"],))
                     if req["payload_before"] and "employee_id" in req["payload_before"]:
                         cur.execute("DELETE FROM hrms_employees WHERE id=%s AND status='Offer Pending'", (req["payload_before"]["employee_id"],))
+                elif req["action_type"] == "bulk_send":
+                    payload = req["payload_after"]
+                    subject = payload.get("subject")
+                    body_html = payload.get("body_html")
+                    recipients = payload.get("recipients", [])
+                    requested_by = req.get("requested_by", session.get("user"))
+                    for rcpt in recipients:
+                        personalized_body = body_html.replace("{{candidate_name}}", rcpt["name"]).replace("{{employee_name}}", rcpt["name"])
+                        cur.execute("""
+                            INSERT INTO outbound_messages (subject, body_html, recipient_email, status, created_by)
+                            VALUES (%s, %s, %s, 'Queued', %s)
+                        """, (subject, personalized_body, rcpt["email"], requested_by))
                 else:
                     raise Exception(f"Unknown action_type {req['action_type']}")
             except Exception as action_e:
@@ -140,7 +159,8 @@ def resolve_request(req_id):
         action_names = {
             "template_edit": "Template edit",
             "appearance_change": "Appearance change",
-            "delete_offer": "Delete offer request"
+            "delete_offer": "Delete offer request",
+            "bulk_send": "Bulk announcement send"
         }
         notif_msg = f"Your {action_names.get(req['action_type'], 'action')} was {status.lower()}"
         if status == "Rejected":

@@ -63,3 +63,5 @@ websockets==12.0
 Werkzeug==3.1.5
 zopfli==0.4.3
 xhtml2pdf==0.2.16
+icalendar==6.0.1
+APScheduler==3.11.0

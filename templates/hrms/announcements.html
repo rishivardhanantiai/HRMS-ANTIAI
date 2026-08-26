@@ -1,0 +1,3114 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Choices.js CSS & JS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
+<style>
+/* =========================================================
+   TASK 4 — ANNOUNCEMENT CENTER
+========================================================= */
+
+.announcement-shell {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 8px 0 40px;
+}
+
+
+/* =========================================================
+   METRICS
+========================================================= */
+
+.announcement-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.metric-card {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+
+    padding: 18px;
+
+    border: 1px solid rgba(255,255,255,.07);
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(99,102,241,.08),
+            transparent 45%
+        ),
+        rgba(15,23,42,.78);
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.18),
+        inset 0 1px 0 rgba(255,255,255,.03);
+
+    transition:
+        transform .25s ease,
+        border-color .25s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,.12);
+}
+
+.metric-icon {
+    width: 42px;
+    height: 42px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background: rgba(56,189,248,.10);
+    color: #38bdf8;
+}
+
+.metric-icon.purple {
+    background: rgba(139,92,246,.12);
+    color: #a78bfa;
+}
+
+.metric-icon.green {
+    background: rgba(34,197,94,.10);
+    color: #4ade80;
+}
+
+.metric-icon.orange {
+    background: rgba(245,158,11,.12);
+    color: #fbbf24;
+}
+
+.metric-content {
+    min-width: 0;
+}
+
+.metric-label {
+    display: block;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    color: #64748b;
+
+    letter-spacing: .08em;
+    text-transform: uppercase;
+
+    margin-bottom: 4px;
+}
+
+.metric-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.metric-value-row strong,
+.metric-number {
+    font-size: 21px;
+    line-height: 1;
+
+    color: #f8fafc;
+}
+
+.metric-value-row span {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.metric-content small {
+    display: block;
+
+    margin-top: 6px;
+
+    color: #64748b;
+    font-size: 11px;
+}
+
+.quota-track {
+    width: 130px;
+    height: 4px;
+
+    margin-top: 8px;
+
+    background: rgba(255,255,255,.06);
+
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.quota-fill {
+    height: 100%;
+
+    border-radius: inherit;
+
+    background: linear-gradient(
+        90deg,
+        #22c55e,
+        #38bdf8
+    );
+
+    transition: width .4s ease;
+}
+
+.approval-card {
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.metric-arrow {
+    margin-left: auto;
+    font-size: 20px;
+    color: #64748b;
+}
+
+
+/* =========================================================
+   MAIN GRID
+========================================================= */
+
+.communication-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(330px, .75fr);
+    gap: 18px;
+    align-items: start;
+}
+
+
+/* =========================================================
+   COMPOSER
+========================================================= */
+
+.composer-panel {
+    background:
+        radial-gradient(
+            circle at 90% 0%,
+            rgba(99,102,241,.09),
+            transparent 30%
+        ),
+        rgba(15,23,42,.82);
+
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 20px;
+
+    box-shadow:
+        0 20px 50px rgba(0,0,0,.22),
+        inset 0 1px 0 rgba(255,255,255,.025);
+
+    overflow: hidden;
+}
+
+.panel-header {
+    padding: 28px 30px 24px;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.eyebrow,
+.rail-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    color: #818cf8;
+    letter-spacing: .13em;
+
+    margin-bottom: 7px;
+}
+
+.eyebrow-dot {
+    width: 6px;
+    height: 6px;
+
+    background: #818cf8;
+    border-radius: 50%;
+
+    box-shadow: 0 0 10px rgba(129,140,248,.8);
+}
+
+.panel-header h2 {
+    margin: 0;
+
+    font-size: 25px;
+    line-height: 1.2;
+
+    color: #f8fafc;
+
+    letter-spacing: -.02em;
+}
+
+.panel-header p {
+    margin: 7px 0 0;
+
+    max-width: 650px;
+
+    color: #64748b;
+    font-size: 13px;
+}
+
+.draft-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 7px 10px;
+
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 8px;
+
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+
+    background: #94a3b8;
+}
+
+
+.form-section {
+    padding: 25px 30px;
+
+    border-bottom: 1px solid rgba(255,255,255,.055);
+}
+
+.section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 16px;
+}
+
+.section-heading > div {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    color: #e2e8f0;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.section-number {
+    font-size: 10px;
+    color: #6366f1;
+    font-weight: 800;
+
+    letter-spacing: .1em;
+}
+
+.section-hint {
+    color: #475569;
+    font-size: 11px;
+}
+
+.audience-status {
+    font-size: 11px;
+    color: #64748b;
+}
+
+
+/* =========================================================
+   TEMPLATE
+========================================================= */
+
+.template-row {
+    display: flex;
+    gap: 10px;
+}
+
+.template-select-wrap {
+    flex: 1;
+}
+
+.premium-select,
+.modern-input,
+.modern-textarea,
+.message-textarea {
+    width: 100%;
+    box-sizing: border-box;
+
+    color: #f8fafc;
+
+    background: rgba(2,6,23,.58);
+
+    border: 1px solid rgba(255,255,255,.085);
+    border-radius: 11px;
+
+    outline: none;
+
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease,
+        background .2s ease;
+}
+
+.premium-select {
+    height: 48px;
+    padding: 0 14px;
+}
+
+.modern-input {
+    height: 48px;
+    padding: 0 14px;
+}
+
+.modern-input::placeholder,
+.modern-textarea::placeholder,
+.message-textarea::placeholder {
+    color: #475569;
+}
+
+.premium-select:focus,
+.modern-input:focus,
+.modern-textarea:focus,
+.message-textarea:focus {
+    border-color: rgba(99,102,241,.7);
+
+    box-shadow:
+        0 0 0 3px rgba(99,102,241,.10);
+
+    background: rgba(2,6,23,.8);
+}
+
+.ghost-btn {
+    height: 48px;
+
+    padding: 0 16px;
+
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 11px;
+
+    background: rgba(255,255,255,.025);
+
+    color: #94a3b8;
+
+    cursor: pointer;
+}
+
+.ghost-btn:hover {
+    background: rgba(255,255,255,.05);
+    color: #f8fafc;
+}
+
+
+/* =========================================================
+   AUDIENCE
+========================================================= */
+
+.audience-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 15px;
+
+    border: 1px solid rgba(255,255,255,.065);
+    border-radius: 13px;
+
+    background: rgba(255,255,255,.018);
+
+    cursor: pointer;
+
+    transition:
+        border-color .2s ease,
+        background .2s ease;
+}
+
+.audience-option:hover {
+    border-color: rgba(56,189,248,.3);
+    background: rgba(56,189,248,.035);
+}
+
+.audience-option-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.audience-radio input {
+    width: 17px;
+    height: 17px;
+
+    accent-color: #6366f1;
+}
+
+.audience-option-icon {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 10px;
+
+    background: rgba(56,189,248,.08);
+    color: #38bdf8;
+}
+
+.audience-option strong {
+    display: block;
+
+    color: #e2e8f0;
+    font-size: 13px;
+}
+
+.audience-option span {
+    display: block;
+
+    color: #64748b;
+    font-size: 11px;
+
+    margin-top: 3px;
+}
+
+.audience-pill {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center;
+
+    min-width: 34px;
+    height: 26px;
+
+    padding: 0 8px !important;
+
+    background: rgba(56,189,248,.08);
+    color: #38bdf8 !important;
+
+    border-radius: 20px;
+
+    font-size: 11px !important;
+    font-weight: 700;
+}
+
+.audience-divider {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+
+    margin: 20px 0;
+
+    color: #334155;
+
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.audience-divider::before,
+.audience-divider::after {
+    content: "";
+
+    height: 1px;
+    flex: 1;
+
+    background: rgba(255,255,255,.06);
+}
+
+.audience-divider span {
+    padding: 0 12px;
+}
+
+.recipient-builder {
+    display: grid;
+    gap: 18px;
+}
+
+.recipient-field label,
+.subject-field label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: #cbd5e1;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.choices {
+    margin-bottom: 0;
+}
+
+.choices__inner {
+    min-height: 47px !important;
+    box-sizing: border-box;
+    background: rgba(2,6,23,.58) !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    border-radius: 11px !important;
+    color: #f8fafc !important;
+    padding: 6px 10px !important;
+}
+
+.choices.is-focused .choices__inner,
+.choices.is-open .choices__inner {
+    border-color: rgba(99,102,241,.7) !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,.1) !important;
+}
+
+.choices__list--multiple {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+}
+
+.choices__list--multiple .choices__item {
+    display: inline-flex !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 6px 10px !important;
+    background: linear-gradient(
+        135deg,
+        rgba(99,102,241,.85),
+        rgba(79,70,229,.85)
+    ) !important;
+    border: 0 !important;
+    border-radius: 7px !important;
+    font-size: 12px !important;
+    word-break: break-all;
+}
+
+.choices__list--multiple .choices__item[data-deletable] {
+    padding-right: 5px !important;
+}
+
+.choices[data-type*=select-multiple] .choices__button, 
+.choices[data-type*=text] .choices__button {
+    border-left: 1px solid rgba(255,255,255,0.2) !important;
+    margin-left: 6px !important;
+    margin-right: 0 !important;
+    padding-left: 6px !important;
+    border-radius: 0 !important;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='18' y1='6' x2='6' y2='18'%3E%3C/line%3E%3Cline x1='6' y1='6' x2='18' y2='18'%3E%3C/line%3E%3C/svg%3E") !important;
+    background-size: 12px !important;
+    width: 18px !important;
+    height: 18px !important;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.choices[data-type*=select-multiple] .choices__button:hover, 
+.choices[data-type*=text] .choices__button:hover {
+    opacity: 1;
+}
+
+.choices__input {
+    background: transparent !important;
+    color: #f8fafc !important;
+    margin-bottom: 0 !important;
+    padding: 2px !important;
+    font-size: 12px !important;
+    min-width: 120px !important;
+}
+
+.choices__input::placeholder {
+    color: #64748b !important;
+}
+
+.choices__list--dropdown {
+    background: #0f172a !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    border-radius: 11px !important;
+    overflow: hidden !important;
+    box-shadow: 0 20px 50px rgba(0,0,0,.4) !important;
+}
+
+.choices__list--dropdown .choices__item {
+    color: #cbd5e1 !important;
+    padding: 10px 12px !important;
+}
+
+.choices__list--dropdown .choices__item--selectable.is-highlighted {
+    background: rgba(99,102,241,.15) !important;
+    color: #f8fafc !important;
+}
+
+.choices__list--dropdown .choices__item--selectable::after {
+    display: none !important;
+}
+
+.choices__input:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.modern-textarea {
+    padding: 12px 14px;
+
+    resize: vertical;
+
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.field-helper {
+    display: block;
+
+    color: #475569;
+
+    font-size: 10px;
+
+    margin-top: 6px;
+}
+
+
+/* =========================================================
+   AUDIENCE SUMMARY
+========================================================= */
+
+.audience-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    margin-top: 20px;
+    padding: 14px;
+
+    border: 1px solid rgba(99,102,241,.14);
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(99,102,241,.08),
+            rgba(99,102,241,.025)
+        );
+}
+
+.summary-icon {
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    color: #818cf8;
+
+    background: rgba(99,102,241,.1);
+}
+
+.summary-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.summary-text strong {
+    display: block;
+
+    color: #e2e8f0;
+    font-size: 12px;
+}
+
+.summary-text span {
+    display: block;
+
+    color: #64748b;
+    font-size: 10px;
+
+    margin-top: 3px;
+}
+
+.summary-count {
+    min-width: 32px;
+
+    color: #818cf8;
+
+    font-size: 18px;
+    font-weight: 800;
+
+    text-align: right;
+}
+
+
+/* =========================================================
+   EDITOR
+========================================================= */
+
+.message-editor {
+    overflow: hidden;
+
+    margin-top: 18px;
+
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 13px;
+
+    background: rgba(2,6,23,.6);
+}
+
+.editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 10px 13px;
+
+    border-bottom: 1px solid rgba(255,255,255,.06);
+
+    color: #94a3b8;
+
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.editor-tags {
+    display: flex;
+    gap: 6px;
+}
+
+.editor-tags span {
+    padding: 3px 7px;
+
+    background: rgba(255,255,255,.04);
+
+    border-radius: 5px;
+
+    color: #64748b;
+    font-size: 9px;
+}
+
+.message-textarea {
+    display: block;
+
+    padding: 15px;
+
+    min-height: 220px;
+
+    border: 0 !important;
+    border-radius: 0;
+
+    resize: vertical;
+
+    font-family:
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        monospace;
+
+    font-size: 12px;
+    line-height: 1.65;
+}
+
+.message-textarea:focus {
+    box-shadow: none;
+}
+
+.editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 8px 13px;
+
+    border-top: 1px solid rgba(255,255,255,.05);
+
+    color: #475569;
+
+    font-size: 10px;
+}
+
+
+/* =========================================================
+   SEND
+========================================================= */
+
+.send-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    padding: 20px 30px;
+
+    background: rgba(2,6,23,.24);
+}
+
+.send-explanation {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.send-security-icon {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 9px;
+
+    background: rgba(34,197,94,.08);
+    color: #4ade80;
+}
+
+.send-explanation strong {
+    display: block;
+
+    color: #e2e8f0;
+    font-size: 12px;
+}
+
+.send-explanation span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: #64748b;
+    font-size: 10px;
+}
+
+.send-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.secondary-action,
+.primary-send {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: 42px;
+
+    padding: 0 16px;
+
+    border-radius: 10px;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease;
+}
+
+.secondary-action {
+    color: #cbd5e1;
+
+    background: rgba(255,255,255,.035);
+
+    border: 1px solid rgba(255,255,255,.08);
+}
+
+.secondary-action:hover {
+    background: rgba(255,255,255,.06);
+}
+
+.primary-send {
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            #6366f1,
+            #4f46e5
+        );
+
+    border: 0;
+
+    box-shadow:
+        0 8px 25px rgba(79,70,229,.28);
+}
+
+.primary-send:hover {
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 12px 30px rgba(79,70,229,.4);
+}
+
+.primary-send:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+/* =========================================================
+   RIGHT RAIL
+========================================================= */
+
+.right-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.preview-card,
+.history-card {
+    overflow: hidden;
+
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 18px;
+
+    background: rgba(15,23,42,.78);
+
+    box-shadow:
+        0 18px 45px rgba(0,0,0,.18);
+}
+
+.rail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    padding: 18px;
+
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.rail-eyebrow {
+    margin-bottom: 4px;
+
+    color: #64748b;
+}
+
+.rail-header h3 {
+    margin: 0;
+
+    color: #e2e8f0;
+
+    font-size: 15px;
+}
+
+.preview-device,
+.history-count {
+    padding: 5px 8px;
+
+    border-radius: 6px;
+
+    background: rgba(255,255,255,.035);
+
+    color: #64748b;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   EMAIL PREVIEW
+========================================================= */
+
+.email-preview-frame {
+    margin: 16px;
+
+    overflow: hidden;
+
+    border: 1px solid #dbe2ea;
+    border-radius: 12px;
+
+    background: white;
+
+    box-shadow:
+        0 20px 40px rgba(0,0,0,.28);
+}
+
+.fake-email-header {
+    display: flex;
+    gap: 10px;
+
+    align-items: center;
+
+    padding: 13px;
+
+    border-bottom: 1px solid #edf0f4;
+
+    background: #ffffff;
+}
+
+.fake-avatar {
+    width: 32px;
+    height: 32px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #eef2ff;
+
+    color: #4f46e5;
+
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.fake-email-meta strong {
+    display: block;
+
+    color: #111827;
+
+    font-size: 11px;
+}
+
+.fake-email-meta span {
+    display: block;
+
+    margin-top: 2px;
+
+    color: #9ca3af;
+
+    font-size: 9px;
+}
+
+.fake-email-content {
+    padding: 18px;
+
+    min-height: 250px;
+
+    color: #111827;
+}
+
+.preview-subject {
+    margin-bottom: 15px;
+
+    color: #111827;
+
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.preview-body {
+    color: #374151;
+
+    font-family: Arial, sans-serif;
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.preview-placeholder {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex-direction: column;
+
+    min-height: 190px;
+
+    text-align: center;
+
+    color: #9ca3af;
+}
+
+.placeholder-icon {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 9px;
+
+    border-radius: 50%;
+
+    background: #f3f4f6;
+
+    font-size: 18px;
+}
+
+.preview-placeholder strong {
+    color: #6b7280;
+
+    font-size: 11px;
+}
+
+.preview-placeholder span {
+    margin-top: 4px;
+
+    color: #9ca3af;
+
+    font-size: 9px;
+}
+
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+.history-list {
+    max-height: 400px;
+
+    overflow-y: auto;
+}
+
+.history-item {
+    display: flex;
+    gap: 11px;
+
+    padding: 14px 16px;
+
+    border-bottom: 1px solid rgba(255,255,255,.045);
+}
+
+.history-item:last-child {
+    border-bottom: 0;
+}
+
+.history-icon {
+    width: 29px;
+    height: 29px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.history-icon.sent {
+    background: rgba(34,197,94,.09);
+    color: #4ade80;
+}
+
+.history-icon.queued {
+    background: rgba(245,158,11,.09);
+    color: #fbbf24;
+}
+
+.history-icon.failed {
+    background: rgba(239,68,68,.09);
+    color: #f87171;
+}
+
+.history-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.history-content strong {
+    display: block;
+
+    overflow: hidden;
+
+    color: #e2e8f0;
+
+    font-size: 11px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.history-content > span {
+    display: block;
+
+    overflow: hidden;
+
+    margin-top: 4px;
+
+    color: #64748b;
+
+    font-size: 9px;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.history-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-top: 7px;
+
+    color: #475569;
+
+    font-size: 9px;
+}
+
+.status-sent {
+    color: #4ade80;
+}
+
+.status-queued {
+    color: #fbbf24;
+}
+
+.status-failed {
+    color: #f87171;
+}
+
+.empty-history {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 40px 20px;
+
+    text-align: center;
+}
+
+.empty-icon {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 10px;
+
+    background: rgba(255,255,255,.035);
+
+    border-radius: 50%;
+
+    color: #64748b;
+}
+
+.empty-history strong {
+    color: #cbd5e1;
+    font-size: 12px;
+}
+
+.empty-history span {
+    max-width: 200px;
+
+    margin-top: 5px;
+
+    color: #475569;
+
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+.modal-overlay {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 9999;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(2,6,23,.72);
+
+    backdrop-filter: blur(12px);
+
+    opacity: 0;
+    pointer-events: none;
+
+    transition: opacity .2s ease;
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.send-modal {
+    position: relative;
+
+    width: min(500px, 100%);
+
+    padding: 28px;
+
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(99,102,241,.12),
+            transparent 40%
+        ),
+        #0f172a;
+
+    box-shadow:
+        0 35px 100px rgba(0,0,0,.55);
+
+    transform: translateY(15px) scale(.98);
+
+    transition:
+        transform .25s ease;
+}
+
+.modal-overlay.show .send-modal {
+    transform: translateY(0) scale(1);
+}
+
+.modal-close {
+    position: absolute;
+
+    right: 15px;
+    top: 15px;
+
+    width: 30px;
+    height: 30px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: rgba(255,255,255,.04);
+
+    color: #64748b;
+
+    cursor: pointer;
+
+    font-size: 20px;
+}
+
+.modal-icon {
+    width: 48px;
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 16px;
+
+    border-radius: 13px;
+
+    color: #818cf8;
+
+    background: rgba(99,102,241,.1);
+}
+
+.modal-eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+
+    color: #6366f1;
+
+    letter-spacing: .12em;
+}
+
+.modal-header h3 {
+    margin: 6px 0;
+
+    color: #f8fafc;
+
+    font-size: 20px;
+}
+
+.modal-header p {
+    margin: 0;
+
+    color: #64748b;
+
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.modal-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 8px;
+
+    margin-top: 22px;
+}
+
+.modal-summary > div {
+    padding: 13px;
+
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+
+    background: rgba(255,255,255,.025);
+}
+
+.modal-summary span {
+    display: block;
+
+    color: #64748b;
+
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.modal-summary strong {
+    display: block;
+
+    margin-top: 6px;
+
+    color: #f8fafc;
+
+    font-size: 17px;
+}
+
+.modal-warning {
+    margin-top: 15px;
+
+    padding: 12px;
+
+    border-radius: 9px;
+
+    color: #fbbf24;
+
+    background: rgba(245,158,11,.06);
+
+    border: 1px solid rgba(245,158,11,.12);
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+
+    gap: 8px;
+
+    margin-top: 20px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1100px) {
+
+    .announcement-metrics {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+
+    .communication-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .right-rail {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+}
+
+@media (max-width: 700px) {
+
+    .announcement-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .right-rail {
+        grid-template-columns: 1fr;
+    }
+
+    .panel-header,
+    .form-section {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+
+    .send-action {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 18px;
+    }
+
+    .send-buttons {
+        width: 100%;
+    }
+
+    .send-buttons button {
+        flex: 1;
+    }
+
+    .modal-summary {
+        grid-template-columns: 1fr;
+    }
+
+}
+</style>
+
+<div class="announcement-shell">
+
+    <!-- =========================
+         TOP METRICS
+    ========================== -->
+    <div class="announcement-metrics">
+
+        <div class="metric-card quota-card">
+            <div class="metric-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
+                    <path d="M4 7h16"/>
+                    <path d="M4 12h16"/>
+                    <path d="M4 17h10"/>
+                </svg>
+            </div>
+
+            <div class="metric-content">
+                <span class="metric-label">Gmail quota</span>
+
+                <div class="metric-value-row">
+                    <strong id="quotaRemaining">{{ quota_remaining }}</strong>
+                    <span>remaining today</span>
+                </div>
+
+                <div class="quota-track">
+                    <div id="quotaBar" class="quota-fill" style="width: {{ ((quota_used / quota_limit) * 100)|round(1) }}%"></div>
+                </div>
+
+                <small>
+                    Personal Gmail sending limit
+                </small>
+            </div>
+        </div>
+
+
+        <div class="metric-card">
+            <div class="metric-icon purple">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </div>
+
+            <div class="metric-content">
+                <span class="metric-label">Active employees</span>
+                <strong class="metric-number">{{ active_count }}</strong>
+                <small>Available for company-wide messages</small>
+            </div>
+        </div>
+
+
+        <div class="metric-card">
+            <div class="metric-icon green">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
+                    <rect x="3" y="4" width="18" height="16" rx="3"/>
+                    <path d="M7 8h10"/>
+                    <path d="M7 12h7"/>
+                    <path d="M7 16h5"/>
+                </svg>
+            </div>
+
+            <div class="metric-content">
+                <span class="metric-label">Recent messages</span>
+                <strong class="metric-number">{{ history|length }}</strong>
+                <small>Sent & queued communications</small>
+            </div>
+        </div>
+
+
+        {% if pending_approvals %}
+        <a href="/hrms/approvals/" class="metric-card approval-card">
+
+            <div class="metric-icon orange">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 8v4"/>
+                    <path d="M12 16h.01"/>
+                </svg>
+            </div>
+
+            <div class="metric-content">
+                <span class="metric-label">Awaiting approval</span>
+                <strong class="metric-number">
+                    {{ pending_approvals|length }}
+                </strong>
+                <small>Admin review required</small>
+            </div>
+
+            <span class="metric-arrow">→</span>
+
+        </a>
+        {% endif %}
+
+    </div>
+
+
+    <!-- =========================
+         MAIN WORKSPACE
+    ========================== -->
+    <div class="communication-grid">
+
+        <!-- ======================
+             COMPOSER
+        ======================= -->
+        <section class="composer-panel">
+
+            <div class="panel-header">
+
+                <div>
+                    <div class="eyebrow">
+                        <span class="eyebrow-dot"></span>
+                        COMMUNICATION CENTER
+                    </div>
+
+                    <h2>Create announcement</h2>
+
+                    <p>
+                        Compose a message, choose your audience, preview it,
+                        then send or submit it for approval.
+                    </p>
+                </div>
+
+                <div class="draft-status">
+                    <span class="status-dot"></span>
+                    Draft
+                </div>
+
+            </div>
+
+
+            <form id="composeForm">
+
+                <!-- ======================
+                     TEMPLATE
+                ======================= -->
+                <div class="form-section">
+
+                    <div class="section-heading">
+                        <div>
+                            <span class="section-number">01</span>
+                            Template
+                        </div>
+
+                        <span class="section-hint">
+                            Start from an existing message
+                        </span>
+                    </div>
+
+                    <div class="template-row">
+
+                        <div class="template-select-wrap">
+
+                            <select id="templateSelect"
+                                    class="premium-select">
+
+                                <option value="">
+                                    Start from scratch
+                                </option>
+
+                                {% for t in templates %}
+                                <option value="{{ t.id }}">
+                                    {{ t.subject }}
+                                </option>
+                                {% endfor %}
+
+                            </select>
+
+                        </div>
+
+                        <button type="button"
+                                id="clearTemplate"
+                                class="ghost-btn">
+                            Clear
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ======================
+                     RECIPIENTS
+                ======================= -->
+                <div class="form-section">
+
+                    <div class="section-heading">
+
+                        <div>
+                            <span class="section-number">02</span>
+                            Audience
+                        </div>
+
+                        <span id="audienceStatus"
+                              class="audience-status">
+                            No recipients selected
+                        </span>
+
+                    </div>
+
+
+                    <!-- ALL EMPLOYEES -->
+                    <label class="audience-option all-option">
+
+                        <div class="audience-option-left">
+
+                            <div class="audience-radio">
+                                <input type="checkbox"
+                                       id="sendToAll"
+                                       name="send_to_all"
+                                       value="true">
+                            </div>
+
+                            <div class="audience-option-icon">
+                                <svg width="20" height="20"
+                                     viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="1.8">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                            </div>
+
+                            <div>
+                                <strong>Everyone active</strong>
+                                <span>
+                                    Send to all {{ active_count }} active employees
+                                </span>
+                            </div>
+
+                        </div>
+
+                        <span class="audience-pill">
+                            {{ active_count }}
+                        </span>
+
+                    </label>
+
+
+                    <div class="audience-divider">
+                        <span>OR TARGET SPECIFIC PEOPLE</span>
+                    </div>
+
+
+                    <div id="recipientGroups"
+                         class="recipient-builder">
+
+                        <div class="recipient-field">
+
+                            <label>
+                                Departments
+                            </label>
+
+                            <div class="select-shell">
+
+                                <select id="departmentSelect"
+                                        name="departments"
+                                        multiple>
+
+                                    {% for d in departments %}
+                                    <option value="{{ d.name }}" data-recipient-count="{{ d.count }}">
+                                        {{ d.name }} · {{ d.count }}
+                                    </option>
+                                    {% endfor %}
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="recipient-field">
+
+                            <label>
+                                Employees
+                            </label>
+
+                            <div class="select-shell">
+
+                                <select id="singleEmail"
+                                        name="individual_emails"
+                                        multiple>
+
+                                    {% for emp in employees %}
+                                    <option value="{{ emp.email }}">
+                                        {{ emp.full_name }} —
+                                        {{ emp.email }}
+                                    </option>
+                                    {% endfor %}
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="recipient-field">
+
+                            <label>
+                                External / custom emails
+                            </label>
+
+                            <textarea
+                                id="customEmails"
+                                name="custom_emails"
+                                class="modern-textarea"
+                                rows="3"
+                                placeholder="name@example.com, another@example.com"></textarea>
+
+                            <span class="field-helper">
+                                Separate addresses with commas, spaces or new lines.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- AUDIENCE SUMMARY -->
+                    <div class="audience-summary">
+
+                        <div class="summary-icon">
+                            <svg width="18" height="18"
+                                 viewBox="0 0 24 24"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 stroke-width="1.8">
+                                <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                        </div>
+
+                        <div class="summary-text">
+
+                            <strong id="audienceSummaryTitle">
+                                Choose your audience
+                            </strong>
+
+                            <span id="audienceSummaryDescription">
+                                Recipients will appear here as you select them.
+                            </span>
+
+                        </div>
+
+                        <div class="summary-count"
+                             id="recipientCount">
+                            0
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ======================
+                     MESSAGE
+                ======================= -->
+                <div class="form-section">
+
+                    <div class="section-heading">
+
+                        <div>
+                            <span class="section-number">03</span>
+                            Message
+                        </div>
+
+                        <span class="section-hint">
+                            HTML supported
+                        </span>
+
+                    </div>
+
+
+                    <div class="subject-field">
+
+                        <label>Subject</label>
+
+                        <input
+                            type="text"
+                            id="subject"
+                            name="subject"
+                            class="modern-input"
+                            placeholder="e.g. Interview reminder — tomorrow at 10:00 AM"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="message-editor">
+
+                        <div class="editor-toolbar">
+
+                            <span>
+                                Message body
+                            </span>
+
+                            <div class="editor-tags">
+                                <span>HTML</span>
+                                <span>{{ '{{candidate_name}}' }}</span>
+                            </div>
+
+                        </div>
+
+                        <textarea
+                            id="bodyHtml"
+                            name="body_html"
+                            class="message-textarea"
+                            rows="11"
+                            placeholder="Write your announcement here..."
+                            required
+                        ></textarea>
+
+                        <div class="editor-footer">
+
+                            <span>
+                                Personalization tags can be used in templates.
+                            </span>
+
+                            <span id="characterCount">
+                                0 characters
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ======================
+                     SEND ACTION
+                ======================= -->
+                <div class="send-action">
+
+                    <div class="send-explanation">
+
+                        <div class="send-security-icon">
+                            <svg width="18" height="18"
+                                 viewBox="0 0 24 24"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 stroke-width="1.8">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path d="M9 12l2 2 4-4"/>
+                            </svg>
+                        </div>
+
+                        <div>
+
+                            <strong id="sendStateTitle">
+                                Ready to send
+                            </strong>
+
+                            <span id="sendStateDescription">
+                                Select recipients and write your message.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="send-buttons">
+
+                        <button
+                            type="button"
+                            id="previewBtn"
+                            class="secondary-action">
+
+                            <svg width="17" height="17"
+                                 viewBox="0 0 24 24"
+                                 fill="none"
+                                 stroke="currentColor"
+                                 stroke-width="1.8">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+
+                            Preview
+                        </button>
+
+
+                        <button
+                            type="button"
+                            id="sendBtn"
+                            class="primary-send">
+
+                            <span class="send-icon">
+
+                                <svg width="17" height="17"
+                                     viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="2">
+                                    <line x1="22" y1="2"
+                                          x2="11" y2="13"/>
+                                    <polygon
+                                        points="22 2 15 22 11 13 2 9 22 2"/>
+                                </svg>
+
+                            </span>
+
+                            <span>Continue to Send</span>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+        <!-- ======================
+             PREVIEW / HISTORY
+        ======================= -->
+        <aside class="right-rail">
+
+            <!-- LIVE PREVIEW -->
+            <div class="preview-card">
+
+                <div class="rail-header">
+
+                    <div>
+                        <span class="rail-eyebrow">
+                            LIVE PREVIEW
+                        </span>
+
+                        <h3>Email preview</h3>
+                    </div>
+
+                    <span class="preview-device">
+                        Desktop
+                    </span>
+
+                </div>
+
+
+                <div class="email-preview-frame">
+
+                    <div class="fake-email-header">
+
+                        <div class="fake-avatar">
+                            HR
+                        </div>
+
+                        <div class="fake-email-meta">
+
+                            <strong>
+                                {{ config.COMPANY_NAME if config and config.COMPANY_NAME else 'HR Team' }}
+                            </strong>
+
+                            <span>
+                                To selected recipients
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="fake-email-content">
+
+                        <div id="previewSubject"
+                             class="preview-subject">
+                            Your announcement subject
+                        </div>
+
+                        <div id="previewBody"
+                             class="preview-body">
+
+                            <div class="preview-placeholder">
+
+                                <div class="placeholder-icon">
+                                    ✦
+                                </div>
+
+                                <strong>
+                                    Your message will appear here
+                                </strong>
+
+                                <span>
+                                    Start typing to see a live preview.
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- RECENT ACTIVITY -->
+            <div class="history-card">
+
+                <div class="rail-header">
+
+                    <div>
+                        <span class="rail-eyebrow">
+                            DELIVERY ACTIVITY
+                        </span>
+
+                        <h3>Recent messages</h3>
+                    </div>
+
+                    <span class="history-count">
+                        {{ history|length }}
+                    </span>
+
+                </div>
+
+
+                <div class="history-list">
+
+                    {% if history %}
+
+                        {% for h in history %}
+
+                        <div class="history-item">
+
+                            <div class="history-icon
+                                {% if h.status == 'Sent' %}
+                                    sent
+                                {% elif h.status == 'Queued' %}
+                                    queued
+                                {% else %}
+                                    failed
+                                {% endif %}">
+
+                                {% if h.status == 'Sent' %}
+                                ✓
+                                {% elif h.status == 'Queued' %}
+                                •
+                                {% else %}
+                                !
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="history-content">
+
+                                <strong>
+                                    {{ h.subject }}
+                                </strong>
+
+                                <span>
+                                    {{ h.recipient_email }}
+                                </span>
+
+                                <div class="history-meta">
+
+                                    <span class="
+                                        {% if h.status == 'Sent' %}
+                                            status-sent
+                                        {% elif h.status == 'Queued' %}
+                                            status-queued
+                                        {% else %}
+                                            status-failed
+                                        {% endif %}
+                                    ">
+                                        {{ h.status }}
+                                    </span>
+
+                                    <span>
+                                        {{ h.created_at.strftime('%b %d · %H:%M')
+                                           if h.created_at else '' }}
+                                    </span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        {% endfor %}
+
+                    {% else %}
+
+                        <div class="empty-history">
+
+                            <div class="empty-icon">
+                                ✉
+                            </div>
+
+                            <strong>
+                                No messages yet
+                            </strong>
+
+                            <span>
+                                Your sent and queued announcements
+                                will appear here.
+                            </span>
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </aside>
+
+    </div>
+
+</div>
+
+
+<!-- ======================
+     CONFIRM SEND MODAL
+======================= -->
+<div id="sendModal" class="modal-overlay">
+
+    <div class="send-modal">
+
+        <button type="button"
+                id="closeSendModal"
+                class="modal-close">
+            ×
+        </button>
+
+        <div class="modal-icon">
+            <svg width="24" height="24"
+                 viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="1.8">
+                <path d="M22 2L11 13"/>
+                <path d="M22 2l-7 20-4-9-9-4z"/>
+            </svg>
+        </div>
+
+        <div class="modal-header">
+
+            <span class="modal-eyebrow">
+                REVIEW BEFORE SENDING
+            </span>
+
+            <h3>Ready to send this announcement?</h3>
+
+            <p>
+                Review the audience and Gmail usage below before continuing.
+            </p>
+
+        </div>
+
+
+        <div class="modal-summary">
+
+            <div>
+                <span>Recipients</span>
+                <strong id="modalRecipientCount">0</strong>
+            </div>
+
+            <div>
+                <span>Gmail usage</span>
+                <strong id="modalQuotaUsage">0</strong>
+            </div>
+
+            <div>
+                <span>Approval</span>
+                <strong id="modalApprovalState">
+                    Checking...
+                </strong>
+            </div>
+
+        </div>
+
+
+        <div class="modal-warning"
+             id="modalWarning">
+        </div>
+
+
+        <div class="modal-actions">
+
+            <button
+                type="button"
+                id="cancelSend"
+                class="secondary-action">
+                Go back
+            </button>
+
+            <button
+                type="button"
+                id="confirmSend"
+                class="primary-send">
+                Confirm & Send
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const form = document.getElementById("composeForm");
+
+    const templateSelect = document.getElementById("templateSelect");
+    const clearTemplate = document.getElementById("clearTemplate");
+
+    const sendToAll = document.getElementById("sendToAll");
+
+    const recipientGroups =
+        document.getElementById("recipientGroups");
+
+    const subjectInp =
+        document.getElementById("subject");
+
+    const bodyInp =
+        document.getElementById("bodyHtml");
+
+    const departmentSelect =
+        document.getElementById("departmentSelect");
+
+    const singleEmail =
+        document.getElementById("singleEmail");
+
+    const customEmails =
+        document.getElementById("customEmails");
+
+    const audienceStatus =
+        document.getElementById("audienceStatus");
+
+    const audienceSummaryTitle =
+        document.getElementById("audienceSummaryTitle");
+
+    const audienceSummaryDescription =
+        document.getElementById("audienceSummaryDescription");
+
+    const recipientCount =
+        document.getElementById("recipientCount");
+
+    const characterCount =
+        document.getElementById("characterCount");
+
+    const previewSubject =
+        document.getElementById("previewSubject");
+
+    const previewBody =
+        document.getElementById("previewBody");
+
+    const sendStateTitle =
+        document.getElementById("sendStateTitle");
+
+    const sendStateDescription =
+        document.getElementById("sendStateDescription");
+
+    const previewBtn =
+        document.getElementById("previewBtn");
+
+    const sendBtn =
+        document.getElementById("sendBtn");
+
+
+    /* =====================================================
+       CHOICES
+    ===================================================== */
+
+    const deptChoices = new Choices(
+        departmentSelect,
+        {
+            removeItemButton: true,
+            searchEnabled: true,
+            searchPlaceholderValue:
+                "Search departments...",
+            placeholder: true,
+            placeholderValue:
+                "Select departments",
+            shouldSort: false
+        }
+    );
+
+
+    const empChoices = new Choices(
+        singleEmail,
+        {
+            removeItemButton: true,
+            searchEnabled: true,
+            searchPlaceholderValue:
+                "Search employees...",
+            placeholder: true,
+            placeholderValue:
+                "Select employees",
+            shouldSort: false
+        }
+    );
+
+
+    /* =====================================================
+       HELPERS
+    ===================================================== */
+
+    function getCustomEmails() {
+
+        return customEmails.value
+            .split(/[\s,;]+/)
+            .map(x => x.trim())
+            .filter(Boolean);
+
+    }
+
+
+    function getSelectedEmployeeEmails() {
+
+        return empChoices
+            .getValue(true)
+            .filter(Boolean);
+
+    }
+
+
+    function getSelectedDepartments() {
+        // Need to sum the data-recipient-count of selected options
+        let count = 0;
+        const options = Array.from(departmentSelect.selectedOptions);
+        options.forEach(opt => {
+            count += parseInt(opt.getAttribute('data-recipient-count') || 0, 10);
+        });
+        return count;
+    }
+    
+    function getSelectedDepartmentNames() {
+        return deptChoices
+            .getValue(true)
+            .filter(Boolean);
+    }
+
+
+    function isBulkSend(count) {
+
+        return (
+            sendToAll.checked ||
+            getSelectedDepartmentNames().length > 0 ||
+            count > 1
+        );
+
+    }
+
+
+    function calculateRecipientCount() {
+
+        if (sendToAll.checked) {
+
+            return {{ active_count }};
+
+        }
+
+        const employees =
+            getSelectedEmployeeEmails().length;
+
+        const custom =
+            getCustomEmails().length;
+
+        /*
+         * Now department totals are calculated precisely!
+         */
+        const departments =
+            getSelectedDepartments();
+
+        return employees + custom + departments;
+
+    }
+
+
+    function updateAudience() {
+
+        const employees =
+            getSelectedEmployeeEmails().length;
+
+        const departments =
+            getSelectedDepartmentNames().length;
+            
+        const departmentRecipients = getSelectedDepartments();
+
+        const custom =
+            getCustomEmails().length;
+
+
+        if (sendToAll.checked) {
+
+            recipientCount.textContent =
+                "{{ active_count }}";
+
+            audienceStatus.textContent =
+                "{{ active_count }} active employees";
+
+            audienceSummaryTitle.textContent =
+                "Everyone active";
+
+            audienceSummaryDescription.textContent =
+                "The announcement will be sent to every active employee.";
+
+            sendStateTitle.textContent =
+                "Company-wide announcement";
+
+            sendStateDescription.textContent =
+                "This is a bulk send and will require Admin approval.";
+
+            return;
+        }
+
+
+        const count =
+            employees + custom + departmentRecipients;
+
+
+        if (!departments && !employees && !custom) {
+
+            recipientCount.textContent = "0";
+
+            audienceStatus.textContent =
+                "No recipients selected";
+
+            audienceSummaryTitle.textContent =
+                "Choose your audience";
+
+            audienceSummaryDescription.textContent =
+                "Recipients will appear here as you select them.";
+
+            sendStateTitle.textContent =
+                "Ready to compose";
+
+            sendStateDescription.textContent =
+                "Select at least one recipient.";
+
+            return;
+        }
+
+
+        let summary = [];
+
+
+        if (departments) {
+            summary.push(
+                `${departments} department${departments > 1 ? "s" : ""}`
+            );
+        }
+
+
+        if (employees) {
+            summary.push(
+                `${employees} employee${employees > 1 ? "s" : ""}`
+            );
+        }
+
+
+        if (custom) {
+            summary.push(
+                `${custom} custom email${custom > 1 ? "s" : ""}`
+            );
+        }
+
+
+        recipientCount.textContent = count;
+
+        audienceStatus.textContent =
+            summary.join(" · ");
+
+        audienceSummaryTitle.textContent =
+            `${summary.join(" + ")} selected`;
+
+        audienceSummaryDescription.textContent =
+            `${count} recipient${count !== 1 ? "s" : ""} will receive this message.`;
+
+
+        if (isBulkSend(count)) {
+
+            sendStateTitle.textContent =
+                "Admin approval required";
+
+            sendStateDescription.textContent =
+                "Bulk messages are queued for review before delivery.";
+
+        } else {
+
+            sendStateTitle.textContent =
+                "Ready to send";
+
+            sendStateDescription.textContent =
+                "This message can be sent immediately.";
+
+        }
+
+    }
+
+
+    /* =====================================================
+       LIVE PREVIEW
+    ===================================================== */
+
+    function updatePreview() {
+
+        const subject =
+            subjectInp.value.trim();
+
+        const body =
+            bodyInp.value.trim();
+
+
+        previewSubject.textContent =
+            subject || "Your announcement subject";
+
+
+        if (!body) {
+
+            previewBody.innerHTML = `
+                <div class="preview-placeholder">
+                    <div class="placeholder-icon">✦</div>
+                    <strong>Your message will appear here</strong>
+                    <span>Start typing to see a live preview.</span>
+                </div>
+            `;
+
+            return;
+        }
+
+
+        /*
+         * Task 4 explicitly supports HTML message bodies,
+         * so render the authored HTML inside the preview.
+         */
+        previewBody.innerHTML = body;
+
+    }
+
+
+    /* =====================================================
+       CHARACTER COUNT
+    ===================================================== */
+
+    function updateCharacterCount() {
+
+        const length =
+            bodyInp.value.length;
+
+        characterCount.textContent =
+            `${length.toLocaleString()} characters`;
+
+    }
+
+
+    /* =====================================================
+       TOGGLE ALL EMPLOYEES
+    ===================================================== */
+
+    function toggleRecipientMode() {
+
+        if (sendToAll.checked) {
+
+            recipientGroups.style.opacity = ".35";
+            recipientGroups.style.pointerEvents = "none";
+
+            deptChoices.disable();
+            empChoices.disable();
+
+            customEmails.disabled = true;
+
+        } else {
+
+            recipientGroups.style.opacity = "1";
+            recipientGroups.style.pointerEvents = "auto";
+
+            deptChoices.enable();
+            empChoices.enable();
+
+            customEmails.disabled = false;
+
+        }
+
+        updateAudience();
+
+    }
+
+
+    /* =====================================================
+       TEMPLATE LOADING
+    ===================================================== */
+
+    templateSelect.addEventListener(
+        "change",
+        async function () {
+
+            if (!this.value) {
+
+                subjectInp.value = "";
+                bodyInp.value = "";
+
+                updatePreview();
+                updateCharacterCount();
+
+                return;
+            }
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        `/hrms/announcements/templates/${this.value}`
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (data && !data.error) {
+
+                    subjectInp.value =
+                        data.subject || "";
+
+                    bodyInp.value =
+                        data.body_html || "";
+
+
+                    updatePreview();
+                    updateCharacterCount();
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Unable to load template:",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+    clearTemplate.addEventListener(
+        "click",
+        function () {
+
+            templateSelect.value = "";
+
+            subjectInp.value = "";
+            bodyInp.value = "";
+
+            updatePreview();
+            updateCharacterCount();
+
+        }
+    );
+
+
+    /* =====================================================
+       LISTENERS
+    ===================================================== */
+
+    sendToAll.addEventListener(
+        "change",
+        toggleRecipientMode
+    );
+
+
+    subjectInp.addEventListener(
+        "input",
+        updatePreview
+    );
+
+
+    bodyInp.addEventListener(
+        "input",
+        function () {
+
+            updatePreview();
+            updateCharacterCount();
+
+        }
+    );
+
+
+    customEmails.addEventListener(
+        "input",
+        updateAudience
+    );
+
+
+    departmentSelect.addEventListener(
+        "change",
+        updateAudience
+    );
+
+
+    singleEmail.addEventListener(
+        "change",
+        updateAudience
+    );
+
+
+    /* =====================================================
+       SEND MODAL
+    ===================================================== */
+
+    const sendModal =
+        document.getElementById("sendModal");
+
+    const closeSendModal =
+        document.getElementById("closeSendModal");
+
+    const cancelSend =
+        document.getElementById("cancelSend");
+
+    const confirmSend =
+        document.getElementById("confirmSend");
+
+    const modalRecipientCount =
+        document.getElementById("modalRecipientCount");
+
+    const modalQuotaUsage =
+        document.getElementById("modalQuotaUsage");
+
+    const modalApprovalState =
+        document.getElementById("modalApprovalState");
+
+    const modalWarning =
+        document.getElementById("modalWarning");
+
+
+    function closeModal() {
+
+        sendModal.classList.remove("show");
+
+    }
+
+
+    function openModal() {
+
+        const count =
+            calculateRecipientCount();
+
+        const bulk =
+            isBulkSend(count);
+
+
+        modalRecipientCount.textContent =
+            count;
+
+
+        modalQuotaUsage.textContent =
+            count;
+
+
+        modalApprovalState.textContent =
+            bulk
+                ? "Admin approval"
+                : "Immediate";
+
+
+        if (bulk) {
+
+            modalWarning.textContent =
+                "This message is a bulk send. It will enter the Admin approval queue before Gmail delivery.";
+
+        } else {
+
+            modalWarning.textContent =
+                "This message targets a single recipient and can be sent immediately.";
+
+        }
+
+
+        sendModal.classList.add("show");
+
+    }
+
+
+    sendBtn.addEventListener(
+        "click",
+        function () {
+
+            if (!subjectInp.value.trim()) {
+
+                showToast("Please enter an email subject.", "error");
+
+                subjectInp.focus();
+
+                return;
+            }
+
+
+            if (!bodyInp.value.trim()) {
+
+                showToast("Please enter a message.", "error");
+
+                bodyInp.focus();
+
+                return;
+            }
+
+
+            const departments =
+                getSelectedDepartmentNames();
+
+            const employees =
+                getSelectedEmployeeEmails();
+
+            const custom =
+                getCustomEmails();
+
+
+            if (
+                !sendToAll.checked &&
+                departments.length === 0 &&
+                employees.length === 0 &&
+                custom.length === 0
+            ) {
+
+                showToast("Please select at least one recipient.", "error");
+
+                return;
+            }
+
+
+            openModal();
+
+        }
+    );
+
+
+    closeSendModal.addEventListener(
+        "click",
+        closeModal
+    );
+
+
+    cancelSend.addEventListener(
+        "click",
+        closeModal
+    );
+
+
+    sendModal.addEventListener(
+        "click",
+        function (event) {
+
+            if (event.target === sendModal) {
+                closeModal();
+            }
+
+        }
+    );
+
+
+    /* =====================================================
+       FINAL SEND
+    ===================================================== */
+
+    confirmSend.addEventListener(
+        "click",
+        async function () {
+
+            confirmSend.disabled = true;
+
+            confirmSend.innerHTML =
+                `
+                <span class="spinner"></span>
+                Sending...
+                `;
+
+
+            const formData =
+                new FormData(form);
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/hrms/announcements/send",
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (data.success) {
+                    confirmSend.innerHTML = `Success!`;
+                    confirmSend.style.background = "#22c55e";
+                    confirmSend.style.borderColor = "#22c55e";
+                    confirmSend.style.color = "#ffffff";
+                    
+                    modalWarning.innerHTML = `<strong style="color: #4ade80;">${data.message || "Announcement queued successfully."}</strong>`;
+                    
+                    setTimeout(() => location.reload(), 1500);
+                    return;
+                }
+
+                modalWarning.innerHTML = `<strong style="color: #ef4444;">Error: ${data.error || "Unknown error."}</strong>`;
+                confirmSend.disabled = false;
+                confirmSend.textContent = "Confirm & Send";
+            } catch (error) {
+                console.error(error);
+                modalWarning.innerHTML = `<strong style="color: #ef4444;">Server error while sending the announcement.</strong>`;
+                confirmSend.disabled = false;
+                confirmSend.textContent = "Confirm & Send";
+            }
+
+        }
+    );
+
+
+    /* =====================================================
+       INITIAL STATE
+    ===================================================== */
+
+    toggleRecipientMode();
+    updatePreview();
+    updateCharacterCount();
+    updateAudience();
+
+});
+</script>
+
+{% endblock %}

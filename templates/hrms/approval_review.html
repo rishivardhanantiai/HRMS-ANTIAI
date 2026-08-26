@@ -117,6 +117,44 @@
             <span style="color:#94a3b8;font-style:italic;">No previous content.</span>
         {% endif %}
     </div>
+    {% elif req.action_type == 'bulk_send' %}
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 22px; margin-bottom: 20px;">
+        <div style="margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
+            <strong style="color: #94a3b8; display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Subject</strong>
+            <div style="color: #f8fafc; font-size: 17px; font-weight: 600;">{{ req.payload_after.subject }}</div>
+        </div>
+        <div style="margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
+            <strong style="color: #94a3b8; display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Recipients ({{ req.payload_after.recipients|length }})</strong>
+            <div style="max-height: 120px; overflow-y: auto; font-size: 13.5px; color: #cbd5e1; line-height: 1.6; background: rgba(2,6,23,0.3); padding: 10px; border-radius: 8px;">
+                {% for rcpt in req.payload_after.recipients %}
+                    <span style="display:inline-block; margin-right: 12px;">
+                        <span style="color: #f8fafc; font-weight: 500;">{{ rcpt.name }}</span> <span style="color: #94a3b8;">&lt;{{ rcpt.email }}&gt;</span>{% if not loop.last %},{% endif %}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <strong style="color: #94a3b8; display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Email Body Preview</strong>
+            <div style="background: #f1f5f9; padding: 32px 12px; border-radius: 8px; font-family: 'Segoe UI', Helvetica, Arial, sans-serif;">
+                <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(15,23,42,0.08);">
+                    <div style="background: linear-gradient(135deg, #020617, #0b1220); padding: 28px 32px; text-align: center;">
+                        <img src="/static/images/logo.png" alt="Anti AI" width="52" style="display: block; margin: 0 auto 10px; border-radius: 8px;">
+                        <div style="color: #ffffff; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">Anti AI &middot; Human Resources</div>
+                    </div>
+                    <div style="padding: 34px 32px 8px;">
+                        <h1 style="margin: 0 0 6px; color: #0f172a; font-size: 21px; font-weight: 700;">{{ req.payload_after.subject }}</h1>
+                    </div>
+                    <div style="padding: 0 32px 30px; color: #334155; font-size: 14.5px; line-height: 1.65;">
+                        {{ req.payload_after.body_html | safe }}
+                    </div>
+                    <div style="padding: 20px 32px 28px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 12px; line-height: 1.6;">
+                        This is an automated message from the HR team. Please do not reply directly to this email.<br>
+                        &copy; Anti AI. All rights reserved.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     {% else %}
     <div class="diff-container">
         <div class="diff-col">
@@ -132,7 +170,13 @@
 
     <div class="action-card">
         <div class="btn-row">
-            <button class="btn-mini primary" onclick="resolveRequest('Approved')">Approve Change</button>
+            <button class="btn-mini primary" onclick="resolveRequest('Approved')">
+                {% if req.action_type == 'bulk_send' %}
+                    Approve Send
+                {% else %}
+                    Approve Change
+                {% endif %}
+            </button>
             <button class="btn-mini danger" onclick="toggleComments()">Reject</button>
         </div>
         <textarea id="commentsBox" placeholder="Why is this being rejected? (Required)"></textarea>
