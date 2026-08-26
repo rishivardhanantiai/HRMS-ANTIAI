@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="page-title">Edit Job</h1>
+
+<div class="card" style="max-width:600px;">
+
+    <form method="POST" action="{{ url_for('edit_job', job_id=job.id) }}">
+        <input type="text" name="title" value="{{ job.title }}" required>
+        <textarea name="description" required>{{ job.description }}</textarea>
+        <input type="text" name="location" value="{{ job.location }}" required>
+        <input type="text" name="department" value="{{ job.department or '' }}" placeholder="Department (optional)">
+
+        <button type="submit">Update Job</button>
+    </form>
+
+    <a href="{{ url_for('jobs') }}">← Back to Jobs</a>
+</div>
+
+{% endblock %}

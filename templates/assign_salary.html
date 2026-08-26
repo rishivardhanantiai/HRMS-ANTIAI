@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="page-title">Assign Salary</h2>
+
+<div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+    <a href="/salary-records" class="btn-primary">View Assigned Salaries</a>
+</div>
+
+<div class="card form-card">
+
+    <form method="POST" action="{{ url_for('salary.assign_employee_salary') }}" class="form-grid">
+
+        <div class="form-group">
+            <label>Employee</label>
+            <select name="employee_id" required>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}">{{ emp.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Salary Structure</label>
+            <select name="structure_id">
+                <option value="">Select Structure (Optional)</option>
+                {% for struct in salary_structures %}
+                <option value="{{ struct.id }}">{{ struct.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Monthly Salary (₹)</label>
+            <input type="number" name="monthly_salary" id="salary_input" required class="no-arrow" min="1">
+            <p id="salary_words" style="margin-top:6px; color:#888; font-size:13px;"></p>
+        </div>
+
+        <div class="form-group">
+            <label>Effective From</label>
+            <input type="date" name="effective_from" id="effective_date" required>
+            <p id="date_words" style="margin-top:6px; color:#888; font-size:13px;"></p>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="primary-btn">
+                Assign Salary
+            </button>
+        </div>
+
+    </form>
+
+</div>
+<script>
+
+function numberToWords(num) {
+
+const a = ['', 'One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+
+const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+if ((num = num.toString()).length > 9) return 'Overflow';
+
+let n = ('000000000' + num).substr(-9).match(/.{1,2}/g);
+
+let str = '';
+
+str += (Number(n[0]) != 0) ? (a[Number(n[0])] || b[n[0][0]] + ' ' + a[n[0][1]]) + ' Crore ' : '';
+str += (Number(n[1]) != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + ' Lakh ' : '';
+str += (Number(n[2]) != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + ' Thousand ' : '';
+str += (Number(n[3]) != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + ' Hundred ' : '';
+str += (Number(n[4]) != 0) ? ((str != '') ? 'and ' : '') + 
+(a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + ' ' : '';
+
+return str + 'Rupees Only';
+
+}
+
+document.getElementById("salary_input").addEventListener("input", function() {
+
+let num = this.value;
+
+if(num){
+document.getElementById("salary_words").innerText = numberToWords(num);
+}else{
+document.getElementById("salary_words").innerText = "";
+}
+
+});
+
+</script>
+<script>
+
+document.getElementById("effective_date").addEventListener("change", function(){
+
+let dateValue = this.value;
+
+if(dateValue){
+
+let dateObj = new Date(dateValue);
+
+let options = { day: 'numeric', month: 'long', year: 'numeric' };
+
+let formatted = dateObj.toLocaleDateString('en-IN', options);
+
+document.getElementById("date_words").innerText = formatted;
+
+}else{
+
+document.getElementById("date_words").innerText = "";
+
+}
+
+});
+
+</script>
+{% endblock %}

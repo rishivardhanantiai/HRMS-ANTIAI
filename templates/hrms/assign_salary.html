@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2 class="page-title">Assign Salary</h2>
+
+<div class="card form-card">
+
+    <form method="POST" class="form-grid">
+
+        <div class="form-group">
+            <label>Employee</label>
+
+            <select name="employee_id" required>
+
+                {% for emp in employees %}
+
+                <option value="{{ emp.id }}">
+                    #{{ emp.id }} - {{ emp.full_name }} ({{ emp.designation if emp.designation else "Employee" }})
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+        <div class="form-group">
+            <label>Salary Structure</label>
+            <select name="structure_id">
+                <option value="">Select Structure (Optional)</option>
+                {% for struct in salary_structures %}
+                <option value="{{ struct.id }}">{{ struct.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Monthly Salary (₹)</label>
+            <input type="number" name="monthly_salary" placeholder="Enter salary" required min="1">
+        </div>
+
+        <div class="form-group">
+            <label>Effective From</label>
+            <input type="date" name="effective_from" required>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="primary-btn">
+                Assign Salary
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <h2>Attendance</h2>
+    </div>
+
+    <div class="hrms-card">
+
+        <form method="POST">
+
+            <!-- Employee Dropdown (Only HR/Admin) -->
+            {% if employees %}
+            <label>Employee</label>
+            <select name="employee_id" required>
+                {% for emp in employees %}
+                <option value="{{ emp.id }}">
+                    {{ emp.full_name }}
+                </option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <label>Date</label>
+            <input type="date" name="attendance_date" required>
+
+            <label>Status</label>
+            <select name="status">
+                <option>Present</option>
+                <option>Absent</option>
+                <option>WFH</option>
+                <option>Half Day</option>
+            </select>
+
+            <label>Remarks</label>
+            <input type="text" name="remarks" placeholder="Optional remarks">
+
+            <button type="submit">Mark Attendance</button>
+
+        </form>
+
+    </div>
+
+
+    <div class="hrms-card mt-4">
+
+        <table class="hrms-table">
+
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for a in attendance %}
+                <tr>
+                    <td>{{ a.full_name }}</td>
+                    <td>{{ a.attendance_date }}</td>
+                    <td>{{ a.status }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align:center;">
+                        No attendance records found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}

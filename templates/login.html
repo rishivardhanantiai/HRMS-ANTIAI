@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ role }} Login</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+
+<style>
+
+.toast-container{
+position: fixed;
+top: 25px;
+right: 25px;
+z-index: 9999;
+}
+
+.toast{
+padding:14px 18px;
+border-radius:10px;
+margin-bottom:10px;
+box-shadow:0 8px 25px rgba(0,0,0,0.4);
+animation:slideIn 0.4s ease;
+font-size:14px;
+min-width:220px;
+}
+
+.toast.error{
+background:#ef4444;
+color:white;
+}
+
+.toast.success{
+background:#22c55e;
+color:white;
+}
+
+@keyframes slideIn{
+from{
+transform:translateX(100%);
+opacity:0;
+}
+to{
+transform:translateX(0);
+opacity:1;
+}
+}
+
+@media (max-width: 768px){
+.login-page{
+min-height:100vh;
+display:flex;
+flex-direction:column;
+justify-content:flex-start;
+align-items:center;
+padding:24px 14px 30px;
+}
+
+.login-logo{
+position:static;
+transform:none;
+margin:0 auto 12px;
+}
+
+.login-logo img{
+width:74px;
+}
+
+.login-card{
+width:min(420px,100%);
+padding:24px 18px;
+}
+
+.login-title{
+font-size:28px;
+letter-spacing:2px;
+margin-bottom:20px;
+}
+
+.login-card button{
+width:100%;
+}
+
+.toast-container{
+right:12px;
+left:12px;
+top:12px;
+}
+
+.toast{
+min-width:0;
+width:100%;
+}
+}
+
+</style>
+
+</head>
+<body>
+
+<!-- ================= TOAST POPUP ================= -->
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="toast-container">
+    {% for category, message in messages %}
+    <div class="toast {{category}}">
+        {{message}}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="login-page">
+
+    <!-- LOGO -->
+    <div class="login-logo">
+        <img src="/static/images/logo.png" alt="Logo">
+    </div>
+
+    <!-- LOGIN CARD -->
+    <div class="card login-card">
+        <h1 class="login-title">{{ role }} LOGIN</h1>
+
+        <form method="POST">
+
+            <!-- Email -->
+            <input 
+                type="email" 
+                name="email" 
+                placeholder="Email Address" 
+                required
+                autocomplete="off"
+            >
+
+            <!-- Password -->
+            <input 
+                type="password" 
+                name="password" 
+                placeholder="Password" 
+                required
+                autocomplete="off"
+            >
+
+            <!-- Submit -->
+            <button type="submit">
+                Login
+            </button>
+
+        </form>
+
+        <!-- Back to Role Selection -->
+        <div style="margin-top:15px; text-align:center;">
+            <a href="/" style="font-size:13px; opacity:0.7; text-decoration:none;">
+                ← Back to Role Selection
+            </a>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- AUTO HIDE TOAST -->
+
+<script>
+
+setTimeout(() => {
+
+let toasts = document.querySelectorAll(".toast");
+
+toasts.forEach(t => {
+
+t.style.transition = "opacity 0.5s";
+
+t.style.opacity = "0";
+
+setTimeout(()=>t.remove(),500);
+
+});
+
+},3000);
+
+</script>
+
+</body>
+</html>

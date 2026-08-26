@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 900px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #94a3b8; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .back-link:hover { color: #fff; }
+    .hrms-title { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 22px; }
+
+    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; margin-left: 10px; vertical-align: middle; }
+    .st-draft { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .st-pending { background: rgba(234,179,8,0.15); color: #eab308; }
+    .st-changes { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .st-approved { background: rgba(59,130,246,0.15); color: #38bdf8; }
+    .st-sent { background: rgba(168,85,247,0.15); color: #c084fc; }
+    .st-signed { background: rgba(250,204,21,0.15); color: #facc15; }
+    .st-countersigned { background: rgba(34,197,94,0.15); color: #22c55e; }
+
+    .letter-paper {
+        background: #fff; color: #111111; border-radius: 10px; padding: 44px 48px; margin-bottom: 20px;
+        font-family: 'Times New Roman', Georgia, serif; font-size: 14.5px; line-height: 1.65;
+        max-height: 760px; overflow-y: auto; position: relative; text-align: justify;
+    }
+    .letter-paper .watermark {
+        position: absolute; top: 260px; left: 50%; transform: translateX(-50%);
+        width: 480px; opacity: 0.07; pointer-events: none; z-index: 0;
+    }
+    .letter-header {
+        display: flex; align-items: center; gap: 16px; margin-bottom: 6px; position: relative; z-index: 1;
+    }
+    .letter-header img { width: 90px; height: auto; }
+    .letter-header .co-name { font-size: 22px; font-weight: 700; color: #111111; font-family: 'Times New Roman', Georgia, serif; }
+    .letter-header .co-addr { font-size: 11.5px; font-weight: 700; color: #111111; margin-top: 3px; }
+    .letter-header-rule { border: none; border-top: 2.5px solid #111; margin: 8px 0 20px; position: relative; z-index: 1; }
+    .doc-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 0 0 20px; position: relative; z-index: 1; }
+    .letter-body { position: relative; z-index: 1; }
+    .letter-body h3 { font-size: 15.5px; font-weight: 700; margin: 22px 0 8px; }
+    .letter-body p { margin: 0 0 10px; }
+    .letter-body .sec-divider { border: none; border-top: 1.4px solid #111; margin: 12px 0 4px; }
+    .letter-paper h2, .letter-paper h3 { color: #111111; }
+    .letter-paper table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; }
+    .letter-paper table th, .letter-paper table td { border: 1px solid #333; padding: 8px 10px; font-size: 12.5px; }
+    .letter-paper table th { background: #f0f0f0; text-align: left; font-weight: 700; }
+    .letter-footer {
+        display: flex; margin-top: 44px; position: relative; z-index: 1; font-size: 11.5px; color: #111111;
+    }
+    .letter-footer > div { flex: 1; border: 1px solid #333; padding: 10px 12px; min-height: 40px; }
+    .letter-footer > div:first-child { border-right: none; }
+
+    .action-card { background: #0f172a; border-radius: 12px; padding: 22px; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-mini {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 9px 16px; border-radius: 7px; font-size: 0.85rem; cursor: pointer; text-decoration: none; font-weight: 600;
+    }
+    .btn-mini:hover { background: #334155; }
+    .btn-mini.primary { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-mini.primary:hover { background: #15803d; }
+    .btn-mini.danger { background: transparent; border-color: #7f1d1d; color: #f87171; }
+    .btn-mini.danger:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    textarea {
+        width: 100%; background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 10px 12px; border-radius: 8px; outline: none; font-size: 0.9rem; font-family: inherit;
+        min-height: 80px; margin-bottom: 12px; resize: vertical; display: none;
+    }
+</style>
+
+<div class="hrms-wrapper">
+    <a class="back-link" href="/hrms/offers/">← Back to Offer Letters</a>
+
+    <div class="hrms-title">
+        Offer for {{ offer.candidate_name }}
+        {% if offer.status == 'Draft' %}<span class="status-badge st-draft">Draft</span>
+        {% elif offer.status == 'Pending Approval' %}<span class="status-badge st-pending">Pending Approval</span>
+        {% elif offer.status == 'Changes Requested' %}<span class="status-badge st-changes">Changes Requested</span>
+        {% elif offer.status == 'Approved' %}<span class="status-badge st-approved">Approved</span>
+        {% elif offer.status == 'Sent' %}<span class="status-badge st-sent">Sent for Signature</span>
+        {% elif offer.status == 'Signed' %}<span class="status-badge st-signed">Awaiting HR Countersign</span>
+        {% elif offer.status == 'Countersigned' %}<span class="status-badge st-countersigned">Fully Executed</span>
+        {% endif %}
+    </div>
+    <div class="hrms-subtitle">{{ offer.designation }}{% if offer.department %} &middot; {{ offer.department }}{% endif %} &middot; {{ offer.candidate_email }}</div>
+
+    <div class="letter-paper">
+        <img class="watermark" src="/static/images/logo_globe_watermark.png" alt="">
+        <div class="letter-header">
+            <img src="/static/images/logo_wordmark.png" alt="">
+            <div>
+                <div class="co-name">ANTI.AI PRIVATE LIMITED</div>
+                <div class="co-addr">73, Rose Villa, Rajendra Nagar, Bharatpur</div>
+            </div>
+        </div>
+        <hr class="letter-header-rule">
+        <div class="doc-title">
+            {% if offer.offer_type == 'Contract' %}CONTRACT AGREEMENT
+            {% elif offer.offer_type == 'Intern' %}INTERNSHIP AGREEMENT
+            {% else %}OFFER LETTER{% endif %}
+        </div>
+        <div class="letter-body">{{ offer.content_html | safe }}</div>
+        <div class="letter-footer">
+            <div>HR Signature</div>
+            <div>Candidate Signature</div>
+        </div>
+    </div>
+
+    <div class="action-card">
+        {% if is_admin and offer.status == 'Pending Approval' %}
+            <div class="btn-row">
+                <button class="btn-mini primary" onclick="approveOffer()">Approve</button>
+                <button class="btn-mini danger" onclick="toggleComments()">Request Changes</button>
+            </div>
+            <textarea id="commentsBox" placeholder="What needs to change?"></textarea>
+            <div class="btn-row" id="commentsSubmitRow" style="display:none;">
+                <button class="btn-mini danger" onclick="requestChanges()">Send Change Request</button>
+            </div>
+        {% elif offer.status == 'Pending Approval' %}
+            <p style="color:#94a3b8; font-size:13.5px;">Waiting on Admin review.</p>
+        {% elif offer.status == 'Signed' %}
+            <p style="color:#94a3b8; font-size:13.5px; margin-bottom:14px;">
+                Candidate signed as <strong style="color:#e2e8f0;">{{ offer.signed_name }}</strong>
+                on {{ offer.signed_at }} from IP {{ offer.signed_ip }}. It now needs your countersignature
+                as HR before the NDA goes out.
+            </p>
+            <label style="display:block;font-size:12.5px;color:#94a3b8;margin-bottom:6px;font-weight:600;">Type your name to countersign</label>
+            <input type="text" id="hrSignName" placeholder="Your full name" style="width:100%;max-width:320px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:10px 12px;border-radius:8px;margin-bottom:12px;">
+            <div class="btn-row">
+                <button class="btn-mini primary" onclick="countersign()">Countersign Offer</button>
+            </div>
+        {% elif offer.status == 'Countersigned' %}
+            <p style="color:#94a3b8; font-size:13.5px;">
+                Fully executed — signed by <strong style="color:#e2e8f0;">{{ offer.signed_name }}</strong>
+                and countersigned by <strong style="color:#e2e8f0;">{{ offer.hr_signed_name }}</strong>.
+                {% if offer.pdf_url %}<br><a href="{{ offer.pdf_url }}" target="_blank" style="color:#38bdf8;">Download signed PDF</a>{% endif %}
+            </p>
+        {% elif offer.status == 'Sent' %}
+            <p style="color:#94a3b8; font-size:13.5px;">Sent to the candidate for e-signature — waiting on them.</p>
+        {% else %}
+            <p style="color:#94a3b8; font-size:13.5px;">Edit or submit this draft from the Offer Letters list.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleComments() {
+    const box = document.getElementById("commentsBox");
+    const row = document.getElementById("commentsSubmitRow");
+    const show = box.style.display !== "block";
+    box.style.display = show ? "block" : "none";
+    row.style.display = show ? "flex" : "none";
+}
+
+async function approveOffer() {
+    window.customConfirm("Approve Offer", "Approve this offer letter? HR will be notified they can send it for e-signature.", async () => {
+        const res = await fetch(`/hrms/offers/{{ offer.id }}/approve`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, "error"); }
+        else { showToast("Offer approved!", "success"); setTimeout(() => location.reload(), 900); }
+    }, { confirmLabel: "Yes, Approve", safe: true });
+}
+
+async function countersign() {
+    const name = document.getElementById("hrSignName").value.trim();
+    if (!name) { showToast("Please type your name to countersign.", "error"); return; }
+    const fd = new FormData();
+    fd.append("hr_signed_name", name);
+    const res = await fetch(`/hrms/offers/{{ offer.id }}/countersign`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); }
+    else { showToast("Countersigned! NDA sent to the candidate.", "success"); setTimeout(() => location.reload(), 900); }
+}
+
+async function requestChanges() {
+    const comments = document.getElementById("commentsBox").value.trim();
+    if (!comments) { showToast("Please describe what needs to change.", "error"); return; }
+    const fd = new FormData();
+    fd.append("comments", comments);
+    const res = await fetch(`/hrms/offers/{{ offer.id }}/request-changes`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); }
+    else { showToast("Change request sent to HR.", "success"); setTimeout(() => location.reload(), 900); }
+}
+</script>
+
+{% endblock %}

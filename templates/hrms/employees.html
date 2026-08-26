@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    /* ===== WRAPPER ===== */
+    .hrms-wrapper {
+        padding: 30px;
+        max-width: 1300px;
+        margin: 0 auto;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* ===== HEADER ===== */
+    .hrms-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .hrms-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .btn-add {
+        background: #3b82f6;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: .3s;
+    }
+
+    .btn-add:hover {
+        background: #2563eb;
+    }
+
+    /* ===== STATS GRID ===== */
+    .stats-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        background: #0f172a;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        flex: 1 1 15%;
+        min-width: 150px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-card .val {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .stat-card .lbl {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .val-blue {
+        color: #38bdf8;
+    }
+
+    .val-green {
+        color: #22c55e;
+    }
+
+    .val-red {
+        color: #ef4444;
+    }
+
+    .val-yellow {
+        color: #eab308;
+    }
+
+    .val-purple {
+        color: #a855f7;
+    }
+
+    /* ===== FILTERS BAR ===== */
+    .filters-bar {
+        background: #0f172a;
+        padding: 15px 20px;
+        border-radius: 12px;
+        display: flex;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .filters-bar input,
+    .filters-bar select {
+        background: #1e293b;
+        border: 1px solid #334155;
+        color: #cbd5e1;
+        padding: 10px 15px;
+        border-radius: 8px;
+        outline: none;
+        flex: 1;
+        font-size: 0.9rem;
+    }
+
+    .filters-bar input::placeholder {
+        color: #64748b;
+    }
+
+    /* ===== CARD ===== */
+    .hrms-card {
+        background: #0f172a;
+        border-radius: 12px;
+        padding: 20px;
+    }
+
+    /* ===== TABLE ===== */
+    .employees-table-wrap {
+        overflow-x: auto;
+    }
+    
+    .hrms-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .hrms-table thead th {
+        color: #94a3b8;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding-bottom: 15px;
+        text-align: left;
+        border-bottom: 1px solid #1e293b;
+        letter-spacing: 0.5px;
+    }
+
+    .hrms-table tbody tr {
+        background: transparent;
+        transition: .3s ease;
+        border-bottom: 1px solid #1e293b;
+    }
+
+    .hrms-table tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    .hrms-table tbody tr:hover {
+        background: #1e293b;
+    }
+
+    .hrms-table td {
+        padding: 15px 10px;
+        border: none;
+        color: #e2e8f0;
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+
+    .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #475569;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: #fff;
+        margin-right: 12px;
+        font-size: 14px;
+    }
+
+    .emp-name-cell {
+        display: flex;
+        align-items: center;
+    }
+
+    .emp-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .emp-info .name {
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 2px;
+    }
+
+    .emp-info .sub {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    /* ===== STATUS ===== */
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .status-active {
+        background: rgba(34, 197, 94, 0.15);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .status-inactive {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-warning {
+        background: rgba(234, 179, 8, 0.15);
+        color: #eab308;
+        border: 1px solid rgba(234, 179, 8, 0.3);
+    }
+
+    /* ===== DROPDOWN ===== */
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        margin-top: 5px;
+        background-color: #1e293b;
+        min-width: 230px;
+        box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.6);
+        z-index: 9999;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        overflow: hidden;
+        text-align: left;
+    }
+
+    .dropdown-content.dropup {
+        top: auto;
+        bottom: 100%;
+        margin-top: 0;
+        margin-bottom: 5px;
+        box-shadow: 0px -10px 25px rgba(0, 0, 0, 0.6);
+    }
+
+    .dropdown-content a {
+        color: #cbd5e1;
+        padding: 10px 16px;
+        text-decoration: none;
+        display: block;
+        font-size: 0.85rem;
+        transition: 0.2s;
+    }
+
+    .dropdown-content a:hover {
+        background-color: #334155;
+        color: #fff;
+    }
+
+    .dropdown-content.show {
+        display: block;
+    }
+
+    .btn-more {
+        background: transparent;
+        color: #cbd5e1;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .btn-more:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.05);
+    }
+</style>
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+        <div class="hrms-title">Employee Directory</div>
+
+        <a href="/hrms/employees/add/ui" class="btn-add">
+            + Add Employee
+        </a>
+    </div>
+
+    <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+            <div class="val val-blue" id="st_total">0</div>
+            <div class="lbl">Total Employees</div>
+        </div>
+        <div class="stat-card">
+            <div class="val val-green" id="st_active">0</div>
+            <div class="lbl">Active</div>
+        </div>
+        <div class="stat-card">
+            <div class="val val-red" id="st_inactive">0</div>
+            <div class="lbl">Inactive</div>
+        </div>
+        <div class="stat-card">
+            <div class="val val-yellow" id="st_leave">0</div>
+            <div class="lbl">On Leave</div>
+        </div>
+        <div class="stat-card">
+            <div class="val val-blue" id="st_new">0</div>
+            <div class="lbl">New This Month</div>
+        </div>
+        <div class="stat-card">
+            <div class="val val-purple" id="st_docs">0</div>
+            <div class="lbl">Pending Docs</div>
+        </div>
+    </div>
+
+    <div class="filters-bar">
+        <input type="text" id="searchInput" placeholder="Search by name or ID..." onkeyup="filterEmployees()">
+        <select id="deptFilter" onchange="filterEmployees()">
+            <option value="">All Departments</option>
+            <option value="HR">HR</option>
+            <option value="Finance">Finance</option>
+            <option value="Technical">Technical</option>
+            <option value="Sales">Sales</option>
+            <option value="Operations">Operations</option>
+        </select>
+        <select id="statusFilter" onchange="filterEmployees()">
+            <option value="">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="On Leave">On Leave</option>
+        </select>
+        <select id="typeFilter" onchange="filterEmployees()">
+            <option value="">All Employment Types</option>
+            <option value="Full Time">Full Time</option>
+            <option value="Contract">Contract</option>
+        </select>
+    </div>
+
+    <div class="hrms-card">
+        <div class="employees-table-wrap">
+            <table class="hrms-table">
+                <thead>
+                    <tr>
+                        <th style="padding-left: 10px;">Employee</th>
+                        <th>Department</th>
+                        <th>Designation</th>
+                        <th>Manager</th>
+                        <th>Join Date</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="employees-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let allEmployees = [];
+
+    async function loadEmployees() {
+        const tbody = document.getElementById("employees-table");
+        tbody.innerHTML = "";
+
+        const res = await fetch("/hrms/employees/list");
+        const data = await res.json();
+        allEmployees = data.employees;
+
+        // Calculate Stats
+        let total = allEmployees.length;
+        let active = 0, inactive = 0, newThisMonth = 0, onLeave = 0;
+
+        let depts = new Set();
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+
+        allEmployees.forEach(emp => {
+            if (emp.status === "Active") active++;
+            else if (emp.status === "Inactive") inactive++;
+            else if (emp.status === "On Leave") onLeave++;
+
+            if (emp.department) depts.add(emp.department);
+
+            if (emp.joining_date) {
+                let jd = new Date(emp.joining_date);
+                if (jd.getMonth() === currentMonth && jd.getFullYear() === currentYear) {
+                    newThisMonth++;
+                }
+            }
+        });
+
+        document.getElementById("st_total").innerText = total;
+        document.getElementById("st_active").innerText = active;
+        document.getElementById("st_inactive").innerText = inactive;
+        document.getElementById("st_new").innerText = newThisMonth;
+        document.getElementById("st_leave").innerText = onLeave;
+
+        // Fetch Pending Docs count from API
+        fetch("/hrms/employees/documents/api/pending")
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("st_docs").innerText = (data.documents || []).length;
+            })
+            .catch(err => console.error("Error loading pending docs count:", err));
+
+        // Keep predefined departments but add any dynamic ones
+        const deptSelect = document.getElementById("deptFilter");
+        const predefinedDepts = ["HR", "Finance", "Technical", "Sales", "Operations"];
+        depts.forEach(d => {
+            if (!predefinedDepts.includes(d) && d.trim() !== "") {
+                deptSelect.innerHTML += `<option value="${d}">${d}</option>`;
+            }
+        });
+
+        renderTable(allEmployees);
+    }
+
+    function filterEmployees() {
+        const q = document.getElementById("searchInput").value.toLowerCase();
+        const dept = document.getElementById("deptFilter").value;
+        const status = document.getElementById("statusFilter").value;
+        const type = document.getElementById("typeFilter").value;
+
+        const filtered = allEmployees.filter(emp => {
+            let matchQ = emp.full_name.toLowerCase().includes(q) || (emp.employee_code && emp.employee_code.toLowerCase().includes(q));
+            let matchD = dept === "" || emp.department === dept;
+            let matchS = status === "" || emp.status === status;
+            let matchT = type === "" || emp.employment_type === type;
+            return matchQ && matchD && matchS && matchT;
+        });
+
+        renderTable(filtered);
+    }
+
+    function renderTable(employees) {
+        const tbody = document.getElementById("employees-table");
+        tbody.innerHTML = "";
+
+        if (!employees.length) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#64748b; padding: 20px;">No employees found</td></tr>`;
+            return;
+        }
+
+        employees.forEach(emp => {
+            let init = emp.full_name.charAt(0).toUpperCase();
+            let code = emp.employee_code || `EMP${emp.id.toString().substring(0, 5)}`;
+            let dept = emp.department || "-";
+            let desig = emp.designation || "-";
+            let mgr = emp.manager_name || "N/A";
+            let jd = emp.joining_date ? emp.joining_date : "-";
+
+            tbody.innerHTML += `
+        <tr onclick="window.location.href='/hrms/employees/${emp.id}/profile?tab=profile'" style="cursor: pointer;">
+            <td style="padding-left: 10px;">
+                <div class="emp-name-cell">
+                    <div class="avatar">${init}</div>
+                    <div class="emp-info">
+                        <span class="name">${emp.full_name}</span>
+                        <span class="sub">${code} | ${emp.email}</span>
+                    </div>
+                </div>
+            </td>
+            <td>${dept}</td>
+            <td>${desig}</td>
+            <td>${mgr}</td>
+            <td>${jd}</td>
+            <td>
+                <span class="status-badge ${emp.status === "Active" ? "status-active" : (["On Leave", "Onboarding", "Offer Pending"].includes(emp.status) ? "status-warning" : "status-inactive")}">
+                    ${emp.status}
+                </span>
+            </td>
+            <td style="text-align:right;" onclick="event.stopPropagation();">
+                <div class="dropdown">
+                    <button class="btn-more" onclick="event.stopPropagation(); toggleDropdown(this);">More ▾</button>
+                    <div class="dropdown-content">
+                        <a href="/hrms/employees/${emp.id}/edit">✏️ Edit Employee</a>
+                        <a href="/hrms/employees/${emp.id}/profile?tab=profile">👤 View Profile</a>
+                        <a href="/hrms/employees/${emp.id}/profile?tab=docs">📄 Documents</a>
+                        <a href="/hrms/employees/${emp.id}/profile?tab=salary">💰 Salary Details</a>
+                        <a href="/hrms/employees/${emp.id}/profile?tab=leaves">🌴 Leave History</a>
+                        <a href="/hrms/employees/${emp.id}/profile?tab=performance">📊 Performance Evaluations</a>
+                        <a href="/hrms/performance/start/${emp.id}" style="color: #38bdf8;">⭐ Start Performance Evaluation</a>
+                        <a href="#" onclick="event.stopPropagation(); toggleStatus('${emp.id}', '${emp.status === 'Active' ? 'Inactive' : 'Active'}')">
+                            ${emp.status === 'Active' ? '⏸️ Deactivate Employee' : '▶️ Activate Employee'}
+                        </a>
+                        <a href="/hrms/exit/manage/${emp.id}" style="color: #f59e0b; border-top: 1px solid #1e293b; padding-top: 8px; margin-top: 5px;">🚪 Exit Management</a>
+                        ${(emp.exit_completed || emp.status === 'Exited') ? `
+                            <a href="#" onclick="event.stopPropagation(); deleteEmployee('${emp.id}')" style="color: #ef4444; border-top: 1px solid #1e293b;">
+                                🗑️ Delete Employee
+                            </a>
+                        ` : `
+                            <a href="#" onclick="event.stopPropagation(); showToast('Cannot delete employee! Exit management must be completed (Exit Closed) first.', 'warning');" style="color: #64748b; border-top: 1px solid #1e293b; cursor: not-allowed; opacity: 0.6;" title="Exit management must be completed before deleting this employee">
+                                🔒 Delete (Requires Exit Completion)
+                            </a>
+                        `}
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+        });
+    }
+
+    function toggleDropdown(button) {
+        const dropdownMenu = button.nextElementSibling;
+        const isShowing = dropdownMenu.classList.contains("show");
+
+        document.querySelectorAll(".dropdown-content").forEach(el => {
+            el.classList.remove("show");
+            el.classList.remove("dropup");
+        });
+
+        if (!isShowing) {
+            const rect = button.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            if (spaceBelow < 320) {
+                dropdownMenu.classList.add("dropup");
+            } else {
+                dropdownMenu.classList.remove("dropup");
+            }
+            dropdownMenu.classList.add("show");
+        }
+    }
+
+    window.onclick = function(event) {
+        if (!event.target.matches('.btn-more')) {
+            document.querySelectorAll(".dropdown-content").forEach(el => {
+                el.classList.remove("show");
+                el.classList.remove("dropup");
+            });
+        }
+    };
+
+    async function toggleStatus(id, status) {
+        const res = await fetch(`/hrms/employees/${id}/status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `status=${status}`
+        });
+        const data = await res.json();
+        if (data.error) {
+            showToast(data.error, "error");
+        } else {
+            showToast(data.message || "Status updated successfully!", "success");
+            loadEmployees();
+        }
+    }
+
+    function deleteEmployee(id) {
+        window.customConfirm("Delete Employee", "Are you sure you want to delete this employee? This action cannot be undone.", async () => {
+            const res = await fetch(`/hrms/employees/${id}/delete`, { method: "POST" });
+            const data = await res.json();
+            if (data.error) {
+                showToast(data.error, "error");
+            } else {
+                showToast("Employee deleted successfully!", "success");
+                loadEmployees();
+            }
+        });
+    }
+
+    loadEmployees();
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,947 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+/* Wizard Layout */
+.wizard-container {
+    display: flex;
+    height: calc(100vh - 80px); /* Adjust based on navbar */
+    background-color: #0b0f19;
+    color: #e5e7eb;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Sidebar */
+.wizard-sidebar {
+    width: 280px;
+    background-color: #111827;
+    border-right: 1px solid #1f2937;
+    padding: 30px 20px;
+}
+.wizard-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 30px;
+    color: #fff;
+}
+.wizard-step-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+}
+.wizard-step-nav::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 15px;
+    bottom: 30px;
+    width: 2px;
+    background: #374151;
+    z-index: 0;
+}
+.step-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 25px;
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+    color: #9ca3af;
+}
+.step-item.active {
+    color: #fff;
+}
+.step-item.completed .step-circle {
+    background: #10b981;
+    border-color: #10b981;
+}
+.step-item.active .step-circle {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+.step-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #1f2937;
+    border: 2px solid #4b5563;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 10px;
+    color: #fff;
+    transition: all 0.3s;
+}
+
+/* Main Content Area */
+.wizard-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.wizard-header {
+    padding: 30px 40px;
+    border-bottom: 1px solid #1f2937;
+}
+.wizard-header h2 {
+    margin: 0 0 8px 0;
+    font-size: 1.5rem;
+    color: #fff;
+}
+.wizard-header p {
+    margin: 0;
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+.wizard-content {
+    flex: 1;
+    padding: 40px;
+    overflow-y: auto;
+}
+
+/* Form Styles */
+.form-section {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d1d5db;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.form-label span.req { color: #ef4444; }
+.form-control, .form-select {
+    width: 100%;
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #f3f4f6;
+    border-radius: 8px;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+}
+.form-control:focus, .form-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+}
+
+/* Photo Upload */
+.photo-upload-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+.photo-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Footer / Sticky Navigation */
+.wizard-footer {
+    padding: 20px 40px;
+    background: #111827;
+    border-top: 1px solid #1f2937;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.btn-back {
+    background: #374151;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.btn-back:hover { background: #4b5563; }
+.btn-save {
+    background: transparent;
+    color: #9ca3af;
+    border: 1px solid #374151;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.btn-save:hover { color: #fff; border-color: #6b7280; }
+.btn-next {
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.btn-next:hover { background: #2563eb; }
+
+/* Grid layout for forms */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* Review Cards */
+.review-card {
+    background: #1f2937;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.review-card-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #374151;
+    padding-bottom: 10px;
+}
+.review-card-title { font-weight: 600; color: #fff; }
+.btn-edit-section { color: #3b82f6; cursor: pointer; font-size: 0.9rem; text-decoration: none; }
+.review-data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.review-data-item .lbl { color: #9ca3af; font-size: 0.85rem; margin-bottom: 4px; }
+.review-data-item .val { color: #fff; font-size: 0.95rem; }
+
+.step-pane { display: none; }
+.step-pane.active { display: block; }
+
+@media (max-width: 768px) {
+    .wizard-container {
+        flex-direction: column;
+        height: auto;
+        min-height: calc(100vh - 80px);
+    }
+    .wizard-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #1f2937;
+        padding: 20px;
+    }
+    .wizard-step-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .wizard-step-nav::before {
+        display: none;
+    }
+    .step-item {
+        margin-bottom: 0;
+    }
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .wizard-content {
+        padding: 20px;
+    }
+    .wizard-header {
+        padding: 20px;
+    }
+    .wizard-footer {
+        padding: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+}
+</style>
+
+<div class="wizard-container">
+    
+    <!-- SIDEBAR -->
+    <div class="wizard-sidebar">
+        <div class="wizard-title">Add Employee</div>
+        <ul class="wizard-step-nav">
+            <li class="step-item active" data-step="1" onclick="goToStep(1)" style="cursor: pointer;">
+                <div class="step-circle">1</div>
+                <span>Basics</span>
+            </li>
+            <li class="step-item" data-step="2" onclick="goToStep(2)" style="cursor: pointer;">
+                <div class="step-circle">2</div>
+                <span>Compensation</span>
+            </li>
+            <li class="step-item" data-step="3" onclick="goToStep(3)" style="cursor: pointer;">
+                <div class="step-circle">3</div>
+                <span>Compliance & Docs</span>
+            </li>
+            <li class="step-item" data-step="4" onclick="goToStep(4)" style="cursor: pointer;">
+                <div class="step-circle">4</div>
+                <span>Breakdown</span>
+            </li>
+            <li class="step-item" data-step="5" onclick="goToStep(5)" style="cursor: pointer;">
+                <div class="step-circle">5</div>
+                <span>Review</span>
+            </li>
+        </ul>
+    </div>
+
+    <!-- MAIN FORM -->
+    <form id="addEmployeeForm" class="wizard-main" enctype="multipart/form-data">
+        
+        <div class="wizard-header">
+            <h2 id="stepTitle">Basic Details</h2>
+            <p id="stepSubTitle">Enter the employee's basic information to set up their profile</p>
+        </div>
+
+        <div class="wizard-content">
+            
+            <!-- STEP 1: BASICS -->
+            <div class="step-pane active" id="pane-1">
+                <div class="form-section">
+                    <div class="form-group photo-upload-box">
+                        <div class="photo-preview" id="photoPreview">
+                            <span style="font-size: 2rem; color: #9ca3af;">📷</span>
+                        </div>
+                        <div>
+                            <label class="form-label">Profile Photo</label>
+                            <input type="file" id="profile_photo" name="profile_photo" accept=".jpg,.png" class="form-control" style="width: auto;">
+                            <small class="text-muted" style="display:block; margin-top:5px;">Supported: JPG, PNG. Max 5MB.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Employee Code<span class="req">*</span></label>
+                            <input type="text" id="employee_code" name="employee_code" class="form-control" value="{{ next_employee_code }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Full Name<span class="req">*</span></label>
+                            <input type="text" id="full_name" name="full_name" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Email ID<span class="req">*</span></label>
+                            <input type="email" id="email" name="email" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <input type="text" id="phone" name="phone" class="form-control">
+                        </div>
+                    </div>
+                        <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Account Password<span class="req">*</span></label>
+                            <input type="password" id="password" name="password" class="form-control" placeholder="Min 6 characters" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Confirm Password<span class="req">*</span></label>
+                            <input type="password" id="confirm_password" class="form-control" placeholder="Retype password" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Hire Date<span class="req">*</span></label>
+                            <input type="date" id="joining_date" name="joining_date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Role (System Access)<span class="req">*</span></label>
+                            <select id="role_id" name="role_id" class="form-select" required>
+                                {% for r in roles %}
+                                <option value="{{ r.id }}">{{ r.role_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Designation<span class="req">*</span></label>
+                            <input type="text" id="designation" name="designation" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Department</label>
+                            <input type="text" id="department" name="department" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Reporting Manager</label>
+                            <select id="manager_id" name="manager_id" class="form-select">
+                                <option value="">Select Manager</option>
+                                {% for m in managers %}
+                                <option value="{{ m.id }}">{{ m.full_name }} ({{ m.employee_code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Office Location<span class="req">*</span></label>
+                            <input type="text" id="office_location" name="office_location" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Gender</label>
+                            <select id="gender" name="gender" class="form-select">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date of Birth</label>
+                            <input type="date" id="date_of_birth" name="date_of_birth" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Employment Type<span class="req">*</span></label>
+                            <select id="employment_type" name="employment_type" class="form-select" required>
+                                <option value="Full Time">Full Time</option>
+                                <option value="Contract">Contract</option>
+                                <option value="Internship">Internship</option>
+                                <option value="Consultant">Consultant</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- STEP 2: COMPENSATION -->
+            <div class="step-pane" id="pane-2">
+                <div class="form-section">
+                    <div class="form-group">
+                        <label class="form-label">Salary Structure<span class="req">*</span></label>
+                        <select id="salary_structure" name="salary_structure" class="form-select" required>
+                            {% for struct in salary_structures %}
+                                <option value="{{ struct.name }}">{{ struct.name }}</option>
+                            {% else %}
+                                <option value="Default Structure">Default Structure</option>
+                                <option value="Executive Structure">Executive Structure</option>
+                                <option value="Manager Structure">Manager Structure</option>
+                                <option value="Custom Salary Structure">Custom Salary Structure</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Annual CTC (₹)</label>
+                        <input type="number" id="annual_ctc" name="annual_ctc" class="form-control" value="0" min="0" oninput="calculateGross()">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Monthly Gross Salary (Calculated)</label>
+                        <input type="text" id="monthly_gross" class="form-control" readonly style="background: #374151;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3: COMPLIANCE & DOCS -->
+            <div class="step-pane" id="pane-3">
+                <div class="form-section">
+                    <h4 class="text-white mb-3" style="font-size:1.1rem;">Statutory Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">PAN Number</label>
+                            <input type="text" id="pan_number" name="pan_number" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Aadhaar Number</label>
+                            <input type="text" id="aadhaar_number" name="aadhaar_number" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">UAN Number</label>
+                            <input type="text" id="uan_number" name="uan_number" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">PF Number</label>
+                            <input type="text" id="pf_number" name="pf_number" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">ESIC Number</label>
+                            <input type="text" id="esic_number" name="esic_number" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="text-white mb-3" style="font-size:1.1rem;">Bank Details</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Bank Name</label>
+                            <input type="text" id="bank_name" name="bank_name" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Account Number</label>
+                            <input type="text" id="account_number" name="account_number" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">IFSC Code</label>
+                            <input type="text" id="ifsc_code" name="ifsc_code" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Branch Name</label>
+                            <input type="text" id="branch_name" name="branch_name" class="form-control">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4 class="text-white mb-3" style="font-size:1.1rem;">Personal Documents Upload</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Aadhaar Card</label>
+                            <input type="file" name="doc_aadhaar" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">PAN Card</label>
+                            <input type="file" name="doc_pan" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Resume</label>
+                            <input type="file" name="doc_resume" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Offer/Experience Letter</label>
+                            <input type="file" name="doc_offer" class="form-control">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: COMPENSATION BREAKDOWN -->
+            <div class="step-pane" id="pane-4">
+                <div class="form-section">
+                    <div class="d-flex justify-content-between mb-4">
+                        <div>
+                            <div style="color:#9ca3af; font-size:0.9rem;">Salary Structure</div>
+                            <div class="text-white" id="bd_struct">Default</div>
+                        </div>
+                        <div>
+                            <div style="color:#9ca3af; font-size:0.9rem;">Annual CTC</div>
+                            <div class="text-white" id="bd_ctc" style="font-weight:600; font-size:1.1rem;">₹0</div>
+                        </div>
+                    </div>
+
+                    <table class="table table-dark table-hover" style="background:#1f2937;">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Calculations</th>
+                                <th class="text-end">Yearly Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="breakdown_table_body">
+                            <!-- JS Populated -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th>Total Gross</th>
+                                <th></th>
+                                <th class="text-end" id="bd_total">₹0</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- STEP 5: REVIEW -->
+            <div class="step-pane" id="pane-5">
+                <div class="review-card">
+                    <div class="review-card-header">
+                        <div class="review-card-title">Profile Summary</div>
+                        <a href="javascript:goToStep(1)" class="btn-edit-section">Edit</a>
+                    </div>
+                    <div class="review-data-grid">
+                        <div class="review-data-item"><div class="lbl">Name</div><div class="val" id="rev_name">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Code</div><div class="val" id="rev_code">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Email</div><div class="val" id="rev_email">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Designation</div><div class="val" id="rev_desig">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Phone</div><div class="val" id="rev_phone">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Department</div><div class="val" id="rev_dept">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Location</div><div class="val" id="rev_loc">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Employment Type</div><div class="val" id="rev_type">-</div></div>
+                    </div>
+                </div>
+
+                <div class="review-card">
+                    <div class="review-card-header">
+                        <div class="review-card-title">Compensation</div>
+                        <a href="javascript:goToStep(2)" class="btn-edit-section">Edit</a>
+                    </div>
+                    <div class="review-data-grid">
+                        <div class="review-data-item"><div class="lbl">Structure</div><div class="val" id="rev_struct">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Annual CTC</div><div class="val" id="rev_ctc">-</div></div>
+                    </div>
+                </div>
+
+                <div class="review-card">
+                    <div class="review-card-header">
+                        <div class="review-card-title">Compliance & Bank</div>
+                        <a href="javascript:goToStep(3)" class="btn-edit-section">Edit</a>
+                    </div>
+                    <div class="review-data-grid">
+                        <div class="review-data-item"><div class="lbl">PAN Number</div><div class="val" id="rev_pan">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Aadhaar Number</div><div class="val" id="rev_aadhaar">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Bank Name</div><div class="val" id="rev_bank">-</div></div>
+                        <div class="review-data-item"><div class="lbl">Account Number</div><div class="val" id="rev_acc">-</div></div>
+                        <div class="review-data-item"><div class="lbl">IFSC Code</div><div class="val" id="rev_ifsc">-</div></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="wizard-footer">
+            <button type="button" class="btn-back" id="btnBack" onclick="prevStep()">← Back</button>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="window.location.href='/hrms/employees/ui'" style="background:transparent; color:#ef4444; border:1px solid #ef4444; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:500; transition:0.3s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'" onmouseout="this.style.background='transparent'">Discard</button>
+                <button type="button" class="btn-save" onclick="saveDraft()">Save and Close</button>
+                <button type="button" class="btn-next" id="btnNext" onclick="nextStep()">Continue</button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+<script>
+    let currentStep = 1;
+    const totalSteps = 5;
+
+    const stepTitles = [
+        "Basic Details",
+        "Compensation Details",
+        "Compliance & Docs",
+        "Compensation Breakdown",
+        "Review & Confirm"
+    ];
+    const stepSubtitles = [
+        "Enter the employee's basic information to set up their profile",
+        "Calculate the employee's gross pay for payroll processing",
+        "Statutory and banking information required for compliance",
+        "Detailed preview of the salary breakdown",
+        "Verify all information before confirming"
+    ];
+
+    function updateUI() {
+        // Update Side Nav
+        document.querySelectorAll('.step-item').forEach((item, index) => {
+            item.classList.remove('active');
+            item.classList.remove('completed');
+            if (index + 1 === currentStep) {
+                item.classList.add('active');
+            } else if (index + 1 < currentStep) {
+                item.classList.add('completed');
+            }
+        });
+
+        // Update Panes
+        document.querySelectorAll('.step-pane').forEach((pane, index) => {
+            pane.classList.remove('active');
+            if (index + 1 === currentStep) pane.classList.add('active');
+        });
+
+        // Update Header
+        document.getElementById('stepTitle').innerText = stepTitles[currentStep - 1];
+        document.getElementById('stepSubTitle').innerText = stepSubtitles[currentStep - 1];
+
+        // Update Buttons
+        document.getElementById('btnBack').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        
+        if (currentStep === totalSteps) {
+            document.getElementById('btnNext').innerText = "Confirm Employee";
+            populateReview();
+        } else {
+            document.getElementById('btnNext').innerText = "Continue";
+            if (currentStep === 4) {
+                populateBreakdown();
+            }
+        }
+    }
+
+    function validateStep(step) {
+        if (step === 1) {
+            const name = document.getElementById('full_name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const pwd = document.getElementById('password').value;
+            const cpwd = document.getElementById('confirm_password').value;
+
+            if (!name || !email) {
+                showToast("Basic details (Name and Email) are required.", "error");
+                return false;
+            }
+            if (phone && !/^\d{10}$/.test(phone)) {
+                showToast("Indian mobile number must be exactly 10 digits.", "error");
+                return false;
+            }
+            if (!pwd || pwd.length < 6) {
+                showToast("Password is required and must be at least 6 characters.", "error");
+                return false;
+            }
+            if (pwd !== cpwd) {
+                showToast("Passwords do not match.", "error");
+                return false;
+            }
+        }
+        if (step === 2) {
+            const code = document.getElementById('employee_code').value.trim();
+            const desig = document.getElementById('designation').value.trim();
+            if (!code || !desig) {
+                showToast("Employee Code and Designation are required.", "error");
+                return false;
+            }
+        }
+        if (step === 3) {
+            const ctc = document.getElementById('annual_ctc').value.trim();
+            if (ctc && parseFloat(ctc) < 0) {
+                showToast("Annual CTC cannot be negative.", "error");
+                return false;
+            }
+        }
+        if (step === 4) {
+            const pan = document.getElementById('pan_number').value.trim().toUpperCase();
+            const aadhaar = document.getElementById('aadhaar_number').value.trim().replace(/\s/g, "");
+            const ifsc = document.getElementById('ifsc_code').value.trim().toUpperCase();
+            
+            if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+                showToast("Invalid PAN format (e.g. AAAAA9999A).", "error");
+                return false;
+            }
+            if (aadhaar && !/^\d{12}$/.test(aadhaar)) {
+                showToast("Invalid Aadhaar format (must be 12 digits).", "error");
+                return false;
+            }
+            if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+                showToast("Invalid IFSC format (e.g. SBIN0012345).", "error");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function nextStep() {
+        if (!validateStep(currentStep)) return;
+        if (currentStep < totalSteps) {
+            currentStep++;
+            updateUI();
+        } else {
+            submitForm();
+        }
+    }
+
+    function prevStep() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateUI();
+        }
+    }
+
+    function goToStep(step) {
+        if (step > currentStep) {
+            for (let i = currentStep; i < step; i++) {
+                if (!validateStep(i)) return;
+            }
+        }
+        currentStep = step;
+        updateUI();
+    }
+
+    function calculateGross() {
+        const ctc = parseFloat(document.getElementById('annual_ctc').value) || 0;
+        document.getElementById('monthly_gross').value = (ctc / 12).toFixed(2);
+    }
+
+    function populateBreakdown() {
+        const ctc = parseFloat(document.getElementById('annual_ctc').value) || 0;
+        const struct = document.getElementById('salary_structure').value;
+        
+        document.getElementById('bd_struct').innerText = struct;
+        document.getElementById('bd_ctc').innerText = "₹" + ctc.toLocaleString();
+
+        const tbody = document.getElementById('breakdown_table_body');
+        tbody.innerHTML = '';
+
+        // Simple mock calculation logic based on CTC
+        const basic = ctc * 0.50;
+        const hra = ctc * 0.25;
+        const lta = ctc * 0.10;
+        const special = ctc - (basic + hra + lta);
+
+        const components = [
+            { name: "Basic", calc: "50.00 % of CTC", val: basic },
+            { name: "House Rent Allowance", calc: "25.00 % of CTC", val: hra },
+            { name: "Leave & Travel Allowance", calc: "10.00 % of CTC", val: lta },
+            { name: "Special Allowance", calc: "Residual Amount", val: special }
+        ];
+
+        components.forEach(c => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${c.name}</td>
+                    <td style="color:#9ca3af;">${c.calc}</td>
+                    <td class="text-end">₹${c.val.toLocaleString()}</td>
+                </tr>
+            `;
+        });
+        document.getElementById('bd_total').innerText = "₹" + ctc.toLocaleString();
+    }
+
+    function populateReview() {
+        document.getElementById('rev_name').innerText = document.getElementById('full_name').value || "-";
+        document.getElementById('rev_code').innerText = document.getElementById('employee_code').value || "-";
+        document.getElementById('rev_email').innerText = document.getElementById('email').value || "-";
+        document.getElementById('rev_desig').innerText = document.getElementById('designation').value || "-";
+        document.getElementById('rev_phone').innerText = document.getElementById('phone').value || "-";
+        document.getElementById('rev_dept').innerText = document.getElementById('department').value || "-";
+        document.getElementById('rev_loc').innerText = document.getElementById('office_location').value || "-";
+        document.getElementById('rev_type').innerText = document.getElementById('employment_type').value || "-";
+        
+        document.getElementById('rev_struct').innerText = document.getElementById('salary_structure').value || "-";
+        document.getElementById('rev_ctc').innerText = "₹" + (document.getElementById('annual_ctc').value || "0");
+
+        document.getElementById('rev_pan').innerText = document.getElementById('pan_number').value || "-";
+        document.getElementById('rev_aadhaar').innerText = document.getElementById('aadhaar_number').value || "-";
+        document.getElementById('rev_bank').innerText = document.getElementById('bank_name').value || "-";
+        document.getElementById('rev_acc').innerText = document.getElementById('account_number').value || "-";
+        document.getElementById('rev_ifsc').innerText = document.getElementById('ifsc_code').value || "-";
+    }
+
+    function saveDraft() {
+        const form = document.getElementById('addEmployeeForm');
+        const formData = new FormData(form);
+        const data = {};
+        formData.forEach((value, key) => {
+            if (!(value instanceof File)) {
+                data[key] = value;
+            }
+        });
+        localStorage.setItem("add_employee_draft", JSON.stringify(data));
+        showToast("Draft saved to local storage!", "success");
+    }
+
+    function loadDraft() {
+        try {
+            const draft = localStorage.getItem("add_employee_draft");
+            if (draft) {
+                const data = JSON.parse(draft);
+                const form = document.getElementById('addEmployeeForm');
+                for (const key in data) {
+                    const input = form.elements[key];
+                    if (input) {
+                        input.value = data[key];
+                    }
+                }
+                showToast("Restored draft from local storage!", "success");
+            }
+        } catch(e) {
+            console.error("Draft load failed:", e);
+        }
+    }
+
+    function submitForm() {
+        const btn = document.getElementById('btnNext');
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+
+        const form = document.getElementById('addEmployeeForm');
+        const formData = new FormData(form);
+
+        fetch("/hrms/employees/add", {
+            method: "POST",
+            body: formData
+        }).then(async res => {
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                if (!res.ok) throw new Error("Server error (Status " + res.status + ")");
+                throw new Error("Invalid JSON response");
+            }
+            if (!res.ok) {
+                throw new Error(data.error || "Form submit failed");
+            }
+            return data;
+        }).then(data => {
+            if (data && data.error) {
+                showToast("Error: " + data.error, "error");
+                btn.disabled = false;
+                btn.innerText = "Confirm Employee";
+            } else if (data && (data.redirect || data.success)) {
+                showToast("Employee created successfully!", "success");
+                localStorage.removeItem("add_employee_draft");
+                setTimeout(() => {
+                    window.location.href = data.redirect || "/hrms/employees/ui";
+                }, 1500);
+            }
+        }).catch(err => {
+            console.error(err);
+            showToast(err.message || "Something went wrong during employee creation.", "error");
+            btn.disabled = false;
+            btn.innerText = "Confirm Employee";
+        });
+    }
+
+    // Photo Preview with validation
+    document.getElementById('profile_photo').addEventListener('change', function(e) {
+        if(e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            
+            // Limit size to 2MB
+            if (file.size > 2 * 1024 * 1024) {
+                showToast("Profile photo exceeds 2MB limit.", "error");
+                e.target.value = "";
+                document.getElementById('photoPreview').innerHTML = `<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>`;
+                return;
+            }
+            
+            // Limit format to JPG/PNG
+            const allowedExtensions = ['jpg', 'jpeg', 'png'];
+            const fileExt = file.name.split('.').pop().toLowerCase();
+            if (!allowedExtensions.includes(fileExt)) {
+                showToast("Invalid format. Only JPG, JPEG, and PNG are allowed.", "error");
+                e.target.value = "";
+                document.getElementById('photoPreview').innerHTML = `<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>`;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                document.getElementById('photoPreview').innerHTML = `<img src="${evt.target.result}">`;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    loadDraft();
+    updateUI();
+</script>
+
+{% endblock %}

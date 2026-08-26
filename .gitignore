@@ -1,0 +1,42 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Excel exports (generated)
+*.xlsx
+
+# Database
+*.db
+
+# Uploads (optional)
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Database
+*.db
+
+# Uploads
+uploads/
+
+# Testing files
+*.xlsx
+exports/
+

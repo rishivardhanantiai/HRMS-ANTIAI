@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.payroll-edit-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.payroll-edit-card {
+    background: #0b0b0b;
+    border: 1px solid #1a1a1a;
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.45);
+}
+
+.payroll-edit-title {
+    font-size: 28px;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+}
+
+.payroll-edit-subtitle {
+    color: #9ca3af;
+    margin-bottom: 22px;
+    font-size: 14px;
+}
+
+.payroll-field {
+    margin-bottom: 20px;
+}
+
+.payroll-field label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d1d5db;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+}
+
+.payroll-field input {
+    width: 100%;
+    margin-bottom: 0;
+    font-size: 16px;
+    padding: 14px 16px;
+}
+
+.payroll-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-update {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 22px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-update:hover {
+    opacity: 0.9;
+}
+
+.btn-cancel {
+    color: #cbd5e1;
+    text-decoration: none;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px 18px;
+    background: transparent;
+}
+
+.btn-cancel:hover {
+    background: #111827;
+    color: #fff;
+}
+
+@media (max-width: 768px) {
+    .payroll-edit-card {
+        padding: 20px 16px;
+    }
+
+    .payroll-edit-title {
+        font-size: 24px;
+    }
+
+    .payroll-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-update,
+    .btn-cancel {
+        width: 100%;
+        text-align: center;
+    }
+}
+</style>
+
+<div class="payroll-edit-wrap">
+    <div class="payroll-edit-card">
+        <h1 class="payroll-edit-title">Edit Payroll</h1>
+        <p class="payroll-edit-subtitle">Update the employee net salary value.</p>
+
+        <form method="POST">
+            <div class="payroll-field">
+                <label for="net-salary">Net Salary</label>
+                <input
+                    id="net-salary"
+                    type="number"
+                    name="net_salary"
+                    value="{{ payroll.net_salary }}"
+                    class="no-arrow"
+                    step="0.01"
+                    required
+                >
+            </div>
+
+            <div class="payroll-actions">
+                <button type="submit" class="btn-update">Update</button>
+                <a href="/hrms/payroll/" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

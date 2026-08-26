@@ -1,0 +1,109 @@
+/* ===============================
+   ANTI AI HRMS GLOBAL THEME
+=============================== */
+
+body {
+    background: radial-gradient(circle at top, #020617, #000000);
+    color: #e5e7eb;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* Sidebar Compatibility */
+.sidebar {
+    background: linear-gradient(180deg, #000000, #020617);
+}
+
+/* Card Styling */
+.hrms-card {
+    background: linear-gradient(145deg, #020617, #020817);
+    border-radius: 16px;
+    border: 1px solid rgba(59,130,246,0.15);
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    transition: 0.3s ease;
+}
+
+.hrms-card:hover {
+    border: 1px solid rgba(59,130,246,0.3);
+    box-shadow: 0 0 35px rgba(59,130,246,0.15);
+}
+
+/* Table Styling */
+.hrms-table {
+    color: #e5e7eb;
+}
+
+.hrms-table th {
+    background: #020617;
+    border-bottom: 1px solid #1e293b;
+}
+
+.hrms-table td {
+    border-bottom: 1px solid #1e293b;
+}
+
+/* Buttons */
+/* ===== BUTTON BASE ===== */
+.btn-edit,
+.btn-toggle,
+.btn-add{
+    height:34px;
+    padding:0 16px;
+    font-size:13px;
+    font-weight:500;
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:all .25s ease;
+}
+
+/* ===== ADD BUTTON ===== */
+.btn-add{
+    background:#000;
+    border:1px solid #333;
+    color:#fff;
+}
+
+.btn-add:hover{
+    background:#111;
+    border-color:#555;
+}
+
+/* ===== EDIT BUTTON ===== */
+.btn-edit{
+    background:#111;
+    border:1px solid #444;
+    color:#fff;
+}
+
+.btn-edit:hover{
+    background:#1a1a1a;
+    border-color:#777;
+}
+
+/* ===== TOGGLE BUTTON ===== */
+.btn-toggle{
+    background:#000;
+    border:1px solid #333;
+    color:#9ca3af;
+    min-width:80px;
+}
+
+.btn-toggle:hover{
+    background:#111;
+    border-color:#555;
+    color:#fff;
+}
+
+/* ===== BUTTON GROUP ===== */
+.action-group{
+    display:flex;
+    gap:12px;
+    align-items:center;
+}
+
+/* Headings */
+.hrms-heading {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}

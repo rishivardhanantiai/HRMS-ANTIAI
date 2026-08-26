@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+@media (max-width: 768px) {
+    .leave-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+</style>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 style="margin: 0;">Leave Requests</h2>
+    <a href="/hrms/leave/configure" style="background: #3b82f6; color: white; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.95rem;">⚙ Configure Entitlements</a>
+</div>
+
+<div class="leave-table-wrap"><table class="hrms-table">
+    <tr>
+        <th>Employee</th>
+        <th>Type</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Days</th>
+        <th>Reason</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+
+    {% for r in requests %}
+    <tr>
+        <td>{{ r.full_name }}</td>
+        <td>{{ r.type }}</td>
+        <td>{{ r.from_date }}</td>
+        <td>{{ r.to_date }}</td>
+        <td>{{ r.days }}</td>
+        <td>{{ r.reason or '—' }}</td>
+        <td>
+            {% if r.status|lower == "approved" %}
+                <span style="color:#10b981; font-weight: 500;">Approved</span>
+            {% elif r.status|lower == "rejected" %}
+                <span style="color:#ef4444; font-weight: 500;">Rejected</span>
+            {% else %}
+                <span style="color:#f59e0b; font-weight: 500;">Pending</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if (r.status or '')|lower == "pending" %}
+                <div style="display: flex; gap: 8px;">
+                    <form method="POST" action="/hrms/leave/update/{{ r.id }}">
+                        <input type="hidden" name="action" value="approve">
+                        <button type="submit" class="btn-small" style="background:#10b981; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer;">Approve</button>
+                    </form>
+                    <form method="POST" action="/hrms/leave/update/{{ r.id }}">
+                        <input type="hidden" name="action" value="reject">
+                        <button type="submit" class="btn-small" style="background:#ef4444; color:#fff; border:none; padding:4px 10px; border-radius:6px; cursor:pointer;">Reject</button>
+                    </form>
+                </div>
+            {% else %}
+                —
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table></div>
+
+{% endblock %}

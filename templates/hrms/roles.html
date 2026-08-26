@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/hrms-theme.css') }}">
+
+<style>
+
+/* ===== WRAPPER ===== */
+.hrms-wrapper{
+    padding:35px 45px;
+}
+
+/* ===== HEADER ===== */
+.hrms-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:28px;
+}
+
+.hrms-title{
+    font-size:24px;
+    font-weight:600;
+    color:#ffffff;
+}
+
+/* ===== CARD ===== */
+.hrms-card{
+    background:#020202;
+    border-radius:20px;
+    border:1px solid #111;
+    box-shadow:0 0 40px rgba(0,0,0,0.9);
+    padding:30px;
+}
+
+/* ===== TABLE ===== */
+.hrms-table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0 12px;
+}
+
+.hrms-table thead th{
+    color:#9ca3af;
+    font-size:13px;
+    font-weight:500;
+    padding-bottom:12px;
+}
+
+.hrms-table tbody tr{
+    background:#050505;
+    transition:.3s ease;
+}
+
+.hrms-table tbody tr:hover{
+    background:#0a0a0a;
+    transform:scale(1.005);
+}
+
+.hrms-table td{
+    padding:18px 14px;
+    border:none;
+    color:#e5e7eb;
+}
+
+/* ===== ADD BUTTON ===== */
+.btn-add{
+    background:linear-gradient(135deg,#3b82f6,#6366f1);
+    border:none;
+    color:white;
+    padding:9px 20px;
+    border-radius:8px;
+    font-weight:500;
+    transition:.3s;
+}
+
+.btn-add:hover{
+    opacity:.85;
+}
+
+/* ===== DELETE BUTTON ===== */
+.btn-delete{
+    background:rgba(239,68,68,0.15);
+    color:#ef4444;
+    border:none;
+    padding:6px 14px;
+    border-radius:7px;
+    font-size:12px;
+    transition:.3s;
+}
+
+.btn-delete:hover{
+    background:rgba(239,68,68,0.3);
+}
+
+.btn-edit{
+    background:rgba(59,130,246,0.15);
+    color:#60a5fa;
+    border:none;
+    padding:6px 14px;
+    border-radius:7px;
+    font-size:12px;
+    transition:.3s;
+}
+
+.btn-edit:hover{
+    background:rgba(59,130,246,0.3);
+}
+
+@media (max-width: 768px) {
+    .hrms-wrapper{
+        padding:18px 14px;
+    }
+
+    .hrms-header{
+        flex-direction:column;
+        align-items:stretch;
+        gap:12px;
+    }
+
+    .btn-add{
+        width:100%;
+        text-align:center;
+    }
+
+    .hrms-card{
+        padding:18px 12px;
+    }
+
+    .roles-table-wrap{
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
+        width:100%;
+        max-width:100%;
+    }
+
+    .roles-table-wrap .hrms-table{
+        min-width:640px;
+    }
+
+    .roles-table-wrap .hrms-table th,
+    .roles-table-wrap .hrms-table td{
+        white-space:nowrap;
+    }
+}
+
+</style>
+
+<div class="hrms-wrapper">
+
+    <div class="hrms-header">
+
+        <div class="hrms-title">👥 Roles</div>
+
+        <a href="/hrms/roles/add" class="btn-add">
+            ➕ Add Role
+        </a>
+
+    </div>
+
+    <div class="hrms-card">
+
+        <div class="roles-table-wrap"><table class="hrms-table">
+
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Role Name</th>
+                    <th>Description</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for role in roles %}
+                <tr>
+
+                    <td>{{ role.id }}</td>
+
+                    <td>
+                        <strong>{{ role.role_name }}</strong>
+                    </td>
+
+                    <td>{{ role.description or "-" }}</td>
+
+                    <td style="text-align:right;">
+                        <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px;">
+                            <a href="/hrms/roles/edit/{{ role.id }}" class="btn-edit">
+                                Edit
+                            </a>
+                            <a href="#" onclick="event.preventDefault(); window.customConfirm('Delete Role', 'Are you sure you want to delete this role?', () => { window.location.href = '/hrms/roles/delete/{{ role.id }}'; });" class="btn-delete">
+                                Delete
+                            </a>
+                        </div>
+                    </td>
+
+                </tr>
+                {% endfor %}
+
+            </tbody>
+
+        </table></div>
+
+    </div>
+
+</div>
+
+{% endblock %}

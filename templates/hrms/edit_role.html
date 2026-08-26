@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow p-4" style="background:#0b0f19; border-radius:15px;">
+        <h3 class="text-white mb-4">✏️ Edit Role</h3>
+
+        <form method="POST">
+
+            <div class="mb-3">
+                <label class="text-light">Role Name</label>
+                <input type="text"
+                       name="role_name"
+                       class="form-control"
+                       value="{{ role.role_name }}"
+                       required>
+            </div>
+
+            <div class="mb-3">
+                <label class="text-light">Description</label>
+                <textarea name="description" class="form-control">{{ role.description or "" }}</textarea>
+            </div>
+
+            <button class="btn btn-primary">Update Role</button>
+            <a href="/hrms/roles/ui" class="btn btn-secondary">Cancel</a>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

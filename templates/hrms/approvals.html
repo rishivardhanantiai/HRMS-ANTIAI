@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="content-header">
+    <div class="header-left">
+        <h1>Approvals Queue</h1>
+        <p>Review sensitive actions submitted by HR.</p>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <h2>Pending Approvals</h2>
+    {% if not pending %}
+    <p style="color:#94a3b8; font-style:italic;">No pending approvals.</p>
+    {% else %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Requested By</th>
+                <th>Requested At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in pending %}
+            <tr>
+                <td style="font-weight:bold;">
+                    {% if req.action_type == 'template_edit' %} Template Edit
+                    {% elif req.action_type == 'appearance_change' %} Appearance Change
+                    {% elif req.action_type == 'delete_offer' %} Delete Offer
+                    {% else %} {{ req.action_type }} {% endif %}
+                </td>
+                <td>{{ req.target_table }} {% if req.target_id %}({{ req.target_id }}){% endif %}</td>
+                <td>{{ req.requested_by }}</td>
+                <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '' }}</td>
+                <td>
+                    <a href="/hrms/approvals/{{ req.id }}/review" class="btn btn-primary btn-sm" style="text-decoration:none;">Review</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Approval History</h2>
+    {% if not history %}
+    <p style="color:#94a3b8; font-style:italic;">No history.</p>
+    {% else %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Action</th>
+                <th>Requested By</th>
+                <th>Status</th>
+                <th>Resolved By</th>
+                <th>Resolved At</th>
+                <th>Comment</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in history %}
+            <tr>
+                <td>{{ req.action_type }}</td>
+                <td>{{ req.requested_by }}</td>
+                <td>
+                    <span class="badge {% if req.status == 'Approved' %}badge-success{% else %}badge-danger{% endif %}">{{ req.status }}</span>
+                </td>
+                <td>{{ req.resolved_by }}</td>
+                <td>{{ req.resolved_at.strftime('%Y-%m-%d %H:%M') if req.resolved_at else '' }}</td>
+                <td>{{ req.admin_comment or '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <base href="{{ request.url_root }}">
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm 15mm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #222;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            font-size: 11pt;
+        }
+        .content {
+            font-size: 11pt;
+            min-height: 600px;
+            text-align: justify;
+        }
+        .content h2, .content h3 {
+            color: #111827;
+        }
+        .content table {
+            font-size: 10pt;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .content table th, .content table td {
+            border: 1px solid #d1d5db;
+            padding: 8px;
+        }
+        .content table th {
+            background-color: #f3f4f6;
+            text-align: left;
+        }
+        .footer {
+            text-align: center;
+            font-size: 9pt;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Table for xhtml2pdf compatibility -->
+    <table style="width: 100%; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 35px;">
+        <tr>
+            <td style="vertical-align: top; width: 60%;">
+                {% if company.logo_url %}
+                <img src="{{ company.logo_url }}" alt="Logo" style="height: 50px; margin-bottom: 10px;">
+                {% endif %}
+                <div style="font-size: 24px; font-weight: bold; color: #111827;">{{ company.company_name or 'ANTI AI' }}</div>
+                <div style="font-size: 10pt; color: #4b5563;">{{ company.company_address }}</div>
+            </td>
+            <td style="vertical-align: top; text-align: right; width: 40%; font-size: 9pt; color: #4b5563; line-height: 1.5;">
+                <div style="background: #f9fafb; padding: 12px; border-radius: 6px; display: inline-block; text-align: left; border: 1px solid #e5e7eb;">
+                    {% if company.company_phone %}<strong>P:</strong> {{ company.company_phone }}<br>{% endif %}
+                    {% if company.company_email %}<strong>E:</strong> {{ company.company_email }}<br>{% endif %}
+                    {% if company.company_website %}<strong>W:</strong> {{ company.company_website }}{% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="content">
+        {{ content | safe }}
+    </div>
+
+    <div class="footer">
+        <strong style="color: #4b5563;">{{ company.company_name or 'ANTI AI' }}</strong><br>
+        This is a system-generated document and requires no physical signature.
+        {% if company.gst_pan %}<br>GST/PAN: {{ company.gst_pan }}{% endif %}
+    </div>
+
+</body>
+</html>

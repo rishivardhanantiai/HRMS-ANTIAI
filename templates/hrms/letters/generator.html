@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.gen-container { max-width:1000px; margin:0 auto; padding:20px; color:#e5e7eb; }
+.gen-card { background:#111827; border:1px solid #1f2937; border-radius:8px; padding:20px; }
+.form-group { margin-bottom:15px; }
+.form-group label { display:block; font-size:0.85rem; color:#9ca3af; margin-bottom:5px; }
+.form-control { width:100%; padding:10px; background:#030712; border:1px solid #374151; color:#fff; border-radius:6px; box-sizing:border-box; }
+select.form-control { appearance:none; background-image:url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239ca3af%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat:no-repeat; background-position:right 10px top 50%; background-size:10px auto; }
+.action-box { background:#1e293b; border-radius:8px; padding:20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; text-decoration:none; color:#fff; border:1px solid #334155; transition:0.2s; }
+.action-box:hover { background:#334155; }
+.action-icon { background:#3b82f6; color:#fff; width:32px; height:32px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.placeholder-row { display:grid; grid-template-columns:200px 1fr; gap:12px; align-items:center; margin-bottom:10px; }
+.placeholder-label { color:#9ca3af; font-size:0.9rem; }
+.btn-primary { background:#3b82f6; color:#fff; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+.btn-primary:hover { background:#2563eb; }
+.btn-secondary { background:#374151; color:#fff; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+.btn-secondary:hover { background:#4b5563; }
+.btn-success { background:#10b981; color:#fff; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-size:14px; }
+.btn-success:hover { background:#059669; }
+
+/* Toast notification */
+.toast { position:fixed; top:20px; right:20px; background:#10b981; color:#fff; padding:15px 25px; border-radius:8px; z-index:2000; display:none; font-weight:600; box-shadow:0 4px 15px rgba(0,0,0,0.3); }
+.toast.error { background:#ef4444; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center; }
+.modal-content { background:#fff; color:#1a1a1a; width:850px; max-height:90vh; overflow-y:auto; border-radius:10px; padding:30px; position:relative; box-shadow:0 25px 60px rgba(0,0,0,0.5); }
+.modal-close { position:absolute; top:12px; right:18px; font-size:28px; cursor:pointer; color:#666; }
+.modal-close:hover { color:#000; }
+</style>
+
+<!-- Toast -->
+<div class="toast" id="toast-msg"></div>
+
+<div class="gen-container">
+    <div class="letters-tabs" style="display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #1f2937; padding-bottom: 15px;">
+        <a href="/hrms/letters/generator" style="padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 600; background: #3b82f6; color: white;">Generate Letter</a>
+        <a href="/hrms/letters/history" style="padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 500; color: #9ca3af; background: rgba(255,255,255,0.02);">Document History</a>
+        <a href="/hrms/letters/templates" style="padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 500; color: #9ca3af; background: rgba(255,255,255,0.02);">Template Editor</a>
+    </div>
+
+    <h2 style="margin-bottom:20px;">Generate Letter</h2>
+
+    <div class="gen-card" style="margin-bottom:20px;">
+        <div class="form-group">
+            <label>Document Type *</label>
+            <select id="doc-select" class="form-control" style="background-color:#1e3a8a; border-color:#3b82f6;" onchange="loadTemplate()">
+                <option value="">Select Document Type...</option>
+                {% for t in templates %}
+                <option value="{{ t.id }}" data-name="{{ t.template_name }}">{{ t.template_name }}</option>
+                {% endfor %}
+            </select>
+            {% for t in templates %}
+            <input type="hidden" id="tpl_{{ t.id }}" value="{{ (t.template_content or '') | forceescape }}">
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label>Select Employee *</label>
+            <select id="emp-select" class="form-control" onchange="autoFillEmployee()">
+                <option value="">Select Employee...</option>
+                {% for e in employees %}
+                {% set emp_id_str = e.id | string %}
+                {% set code = e.employee_code if e.employee_code else ('EMP-' ~ emp_id_str[0:8]) %}
+                <option value="{{ e.id }}" data-code="{{ code }}" data-name="{{ e.full_name }}" data-dept="{{ e.department }}" data-desg="{{ e.designation }}" data-join="{{ e.joining_date }}">{{ e.full_name }} ({{ code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div id="builder-section" class="gen-card" style="display:none;">
+        <h4 style="margin-bottom:15px; padding-bottom:10px; border-bottom:1px solid #1f2937; color:#60a5fa;">Fill Placeholders</h4>
+        <p style="font-size:0.8rem; color:#6b7280; margin-bottom:15px;">Fields marked with a 🔒 are auto-filled from employee data. You can still override them manually.</p>
+
+        <div style="background:#1f2937; padding:10px 15px; border-radius:6px; display:grid; grid-template-columns:200px 1fr; font-weight:600; color:#9ca3af; margin-bottom:15px;">
+            <div>Placeholder</div>
+            <div>Value</div>
+        </div>
+
+        <div id="placeholders-container"></div>
+
+        <form action="/hrms/letters/generate_pdf" method="POST" id="generate-form" style="margin-top:20px;">
+            <input type="hidden" name="html_content" id="final-html-content">
+            <input type="hidden" name="document_type" id="final-doc-type">
+            <input type="hidden" name="employee_id" id="final-emp-id">
+            <input type="hidden" name="exit_id" id="final-exit-id">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary" onclick="generateDocument(true)">👁 Preview Letter</button>
+                <button type="button" class="btn btn-success" onclick="generateDocument(false)">📄 Generate PDF</button>
+                <button type="button" class="btn btn-primary" onclick="resetGenerator()" style="background:#ef4444; color:white;">🔄 Cancel / Reset</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal-overlay" id="preview-modal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closePreview()">&times;</span>
+        <h2 style="margin-bottom:5px; color:#1e3a5f;">Letter Preview</h2>
+        <p style="color:#666; font-size:0.85rem; margin-bottom:15px;">This is exactly how the final PDF will look.</p>
+        <hr style="margin-bottom:15px;">
+        <div id="preview-body" style="font-family:Arial,sans-serif; min-height:500px; padding:25px; border:1px solid #ddd; background:#fff;">
+            Loading...
+        </div>
+    </div>
+</div>
+
+<script>
+const COMPANY_NAME = {{ (company.company_name or 'ANTI.AI PRIVATE LIMITED') | tojson }};
+const HR_NAME = {{ (session.get('full_name') or 'Human Resources') | tojson }};
+
+let currentTemplateHTML = "";
+let placeholders = [];
+let employeeData = null;
+
+// Date fields that should get date pickers
+const DATE_FIELDS = ["Date_of_issue", "Joining_Date", "Last_Working_Date", "Settlement_Date", "End_Date"];
+
+function unescapeHTML(str) {
+    if (!str) return "";
+    const doc = new DOMParser().parseFromString(str, "text/html");
+    return doc.documentElement.textContent;
+}
+
+function showToast(msg, isError) {
+    const t = document.getElementById("toast-msg");
+    t.textContent = msg;
+    t.className = "toast" + (isError ? " error" : "");
+    t.style.display = "block";
+    setTimeout(() => { t.style.display = "none"; }, 4000);
+}
+
+function loadTemplate() {
+    const sel = document.getElementById("doc-select");
+    const val = sel.value;
+    if (!val) {
+        document.getElementById("builder-section").style.display = "none";
+        return;
+    }
+
+    const hiddenTpl = document.getElementById("tpl_" + val);
+    currentTemplateHTML = hiddenTpl ? unescapeHTML(hiddenTpl.value) : "";
+
+    const docName = sel.options[sel.selectedIndex].getAttribute("data-name");
+    document.getElementById("final-doc-type").value = docName;
+
+    // Extract placeholders
+    const regex = /\[(.*?)\]/g;
+    placeholders = [];
+    let match;
+    while ((match = regex.exec(currentTemplateHTML)) !== null) {
+        if (!placeholders.includes(match[1])) placeholders.push(match[1]);
+    }
+
+    renderPlaceholders();
+    document.getElementById("builder-section").style.display = "block";
+}
+
+function renderPlaceholders() {
+    const container = document.getElementById("placeholders-container");
+    container.innerHTML = "";
+
+    placeholders.forEach(p => {
+        const row = document.createElement("div");
+        row.className = "placeholder-row";
+
+        const label = document.createElement("div");
+        label.className = "placeholder-label";
+        label.textContent = p.replace(/_/g, " ");
+
+        const isDateField = DATE_FIELDS.includes(p);
+        const input = document.createElement("input");
+        input.type = isDateField ? "date" : "text";
+        input.className = "form-control";
+        input.id = "ph_" + p;
+
+        if (p === "Date_of_issue" || p === "Settlement_Date") {
+            input.value = new Date().toISOString().split("T")[0];
+        }
+
+        row.appendChild(label);
+        row.appendChild(input);
+        container.appendChild(row);
+    });
+
+    // Auto-fill if employee already selected
+    applyEmployeeData();
+}
+
+async function autoFillEmployee() {
+    const sel = document.getElementById("emp-select");
+    const empId = sel.value;
+    if (!empId) { employeeData = null; return; }
+
+    document.getElementById("final-emp-id").value = empId;
+
+    try {
+        const response = await fetch("/hrms/letters/api/employee/" + empId);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        employeeData = await response.json();
+        applyEmployeeData();
+    } catch (err) {
+        console.error("Failed to fetch employee:", err);
+        showToast("Failed to load employee data.", true);
+    }
+}
+
+function applyEmployeeData() {
+    if (!employeeData || employeeData.error) return;
+    const d = employeeData;
+    
+    console.log("BROWSER CONSOLE: API response payload", d);
+
+    const mapping = {
+        "Employee_Name": d.full_name,
+        "Employee_ID": d.employee_code || ("EMP" + d.id),
+        "Designation": d.designation || d.role_name || "",
+        "Department": d.department || "",
+        "Joining_Date": d.joining_date || "",
+        "Email": d.email || "",
+        "Employment_Status": d.status || "",
+        "Manager_Name": d.manager_name || "",
+        "Last_Working_Date": (d.fnf && d.fnf.calculated_at) ? d.fnf.calculated_at : "",
+        "Pending_Salary": (d.fnf && d.fnf.pending_salary) ? d.fnf.pending_salary : "0",
+        "Leave_Encashment": (d.fnf && d.fnf.leave_encashment) ? d.fnf.leave_encashment : "0",
+        "Bonus": (d.fnf && d.fnf.bonus) ? d.fnf.bonus : "0",
+        "Reimbursements": (d.fnf && d.fnf.reimbursements) ? d.fnf.reimbursements : "0",
+        "Deductions": (d.fnf && d.fnf.deductions) ? d.fnf.deductions : "0",
+        "FNF_Amount": (d.fnf && d.fnf.net_payable) ? d.fnf.net_payable : "0",
+        "Company_Name": d._company_name || COMPANY_NAME,
+        "HR_Name": HR_NAME,
+    };
+
+    const readonlyFields = ["Employee_Name", "Employee_ID", "Department", "Designation", "Joining_Date", "Email", "Employment_Status", "Company_Name"];
+
+    let mappingResults = {};
+
+    for (const [key, value] of Object.entries(mapping)) {
+        const input = document.getElementById("ph_" + key);
+        if (input) {
+            if (value) {
+                input.value = value;
+                mappingResults[key] = "Success: " + value;
+            } else {
+                mappingResults[key] = "Warning: Value missing from DB";
+                console.warn(`WARNING: Missing field mapping\n* Employee ID selected: ${d.id}\n* SQL query executed: SELECT e.*, m.full_name AS manager_name, r.role_name FROM hrms_employees e LEFT JOIN hrms_roles r ON e.role_id = r.id LEFT JOIN hrms_employees m ON e.manager_id = m.id WHERE e.id = ${d.id}\n* API response returned:`, d, `\n* Missing field name: ${key}`);
+            }
+            if (readonlyFields.includes(key) && input.value) {
+                input.readOnly = true;
+                input.style.backgroundColor = "#1f2937";
+                input.style.color = "#9ca3af";
+            }
+        }
+    }
+    
+    console.log("BROWSER CONSOLE: Field mapping results", mappingResults);
+}
+
+function validateFields() {
+    let valid = true;
+    const empSel = document.getElementById("emp-select");
+    if (!empSel.value) {
+        showToast("Please select an employee first.", true);
+        return false;
+    }
+    placeholders.forEach(p => {
+        const input = document.getElementById("ph_" + p);
+        if (input && !input.value.trim()) {
+            input.style.borderColor = "#ef4444";
+            valid = false;
+        } else if (input) {
+            input.style.borderColor = "#374151";
+        }
+    });
+    if (!valid) showToast("Please fill all placeholder fields before generating.", true);
+    return valid;
+}
+
+function formatDate(val) {
+    // Convert YYYY-MM-DD to DD/MM/YYYY for display in letter
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        const parts = val.split("-");
+        return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+    return val;
+}
+
+async function generateDocument(isPreview) {
+    if (!isPreview && !validateFields()) return;
+
+    let finalHtml = currentTemplateHTML;
+    placeholders.forEach(p => {
+        const input = document.getElementById("ph_" + p);
+        if (input) {
+            let val = input.value;
+            if (DATE_FIELDS.includes(p)) val = formatDate(val);
+            if (isPreview && !val) {
+                // Inject dummy value for preview
+                val = "[" + p.replace(/_/g, " ") + " Sample]";
+                if (p === "Company_Name") val = COMPANY_NAME;
+                if (p === "HR_Name") val = HR_NAME;
+            }
+            finalHtml = finalHtml.split("[" + p + "]").join(val);
+        }
+    });
+
+    document.getElementById("final-html-content").value = finalHtml;
+
+    if (isPreview) {
+        document.getElementById("preview-modal").style.display = "flex";
+        document.getElementById("preview-body").innerHTML = "<p style='color:#888;'>Loading preview...</p>";
+
+        const formData = new FormData();
+        formData.append("html_content", finalHtml);
+
+        try {
+            const response = await fetch("/hrms/letters/preview", { method: "POST", body: formData });
+            const text = await response.text();
+            document.getElementById("preview-body").innerHTML = text;
+        } catch (e) {
+            document.getElementById("preview-body").innerHTML = "<p style='color:red;'>Error loading preview.</p>";
+        }
+    } else {
+        showToast("Generating document... Please wait.");
+        const form = document.getElementById("generate-form");
+        form.querySelector("#final-doc-type").value = document.getElementById("final-doc-type").value;
+        form.querySelector("#final-emp-id").value = document.getElementById("final-emp-id").value;
+        if (document.getElementById("final-exit-id").value) {
+            form.querySelector("#final-exit-id").value = document.getElementById("final-exit-id").value;
+        }
+        form.submit();
+        setTimeout(() => { showToast("If generation succeeded, your download should start shortly."); }, 2000);
+    }
+}
+
+function resetGenerator() {
+    // Reset dropdowns
+    document.getElementById("emp-select").value = "";
+    document.getElementById("doc-select").value = "";
+    
+    // Clear dynamic inputs
+    document.getElementById("placeholders-container").innerHTML = "";
+    document.getElementById("builder-section").style.display = "none";
+    
+    // Reset variables
+    employeeData = null;
+    currentTemplateHTML = "";
+    placeholders = [];
+    
+    // Close preview if open
+    closePreview();
+    
+    showToast("Generator reset successfully.");
+}
+
+function closePreview() {
+    document.getElementById("preview-modal").style.display = "none";
+}
+
+// URL param auto-selection (from Exit Management quick actions)
+document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const doc = params.get("doc");
+    const emp = params.get("emp");
+    const exitId = params.get("exit");
+    
+    if (exitId) {
+        document.getElementById("final-exit-id").value = exitId;
+    }
+
+    if (doc) {
+        const docSelect = document.getElementById("doc-select");
+        for (let i = 0; i < docSelect.options.length; i++) {
+            if (docSelect.options[i].getAttribute("data-name") === doc) {
+                docSelect.selectedIndex = i;
+                loadTemplate();
+                break;
+            }
+        }
+    }
+
+    if (emp) {
+        const empSelect = document.getElementById("emp-select");
+        for (let i = 0; i < empSelect.options.length; i++) {
+            if (empSelect.options[i].value === emp) {
+                empSelect.selectedIndex = i;
+                autoFillEmployee();
+                break;
+            }
+        }
+    }
+
+    if (exitId) {
+        let exitInput = document.getElementById("final-exit-id");
+        if (!exitInput) {
+            exitInput = document.createElement("input");
+            exitInput.type = "hidden";
+            exitInput.name = "exit_id";
+            exitInput.id = "final-exit-id";
+            document.getElementById("generate-form").appendChild(exitInput);
+        }
+        exitInput.value = exitId;
+    }
+
+    // Show flash messages as toasts
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    showToast("{{ message }}", "{{ category }}" === "error");
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+});
+</script>
+{% endblock %}

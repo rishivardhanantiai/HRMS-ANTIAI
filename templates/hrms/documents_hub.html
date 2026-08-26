@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.hub-wrapper { padding: 35px 45px; }
+.hub-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.hub-title { font-size: 24px; font-weight: 600; color: #fff; }
+.hub-card { background: #020202; border-radius: 12px; border: 1px solid #111; padding: 25px; margin-bottom: 20px; }
+
+.filters-row { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; }
+.form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.form-group label { color: #9ca3af; font-size: 0.85rem; }
+.form-control { background: #1f2937; color: white; border: 1px solid #374151; padding: 8px 12px; border-radius: 6px; }
+
+.hub-tabs { display: flex; gap: 10px; border-bottom: 1px solid #374151; margin-bottom: 20px; padding-bottom: 10px; }
+.tab-btn { background: transparent; color: #9ca3af; border: none; font-size: 1rem; cursor: pointer; padding: 5px 10px; transition: 0.2s; }
+.tab-btn:hover { color: white; }
+.tab-btn.active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
+
+.hrms-table { width: 100%; border-collapse: collapse; }
+.hrms-table th, .hrms-table td { padding: 12px; text-align: left; border-bottom: 1px solid #1f2937; color: #d1d5db; }
+.hrms-table th { color: #9ca3af; font-weight: 500; font-size: 0.9rem; }
+
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+.badge-success { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.badge-info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.badge-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+.btn-primary { background: #3b82f6; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; }
+.btn-primary:hover { background: #2563eb; }
+.btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+
+/* Modal */
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: #111827; border: 1px solid #374151; padding: 30px; border-radius: 12px; width: 450px; max-width: 90%; }
+.modal-title { font-size: 1.25rem; font-weight: 600; color: white; margin-bottom: 20px; border-bottom: 1px solid #374151; padding-bottom: 10px; }
+.close { float: right; cursor: pointer; color: #9ca3af; font-size: 1.5rem; line-height: 1; }
+</style>
+
+<div class="hub-wrapper">
+    <div class="hub-header">
+        <div class="hub-title">📄 Documents Hub</div>
+        <button class="btn-primary" onclick="openRequestModal()">➕ Request Document</button>
+    </div>
+
+    <div class="hub-card">
+        <form method="GET" class="filters-row">
+            <div class="form-group">
+                <label>Search Employee</label>
+                <input type="text" name="search" class="form-control" placeholder="Name or Code..." value="{{ request.args.get('search', '') }}">
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select name="role" class="form-control">
+                    <option value="">All Roles</option>
+                    {% for r in roles %}
+                    <option value="{{ r.id }}" {% if request.args.get('role') == r.id|string %}selected{% endif %}>{{ r.role_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="status" class="form-control">
+                    <option value="">All Statuses</option>
+                    <option value="Verified" {% if request.args.get('status') == 'Verified' %}selected{% endif %}>Verified</option>
+                    <option value="Pending" {% if request.args.get('status') == 'Pending' %}selected{% endif %}>Pending Approval</option>
+                    <option value="Rejected" {% if request.args.get('status') == 'Rejected' %}selected{% endif %}>Rejected</option>
+                    <option value="Requested" {% if request.args.get('status') == 'Requested' %}selected{% endif %}>Requested (Open)</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex: 0 0 auto;">
+                <button type="submit" class="btn-primary" style="padding: 9px 20px; height: 100%;">Filter</button>
+            </div>
+            {% if request.args %}
+            <div class="form-group" style="flex: 0 0 auto;">
+                <a href="/hrms/employees/documents-hub" class="btn-primary" style="background:#4b5563; padding: 9px 20px; height: 100%; text-decoration:none; display:flex; align-items:center;">Clear</a>
+            </div>
+            {% endif %}
+        </form>
+
+        <div class="hub-tabs">
+            <button class="tab-btn {% if not request.args.get('status') %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub'">All Documents</button>
+            <button class="tab-btn {% if request.args.get('status') == 'Pending' %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub?status=Pending'">Pending Review</button>
+            <button class="tab-btn {% if request.args.get('status') == 'Requested' %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub?status=Requested'">Open Requests</button>
+            <button class="tab-btn {% if request.args.get('status') == 'Rejected' %}active{% endif %}" onclick="window.location='/hrms/employees/documents-hub?status=Rejected'">Rejected</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="hrms-table">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Role</th>
+                        <th>Document Type</th>
+                        <th>Document Title</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 500; color: white;">{{ doc.employee_name }}</div>
+                            <div style="font-size: 0.8rem; color: #9ca3af;">{{ doc.employee_code }}</div>
+                        </td>
+                        <td>{{ doc.role_name or '-' }}</td>
+                        <td>{{ doc.document_type }}</td>
+                        <td>{{ doc.document_title }}</td>
+                        <td>
+                            {% if doc.verification_status == 'Verified' %}
+                                <span class="badge badge-success">Verified</span>
+                            {% elif doc.verification_status == 'Rejected' %}
+                                <span class="badge badge-danger">Rejected</span>
+                            {% elif doc.verification_status == 'Requested' %}
+                                <span class="badge badge-warning">Action Required (Employee)</span>
+                            {% else %}
+                                <span class="badge badge-info">Pending Review</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ (doc.created_at|string)[:10] if doc.created_at else '-' }}</td>
+                        <td>
+                            {% if doc.verification_status == 'Requested' %}
+                                <span style="font-size:0.85rem; color:#9ca3af;">Awaiting Upload</span>
+                            {% else %}
+                                <a href="/hrms/employees/documents/{{ doc.id }}/view" target="_blank" class="btn-primary btn-sm" style="text-decoration:none;">View</a>
+                                {% if doc.verification_status == 'Pending' %}
+                                    <form action="/hrms/employees/documents/api/verify/{{ doc.id }}" method="POST" style="display:inline;" onsubmit="return confirm('Verify this document?');">
+                                        <button type="submit" class="btn-primary btn-sm" style="background:#10b981;">Approve</button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 30px; color: #6b7280;">No documents found matching the criteria.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Request Document Modal -->
+<div id="requestModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeRequestModal()">&times;</span>
+        <div class="modal-title">Request Document</div>
+        <form action="/hrms/employees/documents/request" method="POST">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Employee *</label>
+                <select name="employee_id" class="form-control" required>
+                    <option value="">Select Employee...</option>
+                    {% for e in all_employees %}
+                    <option value="{{ e.id }}">{{ e.full_name }} ({{ e.employee_code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Document Type *</label>
+                <select name="document_type" class="form-control" required>
+                    <option value="">Select Type...</option>
+                    <option value="Aadhar Card">Aadhar Card</option>
+                    <option value="PAN Card">PAN Card</option>
+                    <option value="Experience Letter">Experience Letter</option>
+                    <option value="Relieving Letter">Relieving Letter</option>
+                    <option value="Payslips">Payslips</option>
+                    <option value="Offer Letter">Offer Letter</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label>Specific Title / Note (Optional)</label>
+                <input type="text" name="document_title" class="form-control" placeholder="e.g. Last 3 Months Payslip">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn-primary" style="background: #374151;" onclick="closeRequestModal()">Cancel</button>
+                <button type="submit" class="btn-primary" style="background: #10b981;">Send Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openRequestModal() {
+    document.getElementById('requestModal').style.display = 'flex';
+}
+function closeRequestModal() {
+    document.getElementById('requestModal').style.display = 'none';
+}
+window.onclick = function(event) {
+    if (event.target == document.getElementById('requestModal')) {
+        closeRequestModal();
+    }
+}
+</script>
+
+{% endblock %}

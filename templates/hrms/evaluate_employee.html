@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.eval-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+    color: #e5e7eb;
+}
+.eval-header {
+    margin-bottom: 30px;
+}
+.eval-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+.card {
+    background: #111827;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5);
+}
+.card-title {
+    font-size: 1.2rem;
+    color: #38bdf8;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #1f2937;
+    padding-bottom: 10px;
+}
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+.info-item .lbl {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+}
+.info-item .val {
+    font-size: 1.1rem;
+    color: #fff;
+    font-weight: 500;
+}
+
+.rating-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.rating-table th, .rating-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #1f2937;
+}
+.rating-table th {
+    text-align: center;
+    color: #9ca3af;
+    font-weight: 500;
+}
+.rating-table th:first-child, .rating-table td:first-child {
+    text-align: left;
+    width: 40%;
+}
+.rating-table td {
+    text-align: center;
+}
+/* Custom Numeric Rating Grid */
+.rating-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    width: 36px;
+    height: 36px;
+    margin: 0 auto;
+}
+
+.rating-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.rating-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+    color: #9ca3af;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+}
+
+/* Hover effect for active/writable ratings */
+.rating-label:hover .rating-num {
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #fff;
+    background: rgba(56, 189, 248, 0.08);
+    transform: scale(1.08);
+}
+
+/* Checked status */
+.rating-label input[type="radio"]:checked + .rating-num {
+    background: linear-gradient(135deg, #38bdf8, #6366f1);
+    border-color: transparent;
+    color: #0b0f19;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.45);
+    transform: scale(1.1);
+}
+
+/* Highlight the whole table cell when checked */
+.radio-cell.selected-rating {
+    background: rgba(56, 189, 248, 0.05) !important;
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.2) !important;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.summary-box {
+    background: #1f2937;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+.summary-box .val {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 5px;
+}
+.summary-box .lbl {
+    font-size: 0.9rem;
+    color: #9ca3af;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d1d5db;
+}
+.form-control {
+    width: 100%;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 12px;
+    color: #fff;
+    resize: vertical;
+}
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.btn-submit {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.btn-submit:hover {
+    background: #2563eb;
+}
+.rating-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px solid #1f2937;
+}
+@media (max-width: 768px) {
+    .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 480px) {
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div class="eval-wrapper">
+    <div style="margin-bottom: 20px;">
+        <a href="/hrms/employees/{{ emp.id }}/profile?tab=performance" style="color: #9ca3af; text-decoration: none; font-size: 0.95rem;">← Back to Profile</a>
+    </div>
+    <div class="eval-header">
+        <h1 class="eval-title">Performance Evaluation</h1>
+        <p style="color:#9ca3af; margin-top:5px;">Cycle {{ cycle }} • Month: {{ eval_month }}/{{ eval_year }}</p>
+    </div>
+
+    <form method="POST" action="/hrms/performance/save/{{ emp.id }}" id="evalForm">
+        <input type="hidden" name="evaluation_cycle" value="{{ cycle }}">
+        <input type="hidden" name="evaluation_month" value="{{ eval_month }}">
+        <input type="hidden" name="evaluation_year" value="{{ eval_year }}">
+        <input type="hidden" name="final_score" id="final_score_input" value="0">
+        <input type="hidden" name="grade" id="grade_input" value="">
+
+        <!-- EMPLOYEE DETAILS -->
+        <div class="card">
+            <h2 class="card-title">Employee Details</h2>
+            <div class="info-grid">
+                <div class="info-item"><div class="lbl">Name</div><div class="val">{{ emp.full_name }}</div></div>
+                <div class="info-item"><div class="lbl">Employee ID</div><div class="val">{{ emp.employee_code }}</div></div>
+                <div class="info-item"><div class="lbl">Department</div><div class="val">{{ emp.department }}</div></div>
+                <div class="info-item"><div class="lbl">Designation</div><div class="val">{{ emp.designation }}</div></div>
+                <div class="info-item"><div class="lbl">Manager</div><div class="val">{{ emp.manager_name or 'N/A' }}</div></div>
+                <div class="info-item"><div class="lbl">Joining Date</div><div class="val">{{ emp.joining_date }}</div></div>
+                <div class="info-item">
+                    <div class="lbl">Evaluation Type</div>
+                    <select name="evaluation_type" class="form-control" style="padding:8px;" onchange="toggleManagerScore()">
+                        <option value="HR Evaluation">HR Evaluation</option>
+                        <option value="Manager Evaluation">Manager Evaluation</option>
+                        <option value="Combined Evaluation">Combined Evaluation</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- RATING GUIDE -->
+        <div class="card" style="background:#1e293b; border-color:#334155;">
+            <p style="margin:0; font-size:0.95rem; color:#cbd5e1;"><strong>Rating Scale:</strong> 1 = Poor | 2 = Fair | 3 = Satisfactory | 4 = Good | 5 = Excellent</p>
+        </div>
+
+        <!-- TECHNICAL & WORK PERFORMANCE -->
+        <div class="card">
+            <h2 class="card-title">Technical & Work Performance</h2>
+            <div class="rating-table-wrap">
+                <table class="rating-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set tech_categories = ['Job Knowledge', 'Work Quality', 'Attendance & Punctuality', 'Initiative', 'Communication', 'Listening Skills', 'Dependability', 'Mentoring & Guiding'] %}
+                        {% for cat in tech_categories %}
+                        <tr>
+                            <td>{{ cat }}</td>
+                            {% for i in range(1, 6) %}
+                            <td class="radio-cell">
+                                <label class="rating-label">
+                                    <input type="radio" name="rating_{{ cat }}" value="{{ i }}" required onchange="calculateScore()">
+                                    <span class="rating-num">{{ i }}</span>
+                                </label>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PROFESSIONAL SKILLS -->
+        <div class="card">
+            <h2 class="card-title">Professional Skills</h2>
+            <div class="rating-table-wrap">
+                <table class="rating-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set prof_categories = ['Organization Skills', 'Code of Conduct', 'Discipline', 'Problem Solving Ability', 'Adaptability', 'Professionalism', 'Self Confidence', 'Collaboration Skills', 'Analytical Skills', 'Culture Fit', 'Conflict Resolution', 'Innovative Solutions', 'Quality of Output', 'Business Impact', 'Role Competency'] %}
+                        {% for cat in prof_categories %}
+                        <tr>
+                            <td>{{ cat }}</td>
+                            {% for i in range(1, 6) %}
+                            <td class="radio-cell">
+                                <label class="rating-label">
+                                    <input type="radio" name="rating_{{ cat }}" value="{{ i }}" required onchange="calculateScore()">
+                                    <span class="rating-num">{{ i }}</span>
+                                </label>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SUMMARY CALCULATION -->
+        <div class="card">
+            <h2 class="card-title">Evaluation Summary</h2>
+            
+            <div style="display:flex; gap:20px; margin-bottom:20px;" id="manualScoresWrap">
+                <div style="flex:1;">
+                    <label class="form-label">HR Score (%)</label>
+                    <input type="number" name="hr_score" id="hr_score" class="form-control" value="0" min="0" max="100" oninput="calculateScore()">
+                </div>
+                <div style="flex:1; display:none;" id="managerScoreDiv">
+                    <label class="form-label">Manager Score (%)</label>
+                    <input type="number" name="manager_score" id="manager_score" class="form-control" value="0" min="0" max="100" oninput="calculateScore()">
+                </div>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-box">
+                    <div class="val" id="disp_total">0</div>
+                    <div class="lbl">Total Score (/115)</div>
+                </div>
+                <div class="summary-box">
+                    <div class="val" id="disp_avg">0.0</div>
+                    <div class="lbl">Average Rating</div>
+                </div>
+                <div class="summary-box" style="background:#374151;">
+                    <div class="val" id="disp_perc" style="color:#38bdf8;">0%</div>
+                    <div class="lbl">Final Percentage</div>
+                </div>
+                <div class="summary-box" id="grade_box">
+                    <div class="val" id="disp_grade">-</div>
+                    <div class="lbl">Performance Grade</div>
+                </div>
+            </div>
+            <p style="color:#ef4444; font-size:0.9rem; display:none;" id="pip_warning">⚠️ Score is below 60%. A Performance Improvement Plan (PIP) will be automatically generated.</p>
+        </div>
+
+        <!-- FEEDBACK -->
+        <div class="card">
+            <h2 class="card-title">Additional Feedback</h2>
+            <div class="form-group">
+                <label class="form-label">Strengths</label>
+                <textarea name="strengths" class="form-control" rows="3" placeholder="List employee's key strengths..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Areas of Improvement</label>
+                <textarea name="improvements" class="form-control" rows="3" placeholder="Areas where employee can improve..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">HR Comments</label>
+                <textarea name="hr_comments" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group" id="mgrCommentsDiv" style="display:none;">
+                <label class="form-label">Manager Comments</label>
+                <textarea name="manager_comments" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Goals for Next Month</label>
+                <textarea name="goals" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <!-- SUBMIT -->
+        <div style="text-align:right;">
+            <button type="submit" class="btn-submit">Complete Evaluation</button>
+        </div>
+
+    </form>
+</div>
+
+<script>
+function toggleManagerScore() {
+    const evalType = document.querySelector('select[name="evaluation_type"]').value;
+    const mgrDiv = document.getElementById('managerScoreDiv');
+    const mgrComments = document.getElementById('mgrCommentsDiv');
+    
+    if(evalType === 'Combined Evaluation' || evalType === 'Manager Evaluation') {
+        mgrDiv.style.display = 'block';
+        mgrComments.style.display = 'block';
+    } else {
+        mgrDiv.style.display = 'none';
+        mgrComments.style.display = 'none';
+        document.getElementById('manager_score').value = 0;
+    }
+    calculateScore();
+}
+
+function calculateScore() {
+    const radios = document.querySelectorAll('input[type="radio"]:checked');
+    let total = 0;
+    radios.forEach(r => { total += parseInt(r.value); });
+    
+    // 23 categories * 5 max = 115 max total score
+    document.getElementById('disp_total').innerText = total;
+    
+    let avg = radios.length > 0 ? (total / radios.length).toFixed(1) : 0;
+    document.getElementById('disp_avg').innerText = avg;
+    
+    let basePerc = (total / 115) * 100;
+    
+    // Check for manual overrides from HR/Manager score
+    const evalType = document.querySelector('select[name="evaluation_type"]').value;
+    const hrScore = parseFloat(document.getElementById('hr_score').value) || 0;
+    const mgrScore = parseFloat(document.getElementById('manager_score').value) || 0;
+    
+    let finalPerc = basePerc;
+    
+    if(evalType === 'HR Evaluation' && hrScore > 0) {
+        finalPerc = hrScore;
+    } else if(evalType === 'Manager Evaluation' && mgrScore > 0) {
+        finalPerc = mgrScore;
+    } else if(evalType === 'Combined Evaluation' && (hrScore > 0 || mgrScore > 0)) {
+        let count = 0;
+        let sum = 0;
+        if(hrScore > 0) { sum += hrScore; count++; }
+        if(mgrScore > 0) { sum += mgrScore; count++; }
+        finalPerc = sum / count;
+    }
+
+    finalPerc = isNaN(finalPerc) ? 0 : Math.round(finalPerc);
+    
+    document.getElementById('disp_perc').innerText = finalPerc + "%";
+    document.getElementById('final_score_input').value = finalPerc;
+
+    let grade = "-";
+    let color = "#9ca3af";
+    document.getElementById('pip_warning').style.display = 'none';
+
+    if(finalPerc >= 90) { grade = "Outstanding"; color = "#22c55e"; }
+    else if(finalPerc >= 80) { grade = "Excellent"; color = "#3b82f6"; }
+    else if(finalPerc >= 70) { grade = "Very Good"; color = "#8b5cf6"; }
+    else if(finalPerc >= 60) { grade = "Good"; color = "#eab308"; }
+    else if(finalPerc >= 50) { grade = "Needs Improvement"; color = "#f97316"; }
+    else if(finalPerc > 0) { grade = "Unsatisfactory"; color = "#ef4444"; }
+
+    if(finalPerc > 0 && finalPerc < 60) {
+        document.getElementById('pip_warning').style.display = 'block';
+    }
+
+    document.getElementById('disp_grade').innerText = grade;
+    document.getElementById('disp_grade').style.color = color;
+    document.getElementById('grade_input').value = grade;
+}
+
+// init
+toggleManagerScore();
+
+// Dynamic cell highlighting
+document.querySelectorAll('input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const row = this.closest('tr');
+        if (row) {
+            row.querySelectorAll('.radio-cell').forEach(cell => {
+                cell.classList.remove('selected-rating');
+            });
+        }
+        if (this.checked) {
+            const cell = this.closest('.radio-cell');
+            if (cell) cell.classList.add('selected-rating');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+.jobs-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+}
+
+.jobs-card-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.add-job-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #232323;
+    cursor: pointer;
+    user-select: none;
+}
+
+.add-job-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.add-job-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #04120a;
+}
+
+#addJobIcon {
+    color: #94a3b8;
+    font-size: 16px;
+}
+
+.add-job-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-top 0.3s ease;
+    margin-top: 0;
+}
+
+.add-job-body.open {
+    max-height: 500px;
+    margin-top: 16px;
+}
+
+.jobs-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    max-width: 100%;
+}
+
+.jobs-table-wrap table {
+    min-width: 860px;
+    margin-top: 12px;
+}
+
+.jobs-table-wrap thead th {
+    letter-spacing: 0.02em;
+    font-size: 13px;
+}
+
+.jobs-table-wrap tbody td {
+    vertical-align: middle;
+}
+
+.job-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.job-actions a {
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    color: #d1d5db;
+    transition: 0.2s ease;
+}
+
+.job-actions a:hover {
+    background: #1a1a1a;
+    border-color: #3a3a3a;
+    color: #fff;
+}
+
+.job-actions .action-apply {
+    border-color: #14532d;
+    color: #86efac;
+}
+
+.job-actions .action-apply:hover {
+    background: #0e2016;
+    border-color: #166534;
+}
+
+.job-actions .action-edit {
+    border-color: #1e3a8a;
+    color: #93c5fd;
+}
+
+.job-actions .action-edit:hover {
+    background: #121d38;
+    border-color: #1d4ed8;
+}
+
+.job-actions .action-delete {
+    border-color: #7f1d1d;
+    color: #fca5a5;
+}
+
+.job-actions .action-delete:hover {
+    background: #2a1212;
+    border-color: #991b1b;
+}
+
+.job-actions .action-restore {
+    border-color: #14532d;
+    color: #86efac;
+}
+
+.job-actions .action-restore:hover {
+    background: #0e2016;
+    border-color: #166534;
+}
+
+.row-deleted {
+    opacity: 0.5;
+}
+
+.row-deleted td {
+    color: #6b7280 !important;
+}
+
+.badge-deleted {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #7f1d1d;
+    color: #fca5a5;
+    margin-left: 8px;
+    vertical-align: middle;
+    letter-spacing: 0.04em;
+}
+
+.toggle-deleted-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toggle-deleted-btn {
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+    color: #94a3b8;
+    transition: 0.2s ease;
+    cursor: pointer;
+    background: transparent;
+}
+
+.toggle-deleted-btn:hover {
+    background: #1a1a1a;
+    border-color: #3a3a3a;
+    color: #fff;
+}
+
+.toggle-deleted-btn.active {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+@media (max-width: 768px) {
+    .jobs-table-wrap table {
+        min-width: 760px;
+    }
+}
+</style>
+
+<h1 class="page-title">Manage Jobs</h1>
+<p class="subtitle">Create and manage open positions</p>
+
+<div class="jobs-layout">
+
+    <!-- ADD JOB -->
+    <div class="card">
+        <div class="add-job-header" onclick="toggleAddJob()">
+            <div class="add-job-label">
+                <span class="add-job-badge">+</span>
+                <h3 class="jobs-card-title">Add New Job</h3>
+            </div>
+            <span id="addJobIcon">&#9660;</span>
+        </div>
+
+        <div id="addJobBody" class="add-job-body">
+            <form method="POST">
+                <input type="text" name="title" placeholder="Job Title" required>
+                <textarea name="description" placeholder="Job Description" required></textarea>
+                <input type="text" name="location" placeholder="Location" required>
+                <input type="text" name="department" placeholder="Department (optional)">
+                <button type="submit">Add Job</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JOBS TABLE -->
+    <div class="card">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <h3 class="jobs-card-title">{{ "All Jobs (Including Archived)" if show_deleted else "Active Jobs" }}</h3>
+            <div class="toggle-deleted-wrap">
+                {% if show_deleted %}
+                    <a href="/jobs" class="toggle-deleted-btn active">Hide Archived</a>
+                {% else %}
+                    <a href="/jobs?show_deleted=1" class="toggle-deleted-btn">Show Archived</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="jobs-table-wrap"><table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Department</th>
+                    <th>Location</th>
+                    <th>Date Posted</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for job in jobs %}
+                {% set is_deleted = job.deleted_at is defined and job.deleted_at %}
+                <tr {% if is_deleted %}class="row-deleted"{% endif %}>
+                    <td>
+                        {{ job.title }}
+                        {% if is_deleted %}<span class="badge-deleted">ARCHIVED</span>{% endif %}
+                    </td>
+                    <td>{{ job.department or '-' }}</td>
+                    <td>{{ job.location }}</td>
+                    <td>{{ job.created_at }}</td>
+                    <td>
+                        {% if is_deleted %}
+                            <span style="color: #fca5a5; font-weight: 600; font-size: 13px;">Archived</span>
+                        {% else %}
+                            <span style="color: #86efac; font-weight: 600; font-size: 13px;">Active</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="job-actions">
+                            {% if is_deleted %}
+                                <a class="action-restore" href="#" onclick="event.preventDefault(); window.customConfirm('Restore Job', 'Are you sure you want to restore this job? It will become visible to applicants again.', () => { window.location.href = '{{ url_for('restore_job', job_id=job.id) }}'; });">Restore</a>
+                                <a class="action-delete" href="#" onclick="event.preventDefault(); window.customConfirm('Permanent Delete', 'Are you sure you want to permanently delete this job? If candidates have already applied, it will be rejected.', () => { window.location.href = '{{ url_for('hard_delete_job', job_id=job.id) }}'; });">Delete</a>
+                            {% else %}
+                                <a class="action-apply" href="{{ url_for('apply', job_id=job.id) }}">Apply</a>
+                                <a class="action-edit" href="{{ url_for('edit_job', job_id=job.id) }}">Edit</a>
+                                <a class="action-delete" href="#" onclick="event.preventDefault(); window.customConfirm('Archive Job', 'Are you sure you want to archive this job? It will be hidden from applicants but all candidate applications will be safely preserved.', () => { window.location.href = '{{ url_for('delete_job', job_id=job.id) }}'; });">Archive</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="6" style="text-align:center; color:#94a3b8;">
+                        No jobs found
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table></div>
+    </div>
+</div>
+
+<script>
+function toggleAddJob() {
+    const body = document.getElementById("addJobBody");
+    const icon = document.getElementById("addJobIcon");
+
+    body.classList.toggle("open");
+    icon.innerHTML = body.classList.contains("open") ? "&#9650;" : "&#9660;";
+}
+</script>
+
+{% endblock %}
