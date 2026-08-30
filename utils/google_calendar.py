@@ -12,8 +12,21 @@ SECRETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "utils",
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_oauth_flow(redirect_uri=None):
+    env_secrets = os.getenv("GOOGLE_CLIENT_SECRETS_JSON")
+    if env_secrets:
+        try:
+            client_config = json.loads(env_secrets)
+            return Flow.from_client_config(
+                client_config,
+                scopes=SCOPES,
+                redirect_uri=redirect_uri,
+                autogenerate_code_verifier=False
+            )
+        except Exception as e:
+            print("Error loading Google OAuth flow from environment variable GOOGLE_CLIENT_SECRETS_JSON:", e)
+            
     if not os.path.exists(SECRETS_PATH):
-        raise FileNotFoundError(f"Google OAuth client_secrets.json not found at {SECRETS_PATH}")
+        raise FileNotFoundError(f"Google OAuth client_secrets.json not found at {SECRETS_PATH} and GOOGLE_CLIENT_SECRETS_JSON environment variable is not set")
     flow = Flow.from_client_secrets_file(
         SECRETS_PATH,
         scopes=SCOPES,
