@@ -349,3 +349,38 @@ def send_message():
         return jsonify({"error": str(e)}), 500
     finally:
         if conn: release_db(conn, cur)
+
+
+@announcements_bp.route("/feed", methods=["GET"])
+@login_required
+def feed():
+    email = session.get("email")
+    conn, cur = None, None
+    messages = []
+    try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("No DB Connection")
+        cur.execute("""
+            SELECT subject, body_html, sent_at, created_by
+            FROM outbound_messages
+            WHERE recipient_email = %s AND status = 'Sent'
+            ORDER BY sent_at DESC
+        """, (email,))
+        messages = cur.fetchall()
+        release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching announcements feed via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+        try:
+            messages = supabase_rest.get_rows("outbound_messages", {
+                "recipient_email": f"eq.{email}",
+                "status": "eq.Sent",
+                "order": "sent_at.desc"
+            })
+        except Exception as rest_err:
+            print("REST fallback for announcements feed failed:", rest_err)
+            
+    return render_template("hrms/announcements_feed.html", messages=messages)

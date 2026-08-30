@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Help Desk HR Layout ── */
+.help-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.help-header {
+    margin-bottom: 30px;
+}
+
+/* Category Tabs */
+.tabs-wrap {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 10px;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    color: #64748b;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.03);
+}
+.tab-btn.active {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.08);
+}
+
+/* Request Cards */
+.req-card {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+.req-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.req-meta-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.req-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+}
+.req-sender-info {
+    font-size: 13px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.badge-status {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.status-open { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.status-inprogress { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.status-resolved { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+
+.req-desc {
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.6;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    margin-bottom: 20px;
+}
+
+/* Response Section */
+.response-section {
+    background: rgba(99, 102, 241, 0.02);
+    border: 1px solid rgba(99, 102, 241, 0.08);
+    border-radius: 8px;
+    padding: 20px;
+}
+.response-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #818cf8;
+    margin: 0 0 14px 0;
+}
+.form-group {
+    margin-bottom: 14px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+.btn-submit {
+    background: #3b82f6;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-submit:hover {
+    background: #2563eb;
+}
+</style>
+
+<div class="help-container">
+    <div class="help-header">
+        <h1 class="page-title">Help Desk Requests</h1>
+        <p class="subtitle">Respond to queries and requests raised by employees.</p>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="padding: 12px; margin-bottom: 20px; border-radius: 6px; 
+              {% if category == 'error' %}background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);
+              {% else %}background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2);{% endif %}">
+              {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Filter tabs -->
+    <div class="tabs-wrap">
+        <button class="tab-btn active" onclick="filterStatus('all')">All Requests</button>
+        <button class="tab-btn" onclick="filterStatus('Open')">Open</button>
+        <button class="tab-btn" onclick="filterStatus('In Progress')">In Progress</button>
+        <button class="tab-btn" onclick="filterStatus('Resolved')">Resolved</button>
+    </div>
+
+    <div class="requests-list">
+        {% for q in queries %}
+        <div class="req-card" data-status="{{ q.status }}">
+            <div class="req-top">
+                <div class="req-meta-left">
+                    <h3 class="req-title">{{ q.subject }}</h3>
+                    <div class="req-sender-info">
+                        <span style="color:#e2e8f0; font-weight:600;">👤 {{ q.employee_name }}</span>
+                        <span style="color:#475569;">|</span>
+                        <span>📂 {{ q.department }} ({{ q.designation }})</span>
+                        <span style="color:#475569;">|</span>
+                        <span>📅 {{ (q.created_at|string)[:16] }}</span>
+                    </div>
+                </div>
+                <span class="badge-status status-{{ q.status.lower().replace(' ', '') }}">{{ q.status }}</span>
+            </div>
+            
+            <div class="req-desc">
+                {{ q.description }}
+            </div>
+            
+            <div class="response-section">
+                <h4 class="response-title">💬 Response &amp; Actions</h4>
+                <form action="/hrms/helpdesk/{{ q.id }}/respond" method="POST">
+                    <div class="form-group">
+                        <label class="form-label">HR response text</label>
+                        <textarea name="hr_response" class="form-control" rows="3" placeholder="Enter reply to employee..." required>{{ q.hr_response or '' }}</textarea>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div class="form-group" style="margin-bottom:0; display:flex; align-items:center; gap:8px;">
+                            <label class="form-label" style="margin-bottom:0;">Update Status:</label>
+                            <select name="status" class="form-control" style="width:130px; padding:6px 10px;">
+                                <option value="Open" {% if q.status == 'Open' %}selected{% endif %}>Open</option>
+                                <option value="In Progress" {% if q.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                                <option value="Resolved" {% if q.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-submit">Submit Response</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: #64748b; background: rgba(15,15,15,0.5); border: 1px dashed rgba(255,255,255,0.06); border-radius: 12px;">
+            No employee query tickets found.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function filterStatus(status) {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const cards = document.querySelectorAll('.req-card');
+    
+    // Set active tab
+    tabs.forEach(tab => {
+        if(tab.innerText.toLowerCase().includes(status.toLowerCase())) {
+            tab.classList.add('active');
+        } else if (status === 'all' && tab.innerText.toLowerCase().includes('all')) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+    
+    // Filter cards
+    cards.forEach(card => {
+        const cStatus = card.getAttribute('data-status');
+        if(status === 'all' || cStatus.toLowerCase() === status.toLowerCase()) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

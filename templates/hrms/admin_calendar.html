@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.calendar-container {
+    max-width: 700px;
+    margin: 40px auto;
+    padding: 24px;
+}
+.calendar-card {
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 36px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+.calendar-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    display: inline-block;
+}
+.calendar-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 10px;
+    background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.calendar-subtitle {
+    color: #94a3b8;
+    font-size: 15px;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+.status-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 30px;
+}
+.status-connected {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.status-disconnected {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.btn-calendar {
+    display: inline-block;
+    padding: 12px 30px;
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    font-size: 16px;
+    border: none;
+}
+.btn-connect {
+    background: linear-gradient(135deg, #4285f4 0%, #357ae8 100%);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+}
+.btn-connect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.5);
+}
+.btn-disconnect {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+.btn-disconnect:hover {
+    background: rgba(239, 68, 68, 0.25);
+    transform: translateY(-1px);
+}
+.details-box {
+    margin-top: 30px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 13.5px;
+    color: #cbd5e1;
+    text-align: left;
+}
+</style>
+
+<div class="calendar-container">
+    <div class="calendar-card">
+        <span class="calendar-icon">📅</span>
+        <h2 class="calendar-title">Google Calendar Integration</h2>
+        
+        {% if connected %}
+            <p class="calendar-subtitle">
+                Your HR Portal is connected to Google Calendar. Interviews scheduled through the recruitment pipeline will be posted automatically to your calendar and email invitations will be sent directly by Google.
+            </p>
+            <div class="status-badge status-connected">
+                ● Connected ({{ email }})
+            </div>
+            <div>
+                <form action="{{ url_for('admin.calendar_disconnect') }}" method="POST" style="display: inline-block;">
+                    <button type="submit" class="btn-calendar btn-disconnect">Disconnect Calendar</button>
+                </form>
+            </div>
+        {% else %}
+            <p class="calendar-subtitle">
+                Link your shared HR Google account to enable automatic interview sync, invitations, and schedule notifications.
+            </p>
+            <div class="status-badge status-disconnected">
+                ● Not Connected
+            </div>
+            <div>
+                <a href="{{ url_for('admin.calendar_auth') }}" class="btn-calendar btn-connect">Connect Google Calendar</a>
+            </div>
+        {% endif %}
+
+        <div class="details-box">
+            <h4 style="margin-top: 0; color: #fff; margin-bottom: 8px;">⚙ Integration Scope</h4>
+            <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+                <li>Automatically inserts calendar invites for interview updates.</li>
+                <li>Sends notifications to candidates and HR drivers.</li>
+                <li>Saves access tokens using encryption at rest.</li>
+                <li>Falls back to raw email attachments (.ics format) if integration is disconnected.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

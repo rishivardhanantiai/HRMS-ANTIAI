@@ -40,3 +40,6 @@ uploads/
 *.xlsx
 exports/
 
+# Credentials / Secrets
+utils/client_secrets.json
+

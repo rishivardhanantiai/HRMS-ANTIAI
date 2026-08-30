@@ -50,12 +50,13 @@ body {
 .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
     z-index: 1000;
-    display: none;
+    display: block;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 
 .app-container.sidebar-open .sidebar-overlay {
@@ -63,24 +64,62 @@ body {
     visibility: visible;
 }
 
-.nav-toggle {
-    display: none;
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    z-index: 1002;
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid #1f2937;
-    background: #0b0b0b;
-    color: #f9fafb;
-    font-size: 14px;
-    line-height: 1;
-    cursor: pointer;
+/* Unified Premium Header / Top Nav */
+.top-nav {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(12px);
+    margin-bottom: 30px;
+    position: relative;
+    border-radius: 12px;
 }
 
-.nav-toggle:hover {
-    background: #141414;
+.brand-title {
+    display: none;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Burger Menu Toggle */
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 24px;
+    height: 16px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 1002;
+}
+
+.nav-toggle .burger-bar {
+    width: 100%;
+    height: 2px;
+    background-color: #cbd5e1;
+    border-radius: 2px;
+    transition: all 0.25s ease;
+}
+
+/* Burger animations on sidebar open */
+.app-container.sidebar-open .nav-toggle .burger-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+.app-container.sidebar-open .nav-toggle .burger-bar:nth-child(2) {
+    opacity: 0;
+}
+.app-container.sidebar-open .nav-toggle .burger-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
 }
 /* Custom Scrollbar for Sidebar */
 .sidebar::-webkit-scrollbar {
@@ -159,20 +198,48 @@ body {
         left: -260px;
     }
 
-    .sidebar-overlay {
-        display: block;
+    .top-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        z-index: 1000;
+        margin-bottom: 0;
+        border-radius: 0;
+        padding: 0 20px;
+        justify-content: space-between;
+        background: rgba(15, 23, 42, 0.85);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-
+    
+    .brand-title {
+        display: block;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
     .nav-toggle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
+        display: flex;
     }
 
     .main-content {
         margin-left: 0;
-        padding: 70px 24px 24px;
+        padding: 84px 20px 20px !important;
         width: 100%;
+    }
+    
+    /* Responsive layout helper for mobile tables and lists */
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .card, .hrms-card {
+        padding: 20px !important;
     }
 }
 
@@ -236,6 +303,10 @@ input, textarea, select {
     border-radius: 10px;
     color: #fff;
     margin-bottom: 16px;
+}
+
+input[type="date"], input[type="datetime-local"], input[type="time"] {
+    color-scheme: dark;
 }
 
 input:focus, textarea:focus, select:focus {

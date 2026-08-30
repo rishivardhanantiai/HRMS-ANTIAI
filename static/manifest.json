@@ -1,0 +1,19 @@
+{
+  "name": "ANTI.AI HRMS Portal",
+  "short_name": "ANTI HRMS",
+  "description": "Unified self-service onboarding, approvals, and communication portal.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050505",
+  "theme_color": "#3b82f6",
+  "status_bar": "black-translucent",
+  "icons": [
+    {
+      "src": "/static/images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

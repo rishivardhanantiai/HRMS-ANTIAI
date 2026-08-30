@@ -47,15 +47,19 @@
         {% endif %}
 
         <form id="offerForm" onsubmit="return submitOffer(event)">
+            {% if prefill and prefill.application_id %}
+            <input type="hidden" name="application_id" value="{{ prefill.application_id }}">
+            {% endif %}
+            
             <div class="section-label">Candidate</div>
             <div class="form-grid">
                 <div class="full">
                     <label>Candidate Full Name *</label>
-                    <input type="text" name="candidate_name" value="{{ offer.candidate_name if offer else '' }}" required>
+                    <input type="text" name="candidate_name" value="{{ offer.candidate_name if offer else (prefill.candidate_name if prefill else '') }}" required>
                 </div>
                 <div class="full">
                     <label>Candidate Email *</label>
-                    <input type="email" name="candidate_email" value="{{ offer.candidate_email if offer else '' }}" {% if offer %}readonly{% endif %} required>
+                    <input type="email" name="candidate_email" value="{{ offer.candidate_email if offer else (prefill.candidate_email if prefill else '') }}" {% if offer %}readonly{% endif %} required>
                 </div>
                 <div class="full">
                     <label>Candidate Address</label>

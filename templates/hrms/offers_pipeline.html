@@ -57,7 +57,12 @@
             <div class="hrms-title">Offer Letters</div>
             <div class="hrms-subtitle">Draft, approve, and e-sign offers — the NDA and onboarding invite follow automatically.</div>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center;">
+            <form action="/hrms/offers/import-bulk-csv" method="POST" enctype="multipart/form-data" id="bulkCsvForm" style="display:inline-block; margin:0;">
+                <input type="file" name="csv_file" accept=".csv" required style="display:none;" id="bulkCsvInput" onchange="document.getElementById('bulkCsvForm').submit();">
+                <button type="button" class="btn-mini" onclick="document.getElementById('bulkCsvInput').click();" style="padding:10px 16px;">📂 Bulk CSV Import</button>
+            </form>
+            <a href="/hrms/offers/bulk-csv-template" class="btn-mini" style="padding:10px 16px;">📥 CSV Template</a>
             <a href="/hrms/offers/templates/ui" class="btn-mini" style="padding:10px 16px;">Edit Templates</a>
             <a href="/hrms/offers/new/ui" class="btn-add">+ New Offer</a>
         </div>

@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ title or "HR Panel" }}</title>
 
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#3b82f6">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 
@@ -58,6 +62,21 @@ input:focus, textarea:focus, select:focus {
 .sidebar-nav a.active {
     background: linear-gradient(135deg, #3b82f6, #6366f1);
     color: #fff;
+}
+
+.sidebar-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #5b6e85;
+    text-transform: uppercase;
+    margin: 22px 0 8px 12px;
+}
+
+.sidebar-divider {
+    border: 0;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    margin: 18px 0;
 }
 
 .main-content {
@@ -226,10 +245,6 @@ input:focus, textarea:focus, select:focus {
 
 <div class="app-container">
 
-<button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
-Menu
-</button>
-
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <aside class="sidebar">
@@ -253,6 +268,18 @@ class="{% if request.path.startswith('/hrms/attendance') %}active{% endif %}">
 Attendance
 </a>
 
+<!-- DIRECTORY -->
+<a href="/hrms/employees/directory"
+class="{% if request.path == '/hrms/employees/directory' %}active{% endif %}">
+Directory
+</a>
+
+<!-- HOLIDAYS -->
+<a href="/hrms/leave/holidays"
+class="{% if request.path == '/hrms/leave/holidays' %}active{% endif %}">
+Holidays
+</a>
+
 <!-- USER INFO -->
 <div class="user-profile" style="margin:15px 0;">
 <h4>{{ session.get("employee_name") }}</h4>
@@ -264,7 +291,7 @@ Attendance
 {% if session.get("role") == "Employee" %}
 
 <a href="/hrms/leave"
-class="{% if request.path.startswith('/hrms/leave') %}active{% endif %}">
+class="{% if request.path.startswith('/hrms/leave') and not request.path.startswith('/hrms/leave/holidays') %}active{% endif %}">
 Leave
 </a>
 
@@ -278,6 +305,21 @@ class="{% if request.path.startswith('/hrms/employees/my-documents') %}active{% 
 Documents
 </a>
 
+<a href="/hrms/announcements/feed"
+class="{% if request.path.startswith('/hrms/announcements/feed') %}active{% endif %}">
+Announcements
+</a>
+
+<a href="/hrms/helpdesk"
+class="{% if request.path == '/hrms/helpdesk' %}active{% endif %}">
+Help Desk
+</a>
+
+<a href="/hrms/policies"
+class="{% if request.path == '/hrms/policies' %}active{% endif %}">
+Policies &amp; Compliance
+</a>
+
 <a href="/hrms/performance/my_evaluations"
 class="{% if request.path.startswith('/hrms/performance/my_evaluations') %}active{% endif %}">
 My Performance
@@ -289,10 +331,84 @@ My Performance
 
 {% if session.get("role") in ["HR","Admin"] %}
 
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Recruitment &amp; ATS</div>
+
+<a href="/jobs"
+class="{% if request.path.startswith('/jobs') %}active{% endif %}">
+Manage Jobs
+</a>
+
+<a href="/applications"
+class="{% if request.path.startswith('/applications') %}active{% endif %}">
+Applications (Inbox)
+</a>
+
+<a href="/hrms/candidates"
+class="{% if request.path.startswith('/hrms/candidates') %}active{% endif %}">
+Pipeline (ATS)
+</a>
+
+<a href="/hrms/interviews/"
+class="{% if request.path.startswith('/hrms/interviews') %}active{% endif %}">
+Interviews
+</a>
+
+<a href="/hrms/offers/"
+class="{% if request.path.startswith('/hrms/offers') %}active{% endif %}">
+Offer Letters
+</a>
+
+<a href="/hrms/onboarding/"
+class="{% if request.path.startswith('/hrms/onboarding') %}active{% endif %}">
+Onboarding
+</a>
+
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Employees &amp; Core HR</div>
+
+<a href="/hrms/employees/ui"
+class="{% if request.path == '/hrms/employees/ui' %}active{% endif %}">
+Employees
+</a>
+
 <a href="/hrms/leave/manage"
 class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
 Manage Leave
 </a>
+
+<a href="/hrms/employees/documents-hub"
+class="{% if request.path.startswith('/hrms/employees/documents') %}active{% endif %}">
+Documents
+</a>
+
+<a href="/hrms/announcements/"
+class="{% if request.path.startswith('/hrms/announcements') %}active{% endif %}">
+Announcements
+</a>
+
+<a href="/hrms/policies/manage"
+class="{% if request.path == '/hrms/policies/manage' %}active{% endif %}">
+Policy Manager
+</a>
+
+<a href="/hrms/helpdesk/manage"
+class="{% if request.path == '/hrms/helpdesk/manage' %}active{% endif %}">
+Help Desk Requests
+</a>
+
+<a href="/hrms/exit/history"
+class="{% if request.path.startswith('/hrms/exit') %}active{% endif %}">
+Employee Exit History
+</a>
+
+<a href="/hrms/performance/ui"
+class="{% if request.path.startswith('/hrms/performance/ui') %}active{% endif %}">
+Performance
+</a>
+
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Payroll &amp; Finance</div>
 
 <a href="/hrms/payroll/"
 class="{% if request.path.startswith('/hrms/payroll') %}active{% endif %}">
@@ -309,55 +425,8 @@ class="{% if request.path.startswith('/salary-records') %}active{% endif %}">
 Salary Records
 </a>
 
-<a href="/jobs"
-class="{% if request.path.startswith('/jobs') %}active{% endif %}">
-Manage Jobs
-</a>
-
-<a href="/applications"
-class="{% if request.path.startswith('/applications') %}active{% endif %}">
-Applications
-</a>
-
-<a href="/hrms/employees/ui"
-class="{% if request.path == '/hrms/employees/ui' %}active{% endif %}">
-Employees
-</a>
-
-<a href="/hrms/offers/"
-class="{% if request.path.startswith('/hrms/offers') %}active{% endif %}">
-Offer Letters
-</a>
-
-<a href="/hrms/interviews/"
-class="{% if request.path.startswith('/hrms/interviews') %}active{% endif %}">
-Interviews
-</a>
-
-<a href="/hrms/announcements/"
-class="{% if request.path.startswith('/hrms/announcements') %}active{% endif %}">
-Announcements
-</a>
-
-<a href="/hrms/onboarding/"
-class="{% if request.path.startswith('/hrms/onboarding') %}active{% endif %}">
-Onboarding
-</a>
-
-<a href="/hrms/employees/documents-hub"
-class="{% if request.path.startswith('/hrms/employees/documents') %}active{% endif %}">
-Documents
-</a>
-
-<a href="/hrms/performance/ui"
-class="{% if request.path.startswith('/hrms/performance/ui') %}active{% endif %}">
-Performance
-</a>
-
-<a href="/hrms/exit/history"
-class="{% if request.path.startswith('/hrms/exit') %}active{% endif %}">
-Employee Exit History
-</a>
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Administration &amp; System</div>
 
 <a href="/hrms/letters/generator"
 class="{% if request.path.startswith('/hrms/letters') %}active{% endif %}">
@@ -369,10 +438,38 @@ class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
 Roles
 </a>
 
+<a href="/hrms/admin/calendar/setup"
+class="{% if request.path == '/hrms/admin/calendar/setup' %}active{% endif %}">
+📅 Google Calendar
+</a>
+
+<a href="/hrms/admin/settings"
+class="{% if request.path == '/hrms/admin/settings' %}active{% endif %}">
+🏢 Company Settings
+</a>
+
 {% if session.get("role") == "Admin" %}
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Admin Control Center</div>
+
+<a href="/hrms/admin/dashboards"
+class="{% if request.path == '/hrms/admin/dashboards' %}active{% endif %}">
+📊 Dashboards
+</a>
+
 <a href="/hrms/approvals/"
 class="{% if request.path.startswith('/hrms/approvals') %}active{% endif %}">
 🛡 Approvals Queue
+</a>
+
+<a href="/hrms/admin/users"
+class="{% if request.path == '/hrms/admin/users' %}active{% endif %}">
+👥 User Logins
+</a>
+
+<a href="/hrms/admin/audit-logs"
+class="{% if request.path == '/hrms/admin/audit-logs' %}active{% endif %}">
+📋 Audit Logs
 </a>
 {% endif %}
 
@@ -394,8 +491,16 @@ Logout
 </aside>
 
 <main class="main-content">
-{% if session.get("role") in ["HR", "Admin"] %}
-    <div class="top-nav" style="display:flex; justify-content:flex-end; padding: 10px 20px; border-bottom: 1px solid #334155; margin-bottom: 20px;">
+{% if session.get("role") in ["HR", "Admin", "Employee"] %}
+    <div class="top-nav">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+            <span class="burger-bar"></span>
+            <span class="burger-bar"></span>
+            <span class="burger-bar"></span>
+        </button>
+        
+        <div class="brand-title">Anti AI</div>
+
         <div class="notification-wrapper" style="position:relative;">
             <button id="notifBtn" style="background:none; border:none; color:#cbd5e1; font-size:20px; cursor:pointer; position:relative;">
                 🔔
@@ -436,37 +541,7 @@ setTimeout(()=>t.remove(),500);
 
 },3000);
 
-const appContainer = document.querySelector(".app-container");
-const navToggle = document.getElementById("navToggle");
-const sidebarOverlay = document.getElementById("sidebarOverlay");
 
-function closeSidebar() {
-    if (!appContainer) return;
-    appContainer.classList.remove("sidebar-open");
-    if (navToggle) {
-        navToggle.setAttribute("aria-expanded", "false");
-    }
-}
-
-function toggleSidebar() {
-    if (!appContainer || !navToggle) return;
-    const isOpen = appContainer.classList.toggle("sidebar-open");
-    navToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-}
-
-if (navToggle) {
-    navToggle.addEventListener("click", toggleSidebar);
-}
-
-if (sidebarOverlay) {
-    sidebarOverlay.addEventListener("click", closeSidebar);
-}
-
-document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-        closeSidebar();
-    }
-});
 
 window.showToast = function(message, category = "success") {
     let container = document.querySelector(".toast-container");
@@ -610,6 +685,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(fetchNotifications, 60000);
 });
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js')
+      .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+      .catch(err => console.error('Service Worker registration failed:', err));
+  });
+}
 </script>
 </body>
 </html>

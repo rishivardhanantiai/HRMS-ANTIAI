@@ -77,4 +77,35 @@
     </table></div>
 </div>
 
+{% if salary_history %}
+<div class="page-header" style="margin-top: 40px;">
+    <h2>Compensation & CTC History</h2>
+</div>
+
+<div class="card">
+    <div class="employee-payroll-table-wrap">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Effective From</th>
+                    <th>Structure</th>
+                    <th>Monthly Salary</th>
+                    <th>Annual CTC</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sal in salary_history %}
+                <tr>
+                    <td>{{ sal.effective_from }}</td>
+                    <td>{{ sal.structure_name or 'Standard Structure' }}</td>
+                    <td style="color: #fff; font-weight: 600;">₹ {{ sal.monthly_salary }}</td>
+                    <td style="color: #34d399; font-weight: 700;">₹ {{ sal.monthly_salary * 12 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

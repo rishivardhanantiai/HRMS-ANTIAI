@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Policies HR Layout ── */
+.pol-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.pol-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1.6fr;
+    gap: 30px;
+    align-items: start;
+    margin-bottom: 40px;
+}
+@media (max-width: 900px) {
+    .pol-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Card */
+.pol-card {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 24px;
+}
+.card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 20px 0;
+}
+
+/* Form elements */
+.form-group {
+    margin-bottom: 16px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+.btn-submit {
+    background: #3b82f6;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: inline-block;
+}
+.btn-submit:hover {
+    background: #2563eb;
+}
+
+/* Table styling */
+.pol-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.pol-table th {
+    text-align: left;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.pol-table td {
+    padding: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #cbd5e1;
+    font-size: 13px;
+}
+.badge-status {
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.status-pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.status-signed { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+
+.btn-assign {
+    background: rgba(59, 130, 246, 0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-assign:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+}
+.btn-download {
+    color: #34d399;
+    text-decoration: none;
+    font-weight: 600;
+}
+.btn-download:hover {
+    text-decoration: underline;
+}
+</style>
+
+<div class="pol-container">
+    <div class="pol-header">
+        <h1 class="page-title">Policy &amp; Compliance Manager</h1>
+        <p class="subtitle">Publish policy documents, request sign-offs, and audit compliance status.</p>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="padding: 12px; margin-bottom: 20px; border-radius: 6px; 
+              {% if category == 'error' %}background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);
+              {% else %}background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2);{% endif %}">
+              {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="pol-grid">
+        
+        <!-- NEW POLICY TEMPLATE FORM -->
+        <div class="pol-card">
+            <h3 class="card-title">⚙️ Publish New Policy Template</h3>
+            <form action="/hrms/policies/create" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Policy Title</label>
+                    <input type="text" name="title" class="form-control" placeholder="E.g., Prevention of Sexual Harassment (POSH)" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Policy Body (HTML / Plain Text)</label>
+                    <textarea name="content_html" class="form-control" rows="10" placeholder="<p>Enter HTML policy clauses...</p>" required></textarea>
+                </div>
+                <button type="submit" class="btn-submit">Publish Policy</button>
+            </form>
+        </div>
+
+        <!-- AVAILABLE POLICIES LIST -->
+        <div class="pol-card">
+            <h3 class="card-title">📄 Active Policies &amp; Actions</h3>
+            <table class="pol-table">
+                <thead>
+                    <tr>
+                        <th>Policy Title</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in policies %}
+                    <tr>
+                        <td style="font-weight: 600; color: #fff;">{{ p.title }}</td>
+                        <td style="text-align: right;">
+                            <a href="/hrms/policies/preview/{{ p.id }}" class="btn-assign" style="background: rgba(255,255,255,0.05); color:#fff; border-color: rgba(255,255,255,0.1); margin-right:8px; text-decoration:none; display:inline-block;">View Template</a>
+                            <form action="/hrms/policies/{{ p.id }}/assign-all" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to request sign-off from all active employees?');">
+                                <button type="submit" class="btn-assign">Assign to All Employees</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #64748b; padding: 20px;">
+                            No policies published yet. Use the form to publish.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+    </div>
+
+    <!-- COMPLIANCE SIGNATURES AUDIT -->
+    <div class="pol-card">
+        <h3 class="card-title">📋 Compliance Signature Logs &amp; Audit Trail</h3>
+        <table class="pol-table">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Department</th>
+                    <th>Policy Document</th>
+                    <th>Status</th>
+                    <th>Date Signed</th>
+                    <th style="text-align: right;">Signed PDF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sig in signatures %}
+                <tr>
+                    <td style="color:#fff; font-weight:600;">{{ sig.employee_name }}</td>
+                    <td>{{ sig.department }}</td>
+                    <td style="font-weight: 600;">{{ sig.policy_title }}</td>
+                    <td>
+                        <span class="badge-status status-{{ sig.status.lower() }}">{{ sig.status }}</span>
+                    </td>
+                    <td>{{ (sig.signed_at|string)[:16] if sig.signed_at else '-' }}</td>
+                    <td style="text-align: right;">
+                        {% if sig.pdf_url %}
+                        <a href="{{ sig.pdf_url }}" target="_blank" class="btn-download">Download PDF</a>
+                        {% else %}
+                        <span style="color:#64748b;">Pending...</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #64748b; padding: 30px;">
+                        No signature records found. Assign a policy to start tracking compliance.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

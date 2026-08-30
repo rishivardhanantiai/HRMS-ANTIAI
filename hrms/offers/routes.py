@@ -1221,6 +1221,10 @@ def pipeline():
 def new_ui():
     if not hr_admin_required():
         return redirect("/dashboard")
+    
+    application_id = request.args.get("application_id")
+    prefill = None
+    
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
@@ -1228,13 +1232,25 @@ def new_ui():
             raise Exception("no db")
         cur.execute("SELECT id, role_name FROM hrms_roles ORDER BY role_name")
         roles = cur.fetchall()
+        
+        if application_id:
+            cur.execute("SELECT name, email, phone, resume_url FROM applications WHERE id = %s", (application_id,))
+            row = cur.fetchone()
+            if row:
+                prefill = {
+                    "candidate_name": row["name"],
+                    "candidate_email": row["email"],
+                    "candidate_phone": row["phone"],
+                    "resume_url": row["resume_url"],
+                    "application_id": application_id
+                }
     except Exception as e:
         print("Error fetching roles, trying REST:", e)
         roles = supabase_rest.list_roles()
     finally:
         if conn:
             release_db(conn, cur)
-    return render_template("hrms/offer_form.html", roles=roles, offer=None, offer_types=OFFER_TYPES)
+    return render_template("hrms/offer_form.html", roles=roles, offer=None, offer_types=OFFER_TYPES, prefill=prefill)
 
 
 @offers_bp.route("", methods=["POST"])
@@ -1270,6 +1286,7 @@ def create_offer():
         stipend_monthly=data.get("stipend_monthly") or 0,
         duration_months=data.get("duration_months") or None,
         responsibilities=data.get("responsibilities") or "",
+        application_id=data.get("application_id") or None,
     )
     content_html = _render_offer_content(offer_fields)
 
@@ -1300,17 +1317,20 @@ def create_offer():
                 designation, department, offer_type, effective_date, ctc_annual, basic_monthly, hra_monthly,
                 special_allowance_monthly, pf_monthly, bonus_monthly, contract_end_date, commission_min,
                 commission_max, stipend_monthly, duration_months, responsibilities,
-                content_html, status, created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Draft',%s) RETURNING id
+                content_html, status, created_by, application_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Draft',%s,%s) RETURNING id
         """, (employee_id, offer_fields["candidate_name"], offer_fields["candidate_email"],
               offer_fields["candidate_address"], offer_fields["designation"], offer_fields["department"], offer_type,
               offer_fields["effective_date"], offer_fields["ctc_annual"], offer_fields["basic_monthly"],
               offer_fields["hra_monthly"], offer_fields["special_allowance_monthly"], offer_fields["pf_monthly"],
               offer_fields["bonus_monthly"], offer_fields["contract_end_date"], offer_fields["commission_min"],
               offer_fields["commission_max"], offer_fields["stipend_monthly"], offer_fields["duration_months"],
-              offer_fields["responsibilities"], content_html, session.get("user", "HR")))
+              offer_fields["responsibilities"], content_html, session.get("user", "HR"), offer_fields["application_id"]))
         offer_id = cur.fetchone()["id"]
         conn.commit()
+        from utils.audit import log_action
+        log_action(session.get("email") or "HR", "offer_created", "employee_offers", offer_id, 
+                   {"candidate_name": offer_fields["candidate_name"], "candidate_email": offer_fields["candidate_email"], "designation": offer_fields["designation"]})
     except Exception as e:
         print("Error creating offer via DB, trying REST:", e)
         if conn:
@@ -1345,6 +1365,9 @@ def create_offer():
                 "created_by": session.get("user", "HR"),
             })
             offer_id = offer_row.get("id") if offer_row else None
+            from utils.audit import log_action
+            log_action(session.get("email") or "HR", "offer_created", "employee_offers", offer_id, 
+                       {"candidate_name": offer_fields["candidate_name"], "candidate_email": offer_fields["candidate_email"], "designation": offer_fields["designation"], "fallback": True})
         except Exception as rest_err:
             print("REST fallback for offer creation failed:", rest_err)
             return jsonify({"error": f"Failed to create offer: {rest_err}"}), 500
@@ -1540,6 +1563,8 @@ def send_offer(offer_id):
         "status": "Sent", "sign_token": token, "sign_token_expires_at": expires_at.isoformat(),
         "sent_at": datetime.utcnow().isoformat(),
     })
+    from utils.audit import log_action
+    log_action(session.get("email") or "HR", "offer_sent", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "candidate_email": offer["candidate_email"]})
     sign_url = url_for("offers_public.sign_offer", token=token, _external=True)
     mailer.send_offer_for_signature(offer["candidate_email"], offer["candidate_name"], offer["designation"],
                                      sign_url, expires_at.strftime("%d %b %Y"))
@@ -1579,6 +1604,8 @@ def countersign_offer(offer_id):
         "status": "Countersigned", "hr_signed_name": hr_name, "hr_signed_at": datetime.utcnow().isoformat(),
         "content_html": final_html, "pdf_url": pdf_url,
     })
+    from utils.audit import log_action
+    log_action(session.get("email") or "HR", "offer_countersigned", "employee_offers", offer_id, {"hr_name": hr_name})
 
     # Auto-create + auto-send the NDA (fixed boilerplate, no separate approval cycle)
     nda_token = _new_token()
@@ -1642,11 +1669,15 @@ def delete_offer(offer_id):
         cur.execute("DELETE FROM employee_offers WHERE id=%s", (offer_id,))
         cur.execute("DELETE FROM hrms_employees WHERE id=%s AND status='Offer Pending'", (offer["employee_id"],))
         conn.commit()
+        from utils.audit import log_action
+        log_action(session.get("email") or "Admin", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"]})
     except Exception as e:
         print("Error deleting offer via DB, trying REST:", e)
         try:
             supabase_rest.delete_rows("employee_offers", {"id": f"eq.{offer_id}"})
             supabase_rest.delete_rows("hrms_employees", {"id": f"eq.{offer['employee_id']}", "status": "eq.Offer Pending"})
+            from utils.audit import log_action
+            log_action(session.get("email") or "Admin", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "fallback": True})
         except Exception as rest_err:
             print("REST fallback for delete offer failed:", rest_err)
             return jsonify({"error": "Failed to delete offer."}), 500
@@ -1729,6 +1760,8 @@ def submit_offer_signature(token):
         "status": "Signed", "signed_name": signed_name, "signed_at": signed_at.isoformat(),
         "signed_ip": ip, "content_html": final_html,
     })
+    from utils.audit import log_action
+    log_action(signed_name, "offer_signed", "employee_offers", offer["id"], {"ip_address": ip})
 
     # Notify HR — the offer now needs their countersignature before the NDA goes out
     countersign_url = url_for("offers.review_ui", offer_id=offer["id"], _external=True)
@@ -1921,3 +1954,189 @@ def countersign_nda(nda_id):
         _fire_onboarding_invite(employee)
 
     return jsonify({"success": True})
+
+
+@offers_bp.route("/bulk-csv-template", methods=["GET"])
+@login_required
+def bulk_csv_template():
+    if not hr_admin_required():
+        return redirect("/dashboard")
+        
+    import csv
+    from io import StringIO
+    from flask import make_response
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "candidate_name", "candidate_email", "candidate_phone", "candidate_address",
+        "designation", "department", "offer_type", "role_name", "effective_date",
+        "ctc_annual", "basic_monthly", "hra_monthly", "special_allowance_monthly",
+        "pf_monthly", "bonus_monthly", "contract_end_date", "stipend_monthly",
+        "duration_months", "responsibilities"
+    ])
+    writer.writerow([
+        "John Doe", "john.doe@example.com", "9876543210", "123 Main St, Bangalore",
+        "Software Engineer", "Engineering", "Full Time", "Employee", "2026-09-01",
+        "1200000", "50000", "20000", "25000", "1800", "0", "", "",
+        "", "Develop software applications"
+    ])
+    
+    response = make_response(output.getvalue())
+    response.headers["Content-Disposition"] = "attachment; filename=bulk_onboarding_template.csv"
+    response.headers["Content-Type"] = "text/csv"
+    return response
+
+
+@offers_bp.route("/import-bulk-csv", methods=["POST"])
+@login_required
+def import_bulk_csv():
+    if not hr_admin_required():
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    csv_file = request.files.get("csv_file")
+    if not csv_file or not csv_file.filename:
+        flash("Please upload a valid CSV file.", "error")
+        return redirect(url_for("offers.index"))
+        
+    import csv
+    from io import StringIO
+    
+    try:
+        raw_content = csv_file.read().decode("utf-8-sig")
+        reader = csv.DictReader(StringIO(raw_content))
+    except Exception as parse_e:
+        flash(f"Failed to parse CSV file: {parse_e}", "error")
+        return redirect(url_for("offers.index"))
+        
+    if not reader.fieldnames:
+        flash("CSV file has no headers.", "error")
+        return redirect(url_for("offers.index"))
+        
+    conn, cur = None, None
+    imported = 0
+    skipped = 0
+    skipped_reasons = []
+    
+    try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("no db")
+            
+        # Fetch all roles to map name -> id
+        cur.execute("SELECT id, role_name FROM hrms_roles")
+        roles = cur.fetchall()
+        role_map = {str(r["role_name"]).lower().strip(): r["id"] for r in roles}
+        
+        # Fallback default role
+        default_role_id = None
+        if roles:
+            default_role_id = roles[0]["id"]
+            for r in roles:
+                if "unassigned" in str(r["role_name"]).lower():
+                    default_role_id = r["id"]
+                    break
+                    
+        for row in reader:
+            name = (row.get("candidate_name") or "").strip()
+            email = (row.get("candidate_email") or "").strip().lower()
+            designation = (row.get("designation") or "").strip()
+            role_name = (row.get("role_name") or "").strip().lower()
+            
+            if not name or not email or not designation:
+                skipped += 1
+                skipped_reasons.append("Row missing name/email/designation")
+                continue
+                
+            # Duplicate check
+            cur.execute("SELECT id FROM hrms_employees WHERE email = %s AND status != 'Deleted'", (email,))
+            if cur.fetchone():
+                skipped += 1
+                skipped_reasons.append(f"Email '{email}' already exists")
+                continue
+                
+            # Resolve role_id
+            resolved_role_id = role_map.get(role_name)
+            if not resolved_role_id:
+                resolved_role_id = default_role_id
+                
+            offer_type = row.get("offer_type", "Full Time").strip()
+            if offer_type not in OFFER_TYPES:
+                offer_type = "Full Time"
+                
+            # Parse numeric fields
+            def to_num(val):
+                try: return float(str(val).replace(",", "").strip()) or 0.0
+                except: return 0.0
+                
+            def to_int(val):
+                try: return int(str(val).strip()) or None
+                except: return None
+                
+            offer_fields = {
+                "candidate_name": name,
+                "candidate_email": email,
+                "candidate_address": row.get("candidate_address") or None,
+                "designation": designation,
+                "department": row.get("department") or None,
+                "offer_type": offer_type,
+                "effective_date": row.get("effective_date") or None,
+                "ctc_annual": to_num(row.get("ctc_annual")),
+                "basic_monthly": to_num(row.get("basic_monthly")),
+                "hra_monthly": to_num(row.get("hra_monthly")),
+                "special_allowance_monthly": to_num(row.get("special_allowance_monthly")),
+                "pf_monthly": to_num(row.get("pf_monthly")),
+                "bonus_monthly": to_num(row.get("bonus_monthly")),
+                "contract_end_date": row.get("contract_end_date") or None,
+                "commission_min": to_num(row.get("commission_min")),
+                "commission_max": to_num(row.get("commission_max")),
+                "stipend_monthly": to_num(row.get("stipend_monthly")),
+                "duration_months": to_int(row.get("duration_months")),
+                "responsibilities": row.get("responsibilities") or "",
+                "role_id": resolved_role_id
+            }
+            
+            content_html = _render_offer_content(offer_fields)
+            employee_code = _next_employee_code(cur)
+            
+            cur.execute("""
+                INSERT INTO hrms_employees (employee_code, full_name, email, department, designation,
+                    role_id, joining_date, status, employment_type)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,'Offer Pending',%s) RETURNING id
+            """, (employee_code, name, email, offer_fields["department"], designation, 
+                  resolved_role_id, offer_fields["effective_date"] or date.today(), offer_type))
+            employee_id = cur.fetchone()["id"]
+            
+            cur.execute("""
+                INSERT INTO employee_offers (employee_id, candidate_name, candidate_email, candidate_address,
+                    designation, department, offer_type, effective_date, ctc_annual, basic_monthly, hra_monthly,
+                    special_allowance_monthly, pf_monthly, bonus_monthly, contract_end_date, commission_min,
+                    commission_max, stipend_monthly, duration_months, responsibilities,
+                    content_html, status, created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Draft',%s) RETURNING id
+            """, (employee_id, name, email, offer_fields["candidate_address"], designation, 
+                  offer_fields["department"], offer_type, offer_fields["effective_date"], 
+                  offer_fields["ctc_annual"], offer_fields["basic_monthly"], offer_fields["hra_monthly"], 
+                  offer_fields["special_allowance_monthly"], offer_fields["pf_monthly"], offer_fields["bonus_monthly"], 
+                  offer_fields["contract_end_date"], offer_fields["commission_min"], offer_fields["commission_max"], 
+                  offer_fields["stipend_monthly"], offer_fields["duration_months"], offer_fields["responsibilities"], 
+                  content_html, session.get("user", "HR")))
+            
+            imported += 1
+            
+        conn.commit()
+        if skipped > 0:
+            flash(f"Successfully imported {imported} offer(s) from CSV. Skipped {skipped} rows. Reasons: {'; '.join(skipped_reasons[:3])}...", "warning")
+        else:
+            flash(f"Successfully imported {imported} offer(s) from CSV.", "success")
+            
+    except Exception as e:
+        print("CSV Bulk Onboarding error:", e)
+        if conn:
+            conn.rollback()
+        flash(f"Error executing bulk import: {e}", "error")
+    finally:
+        if conn:
+            release_db(conn, cur)
+            
+    return redirect(url_for("offers.index"))

@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Help Desk Layout ── */
+.help-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.help-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+.btn-raise {
+    background: #3b82f6;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-raise:hover {
+    background: #2563eb;
+}
+
+/* Query Row / Thread Card */
+.query-card {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: border-color 0.25s;
+}
+.query-card:hover {
+    border-color: rgba(59, 130, 246, 0.25);
+}
+
+.query-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+.query-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+}
+.badge-status {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.status-open { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.status-inprogress { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.status-resolved { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+
+.query-date {
+    font-size: 12px;
+    color: #475569;
+    margin-bottom: 16px;
+}
+
+.query-desc {
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.6;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Thread Responses */
+.thread-response {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+.response-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #818cf8;
+    margin-bottom: 8px;
+}
+.response-body {
+    font-size: 14px;
+    color: #94a3b8;
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+    padding: 14px 18px;
+    border-radius: 8px;
+    line-height: 1.6;
+}
+
+/* Modal Styling */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+.modal-box {
+    background: #0f111a;
+    border: 1px solid #1f2937;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 500px;
+    padding: 28px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    transform: translateY(20px);
+    transition: transform 0.25s ease;
+}
+.modal-overlay.open .modal-box {
+    transform: translateY(0);
+}
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 20px 0;
+}
+.form-group {
+    margin-bottom: 16px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #9ca3af;
+    font-size: 13px;
+    font-weight: 600;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #f3f4f6;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+.btn-cancel {
+    background: none;
+    border: 1px solid #374151;
+    color: #9ca3af;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-weight: 600;
+}
+</style>
+
+<div class="help-container">
+    <div class="help-header">
+        <div>
+            <h1 class="page-title">Employee Help Desk</h1>
+            <p class="subtitle">Have a question or request for HR? Submit a query ticket here.</p>
+        </div>
+        <button class="btn-raise" onclick="openModal()">Raise Query</button>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="padding: 12px; margin-bottom: 20px; border-radius: 6px; 
+              {% if category == 'error' %}background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);
+              {% else %}background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2);{% endif %}">
+              {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="queries-list">
+        {% for q in queries %}
+        <div class="query-card">
+            <div class="query-top">
+                <h3 class="query-title">{{ q.subject }}</h3>
+                <span class="badge-status status-{{ q.status.lower().replace(' ', '') }}">{{ q.status }}</span>
+            </div>
+            <div class="query-date">
+                Submitted on {{ (q.created_at|string)[:16] }}
+            </div>
+            <div class="query-desc">
+                {{ q.description }}
+            </div>
+            
+            {% if q.hr_response %}
+            <div class="thread-response">
+                <div class="response-header">
+                    <span>💬 Response from HR</span>
+                    {% if q.resolved_at %}
+                    <span style="color:#64748b; font-weight:400; font-size:11px;">(Resolved on {{ (q.resolved_at|string)[:16] }})</span>
+                    {% endif %}
+                </div>
+                <div class="response-body">
+                    {{ q.hr_response }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: #64748b; background: rgba(15,15,15,0.5); border: 1px dashed rgba(255,255,255,0.06); border-radius: 12px;">
+            You have not raised any queries yet. Click "Raise Query" to get started.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- QUERY MODAL OVERLAY -->
+<div class="modal-overlay" id="queryModal">
+    <div class="modal-box">
+        <h3 class="modal-title">Raise New Query</h3>
+        <form action="/hrms/helpdesk/create" method="POST">
+            <div class="form-group">
+                <label class="form-label">Subject</label>
+                <input type="text" name="subject" class="form-control" placeholder="E.g., Query regarding PF deposit" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Describe your query/request</label>
+                <textarea name="description" class="form-control" rows="5" placeholder="Please provide detailed details..." required></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-raise">Submit Query</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal() {
+    document.getElementById('queryModal').classList.add('open');
+}
+function closeModal() {
+    document.getElementById('queryModal').classList.remove('open');
+}
+</script>
+{% endblock %}

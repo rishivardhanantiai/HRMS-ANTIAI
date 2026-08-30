@@ -158,10 +158,27 @@
 .drive-badge:hover {
     background: rgba(59, 130, 246, 0.25);
 }
-@media (max-width: 768px) {
-    .form-grid {
-        grid-template-columns: 1fr;
-    }
+/* Slider CSS */
+.switch input:checked + .slider {
+    background-color: #ef4444;
+}
+.switch input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+.switch input:checked + .slider:before {
+    transform: translateX(24px);
 }
 </style>
 
@@ -447,9 +464,128 @@
             </form>
         </div>
     </div>
+    
+    <!-- Offboarding Checklist Card -->
+    {% if offboarding %}
+    <div class="exit-card" style="margin-top: 24px;">
+        <h3 style="margin-top:0; color:#fff;">📋 Offboarding Tasks Checklist</h3>
+        <p style="margin:4px 0 20px 0; color:#9ca3af; font-size:0.875rem;">Track offboarding status, schedule exit interviews, manage asset returns, and revoke access credentials.</p>
+        
+        <div class="emp-details-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; background: transparent; border: none; padding: 0; margin-top:0;">
+            
+            <!-- TASK 1: EXIT INTERVIEW -->
+            <div class="exit-card" style="background:#0b0f19; border-color:#1f2937; margin-bottom: 0;">
+                <h4 style="margin:0 0 10px 0; color:#fff;">🗓️ Exit Interview</h4>
+                <div style="margin-bottom: 15px;">
+                    <span style="font-size:0.85rem; color:#9ca3af;">Status:</span>
+                    <span style="font-weight:600; font-size:0.95rem; margin-left:6px;
+                        {% if offboarding.exit_interview_status == 'Completed' %}color:#10b981;
+                        {% elif offboarding.exit_interview_status == 'Scheduled' %}color:#3b82f6;
+                        {% else %}color:#f59e0b;{% endif %}">
+                        {{ offboarding.exit_interview_status }}
+                    </span>
+                </div>
+                
+                {% if offboarding.exit_interview_status == 'Not Scheduled' %}
+                    <button class="btn-primary" style="font-size:12px; padding:6px 12px; width:100%; justify-content:center;" onclick="openScheduleModal()">Schedule Exit Interview</button>
+                {% elif offboarding.exit_interview_status == 'Scheduled' %}
+                    <form action="/hrms/exit/offboarding/{{ offboarding.id }}/complete-exit-interview" method="POST">
+                        <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                        <button type="submit" class="btn-success" style="font-size:12px; padding:6px 12px; width:100%; display:inline-flex; justify-content:center; border-radius:8px;">✓ Mark Completed</button>
+                    </form>
+                {% else %}
+                    <div style="color:#10b981; font-size:0.85rem; font-weight:600; text-align:center; padding:6px; background:rgba(16,185,129,0.1); border-radius:6px; border:1px solid rgba(16,185,129,0.2);">✓ Completed</div>
+                {% endif %}
+            </div>
+            
+            <!-- CHECKLIST STATUS UPDATER FORM -->
+            <div class="exit-card" style="background:#0b0f19; border-color:#1f2937; grid-column: span 2; margin-bottom: 0;">
+                <h4 style="margin:0 0 15px 0; color:#fff;">⚙️ Assets &amp; Settlement Checklist</h4>
+                <form action="/hrms/exit/offboarding/{{ offboarding.id }}/update-checklist" method="POST" id="checklistForm">
+                    <input type="hidden" name="employee_id" value="{{ emp.id }}">
+                    <div class="form-grid" style="gap:15px; margin-bottom:15px; grid-template-columns:1fr 1fr;">
+                        <div class="form-group">
+                            <label>Asset Return Status</label>
+                            <select name="asset_return_status" class="form-control">
+                                <option value="Pending" {% if offboarding.asset_return_status == 'Pending' %}selected{% endif %}>Pending</option>
+                                <option value="Returned" {% if offboarding.asset_return_status == 'Returned' %}selected{% endif %}>Returned</option>
+                                <option value="N/A" {% if offboarding.asset_return_status == 'N/A' %}selected{% endif %}>N/A</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Final Settlement Status</label>
+                            <select name="final_settlement_status" class="form-control">
+                                <option value="Pending" {% if offboarding.final_settlement_status == 'Pending' %}selected{% endif %}>Pending</option>
+                                <option value="Processed" {% if offboarding.final_settlement_status == 'Processed' %}selected{% endif %}>Processed</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom:15px;">
+                        <label>Offboarding Notes / Checklist Remarks</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="e.g., Laptop returned. Pending credit card settlement...">{{ offboarding.notes or '' }}</textarea>
+                    </div>
+                    
+                    <div class="form-group" style="display:flex; justify-content:space-between; align-items:center; background:#030712; padding:10px 15px; border-radius:8px; border:1px solid #1f2937; margin-bottom:0;">
+                        <div>
+                            <label style="margin-bottom:2px; font-weight:600; color:#f3f4f6; font-size:0.85rem;">Revoke HRMS Login Access</label>
+                            <div style="font-size:0.75rem; color:#9ca3af;">Deletes their credentials from hrms_users to restrict logins.</div>
+                        </div>
+                        <label class="switch" style="position:relative; display:inline-block; width:50px; height:26px; margin:0;">
+                            <input type="checkbox" name="access_revoked" id="access_revoked" value="true" {% if offboarding.access_revoked %}checked disabled{% endif %} style="opacity:0; width:0; height:0;" onchange="handleAccessRevoke(this)">
+                            <span class="slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#374151; transition:0.3s; border-radius:34px;"></span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" style="margin-top:15px; width:100%; justify-content:center;">💾 Save Checklist Changes</button>
+                </form>
+            </div>
+            
+        </div>
+    </div>
+    {% endif %}
     {% endif %}
 
 </div>
+
+<!-- EXIT INTERVIEW SCHEDULE MODAL -->
+{% if offboarding %}
+<div class="modal-overlay" id="scheduleModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s ease;">
+    <div class="exit-card" style="width: 100%; max-width: 480px; padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); transform: translateY(20px); transition: transform 0.25s ease; background:#111827; border:1px solid #1f2937;" id="scheduleModalBox">
+        <h3 style="margin-top:0; color:#fff;">🗓️ Schedule Exit Interview</h3>
+        <p style="color:#9ca3af; font-size:0.8rem; margin-top:4px; margin-bottom:20px;">This will schedule the exit interview and email a calendar invitation (.ics) file to {{ emp.full_name }}.</p>
+        
+        <form action="/hrms/exit/offboarding/{{ offboarding.id }}/schedule-exit-interview" method="POST">
+            <input type="hidden" name="employee_id" value="{{ emp.id }}">
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Date</label>
+                <input type="date" name="date" class="form-control" required>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Time</label>
+                <input type="time" name="time" class="form-control" required>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label>Duration (Minutes)</label>
+                <select name="duration_minutes" class="form-control">
+                    <option value="30">30 Minutes</option>
+                    <option value="45">45 Minutes</option>
+                    <option value="60">60 Minutes</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label>Location / Meeting Link</label>
+                <input type="text" name="location" class="form-control" placeholder="e.g. Office / Google Meet link" value="Virtual / Google Meet" required>
+            </div>
+            
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+                <button type="button" class="btn-primary" style="background:#374151;" onclick="closeScheduleModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Schedule Invite</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 <script>
 function calculateNetPayable() {
@@ -461,6 +597,32 @@ function calculateNetPayable() {
 
     const netPayable = pendingSalary + leaveEncashment + bonus + reimbursement - deductions;
     document.getElementById('net_payable_val').innerText = '₹ ' + netPayable.toFixed(2);
+}
+
+function handleAccessRevoke(checkbox) {
+    if (checkbox.checked) {
+        if (!confirm("WARNING: Revoking access will permanently delete the employee's HRMS login credentials from hrms_users. They will not be able to log in. Do you want to proceed?")) {
+            checkbox.checked = false;
+        }
+    }
+}
+
+function openScheduleModal() {
+    const modal = document.getElementById('scheduleModal');
+    if (modal) {
+        modal.style.opacity = '1';
+        modal.style.pointerEvents = 'auto';
+        document.getElementById('scheduleModalBox').style.transform = 'translateY(0)';
+    }
+}
+
+function closeScheduleModal() {
+    const modal = document.getElementById('scheduleModal');
+    if (modal) {
+        modal.style.opacity = '0';
+        modal.style.pointerEvents = 'none';
+        document.getElementById('scheduleModalBox').style.transform = 'translateY(20px)';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {

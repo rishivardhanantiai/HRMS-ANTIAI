@@ -7,7 +7,7 @@ notifications_bp = Blueprint("notifications", __name__, url_prefix="/hrms/notifi
 @notifications_bp.route("/api/feed", methods=["GET"])
 def get_feed():
     role = session.get("role")
-    if role not in ["HR", "Admin"]:
+    if role not in ["HR", "Admin", "Employee"]:
         return jsonify({"notifications": []})
 
     conn, cur = None, None
@@ -17,13 +17,23 @@ def get_feed():
         if not conn:
             raise Exception("no db")
             
-        cur.execute("""
-            SELECT id, type, message, link, read_at, created_at 
-            FROM notifications 
-            WHERE recipient_role = %s 
-            ORDER BY created_at DESC 
-            LIMIT 20
-        """, (role,))
+        if role == "Employee":
+            cur.execute("""
+                SELECT id, type, message, link, read_at, created_at 
+                FROM notifications 
+                WHERE recipient_role = 'Employee' AND employee_id = %s 
+                ORDER BY created_at DESC 
+                LIMIT 20
+            """, (session.get("employee_id"),))
+        else:
+            cur.execute("""
+                SELECT id, type, message, link, read_at, created_at 
+                FROM notifications 
+                WHERE recipient_role = %s 
+                ORDER BY created_at DESC 
+                LIMIT 20
+            """, (role,))
+            
         rows = cur.fetchall()
         for r in rows:
             notifications.append({
@@ -66,7 +76,7 @@ def get_feed():
 @notifications_bp.route("/api/mark-read", methods=["POST"])
 def mark_read():
     role = session.get("role")
-    if role not in ["HR", "Admin"]:
+    if role not in ["HR", "Admin", "Employee"]:
         return jsonify({"success": False}), 403
         
     data = request.json or {}
@@ -79,9 +89,15 @@ def mark_read():
             raise Exception("no db")
             
         if notif_id and notif_id != "aging-alerts":
-            cur.execute("UPDATE notifications SET read_at = %s WHERE id = %s AND recipient_role = %s", (datetime.utcnow(), notif_id, role))
+            if role == "Employee":
+                cur.execute("UPDATE notifications SET read_at = %s WHERE id = %s AND recipient_role = 'Employee' AND employee_id = %s", (datetime.utcnow(), notif_id, session.get("employee_id")))
+            else:
+                cur.execute("UPDATE notifications SET read_at = %s WHERE id = %s AND recipient_role = %s", (datetime.utcnow(), notif_id, role))
         else:
-            cur.execute("UPDATE notifications SET read_at = %s WHERE recipient_role = %s AND read_at IS NULL", (datetime.utcnow(), role))
+            if role == "Employee":
+                cur.execute("UPDATE notifications SET read_at = %s WHERE recipient_role = 'Employee' AND employee_id = %s AND read_at IS NULL", (datetime.utcnow(), session.get("employee_id")))
+            else:
+                cur.execute("UPDATE notifications SET read_at = %s WHERE recipient_role = %s AND read_at IS NULL", (datetime.utcnow(), role))
         conn.commit()
     except Exception as e:
         print(f"Error marking notification read: {e}")
@@ -91,8 +107,8 @@ def mark_read():
             
     return jsonify({"success": True})
 
-def create_notification(recipient_role, notif_type, message, link=None):
-    if recipient_role not in ["HR", "Admin"]:
+def create_notification(recipient_role, notif_type, message, link=None, employee_id=None):
+    if recipient_role not in ["HR", "Admin", "Employee"]:
         return
         
     conn, cur = None, None
@@ -100,9 +116,9 @@ def create_notification(recipient_role, notif_type, message, link=None):
         conn, cur = get_db(True)
         if conn:
             cur.execute("""
-                INSERT INTO notifications (recipient_role, type, message, link)
-                VALUES (%s, %s, %s, %s)
-            """, (recipient_role, notif_type, message, link))
+                INSERT INTO notifications (recipient_role, type, message, link, employee_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (recipient_role, notif_type, message, link, employee_id))
             conn.commit()
     except Exception as e:
         print(f"DB Notification failed, trying REST: {e}")
@@ -112,7 +128,8 @@ def create_notification(recipient_role, notif_type, message, link=None):
                 "recipient_role": recipient_role,
                 "type": notif_type,
                 "message": message,
-                "link": link
+                "link": link,
+                "employee_id": employee_id
             })
         except Exception as rest_e:
             print(f"REST Notification failed: {rest_e}")

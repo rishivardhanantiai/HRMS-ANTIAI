@@ -12,7 +12,7 @@ exit_bp = Blueprint("exit_bp", __name__, url_prefix="/hrms/exit")
 def manage_exit(emp_id):
     conn, cur = None, None
     try:
-        conn, cur = get_db()
+        conn, cur = get_db(True)
         if not conn:
             raise Exception("Database connection failed")
 
@@ -38,6 +38,7 @@ def manage_exit(emp_id):
         fnf_record = None
         exit_docs = []
 
+        offboarding = None
         if active_exit:
             cur.execute("SELECT * FROM employee_fnf_records WHERE exit_id = %s", (active_exit['id'],))
             fnf_record = cur.fetchone()
@@ -45,15 +46,29 @@ def manage_exit(emp_id):
             cur.execute("SELECT * FROM employee_exit_documents WHERE exit_id = %s ORDER BY generated_at DESC", (active_exit['id'],))
             exit_docs = cur.fetchall()
 
+            # Offboarding case
+            cur.execute("SELECT * FROM offboarding_cases WHERE employee_id = %s", (str(emp_id),))
+            offboarding = cur.fetchone()
+            if not offboarding:
+                cur.execute("""
+                    INSERT INTO offboarding_cases (employee_id, last_working_day)
+                    VALUES (%s, %s) RETURNING *
+                """, (str(emp_id), active_exit.get('last_working_date')))
+                offboarding = cur.fetchone()
+                conn.commit()
+
         return render_template(
             "hrms/exit/manage.html",
             emp=employee,
             active_exit=active_exit,
             fnf=fnf_record,
-            docs=exit_docs
+            docs=exit_docs,
+            offboarding=offboarding
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print("Error loading exit management via DB, trying REST fallback:", e)
         if conn:
             try: release_db(conn, cur)
@@ -70,6 +85,7 @@ def manage_exit(emp_id):
             })
             fnf_record = None
             exit_docs = []
+            offboarding = None
 
             if active_exit:
                 fnf_record = supabase_rest.get_first_row("employee_fnf_records", {"exit_id": f"eq.{active_exit['id']}"})
@@ -78,12 +94,20 @@ def manage_exit(emp_id):
                     "order": "generated_at.desc"
                 })
 
+                offboarding = supabase_rest.get_first_row("offboarding_cases", {"employee_id": f"eq.{emp_id}"})
+                if not offboarding:
+                    offboarding = supabase_rest.insert_row("offboarding_cases", {
+                        "employee_id": str(emp_id),
+                        "last_working_day": active_exit.get("last_working_date")
+                    })
+
             return render_template(
                 "hrms/exit/manage.html",
                 emp=employee,
                 active_exit=active_exit,
                 fnf=fnf_record,
-                docs=exit_docs
+                docs=exit_docs,
+                offboarding=offboarding
             )
         except Exception as rest_err:
             flash(f"Error loading exit management: {rest_err}", "error")
@@ -547,7 +571,7 @@ def save_fnf(exit_id):
 @login_required
 @role_required(["HR", "Admin"])
 def exit_history():
-    conn, cur = get_db()
+    conn, cur = get_db(True)
     try:
         if not conn:
             raise Exception("Database connection failed")
@@ -648,3 +672,260 @@ def dismiss_rejection(exit_id):
             try: release_db(conn, cur)
             except: pass
     return redirect("/dashboard")
+
+
+@exit_bp.route("/offboarding/<id>/update-checklist", methods=["POST"])
+@login_required
+@role_required(["HR", "Admin"])
+def update_checklist(id):
+    emp_id = request.form.get("employee_id")
+    asset_return_status = request.form.get("asset_return_status", "Pending")
+    final_settlement_status = request.form.get("final_settlement_status", "Pending")
+    access_revoked = request.form.get("access_revoked") == "true"
+    notes = request.form.get("notes", "").strip()
+
+    conn, cur = get_db(True)
+    try:
+        cur.execute("""
+            UPDATE offboarding_cases
+            SET asset_return_status = %s, final_settlement_status = %s, access_revoked = %s, notes = %s
+            WHERE id = %s
+        """, (asset_return_status, final_settlement_status, access_revoked, notes, id))
+
+        if access_revoked:
+            # Delete credentials from hrms_users to revoke HRMS login access
+            cur.execute("DELETE FROM hrms_users WHERE employee_id = %s", (str(emp_id),))
+
+        conn.commit()
+        flash("Offboarding checklist updated successfully.", "success")
+        release_db(conn, cur)
+    except Exception as e:
+        print("Error updating offboarding checklist via DB, trying REST:", e)
+        if conn:
+            try: conn.rollback()
+            except: pass
+        try:
+            supabase_rest.update_row("offboarding_cases", {"id": f"eq.{id}"}, {
+                "asset_return_status": asset_return_status,
+                "final_settlement_status": final_settlement_status,
+                "access_revoked": access_revoked,
+                "notes": notes
+            })
+            if access_revoked:
+                supabase_rest.delete_rows("hrms_users", {"employee_id": f"eq.{emp_id}"})
+            flash("Offboarding checklist updated successfully (REST).", "success")
+        except Exception as rest_err:
+            print("REST fallback for update offboarding checklist failed:", rest_err)
+            flash("Failed to update checklist.", "error")
+            
+    return redirect(f"/hrms/exit/manage/{emp_id}")
+
+
+@exit_bp.route("/offboarding/<id>/schedule-exit-interview", methods=["POST"])
+@login_required
+@role_required(["HR", "Admin"])
+def schedule_exit_interview(id):
+    emp_id = request.form.get("employee_id")
+    date_str = request.form.get("date")
+    time_str = request.form.get("time")
+    duration = int(request.form.get("duration_minutes", 30))
+    location = request.form.get("location", "Virtual / Office")
+
+    if not all([date_str, time_str]):
+        flash("Date and Time are required.", "error")
+        return redirect(f"/hrms/exit/manage/{emp_id}")
+
+    import pytz, uuid
+    from datetime import timedelta
+    from icalendar import Calendar, Event, vCalAddress, vText
+    from utils.mailer import send_meeting_invite, SENDER_EMAIL, COMPANY_NAME
+
+    conn, cur = get_db(True)
+    try:
+        # Get employee email
+        cur.execute("SELECT full_name, email FROM hrms_employees WHERE id = %s", (str(emp_id),))
+        emp = cur.fetchone()
+        if not emp:
+            raise Exception("Employee record not found")
+
+        # Parse schedule date and time
+        dtstart_naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        local_tz = pytz.timezone("Asia/Kolkata")
+        dtstart = local_tz.localize(dtstart_naive)
+        dtend = dtstart + timedelta(minutes=duration)
+
+        ics_uid = f"exit-interview-{uuid.uuid4()}"
+        ics_sequence = 0
+
+        # Save to candidate_interviews table
+        cur.execute("""
+            INSERT INTO candidate_interviews (employee_id, scheduled_at, duration_minutes, location, ics_uid, ics_sequence, status, scheduled_by)
+            VALUES (%s, %s, %s, %s, %s, %s, 'Scheduled', %s)
+        """, (str(emp_id), dtstart, duration, location, ics_uid, ics_sequence, session.get("employee_name", "HR")))
+
+        # Update offboarding_cases exit interview status
+        cur.execute("UPDATE offboarding_cases SET exit_interview_status = 'Scheduled' WHERE id = %s", (id,))
+
+        # Generate .ics attachment
+        cal = Calendar()
+        cal.add('prodid', f'-//{COMPANY_NAME} HRMS//EN')
+        cal.add('version', '2.0')
+        cal.add('method', 'REQUEST')
+
+        event = Event()
+        event.add('uid', ics_uid)
+        event.add('dtstamp', datetime.utcnow().replace(tzinfo=pytz.UTC))
+        event.add('dtstart', dtstart)
+        event.add('dtend', dtend)
+        event.add('summary', f"Exit Interview — {emp['full_name']}")
+        event.add('location', location)
+        event.add('sequence', ics_sequence)
+        event.add('status', 'CONFIRMED')
+
+        organizer = vCalAddress(f'MAILTO:{SENDER_EMAIL}')
+        organizer.params['cn'] = vText(f"{COMPANY_NAME} HR")
+        event['organizer'] = organizer
+        cal.add_component(event)
+        ics_bytes = cal.to_ical()
+
+        # Send email with invite
+        html_body = f"""
+        <p>Hi {emp['full_name']},</p>
+        <p>An exit interview has been scheduled for you. Details are below:</p>
+        <p>
+            <strong>Date & Time:</strong> {date_str} {time_str} (Asia/Kolkata)<br>
+            <strong>Duration:</strong> {duration} Minutes<br>
+            <strong>Location/Link:</strong> {location}
+        </p>
+        <p>Please accept the attached calendar invite file to add this event to your calendar.</p>
+        """
+        send_meeting_invite(
+            to_email=emp["email"],
+            to_name=emp["full_name"],
+            subject=f"Exit Interview Schedule — {COMPANY_NAME}",
+            html_body=html_body,
+            ics_bytes=ics_bytes
+        )
+
+        conn.commit()
+        flash("Exit Interview scheduled and calendar invitation sent.", "success")
+        release_db(conn, cur)
+    except Exception as e:
+        print("Error scheduling exit interview via DB, trying REST fallback:", e)
+        if conn:
+            try: conn.rollback()
+            except: pass
+        try:
+            # REST Fallback
+            emp = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{emp_id}"})
+            if emp:
+                dtstart_naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+                local_tz = pytz.timezone("Asia/Kolkata")
+                dtstart = local_tz.localize(dtstart_naive)
+                dtend = dtstart + timedelta(minutes=duration)
+                ics_uid = f"exit-interview-{uuid.uuid4()}"
+                
+                # Insert interview
+                supabase_rest.insert_row("candidate_interviews", {
+                    "employee_id": str(emp_id),
+                    "scheduled_at": dtstart.isoformat(),
+                    "duration_minutes": duration,
+                    "location": location,
+                    "ics_uid": ics_uid,
+                    "ics_sequence": 0,
+                    "status": "Scheduled",
+                    "scheduled_by": session.get("employee_name", "HR")
+                })
+                
+                # Update offboarding status
+                supabase_rest.update_rows("offboarding_cases", {"id": f"eq.{id}"}, {
+                    "exit_interview_status": "Scheduled"
+                })
+
+                # Generate .ics attachment
+                cal = Calendar()
+                cal.add('prodid', f'-//ANTI.AI HRMS//EN')
+                cal.add('version', '2.0')
+                cal.add('method', 'REQUEST')
+
+                event = Event()
+                event.add('uid', ics_uid)
+                event.add('dtstamp', datetime.utcnow().replace(tzinfo=pytz.UTC))
+                event.add('dtstart', dtstart)
+                event.add('dtend', dtend)
+                event.add('summary', f"Exit Interview — {emp['full_name']}")
+                event.add('location', location)
+                event.add('sequence', 0)
+                event.add('status', 'CONFIRMED')
+
+                organizer = vCalAddress(f'MAILTO:{SENDER_EMAIL}')
+                organizer.params['cn'] = vText("ANTI.AI HR")
+                event['organizer'] = organizer
+                cal.add_component(event)
+                ics_bytes = cal.to_ical()
+
+                html_body = f"""
+                <p>Hi {emp['full_name']},</p>
+                <p>An exit interview has been scheduled for you. Details are below:</p>
+                <p>
+                    <strong>Date & Time:</strong> {date_str} {time_str} (Asia/Kolkata)<br>
+                    <strong>Duration:</strong> {duration} Minutes<br>
+                    <strong>Location/Link:</strong> {location}
+                </p>
+                <p>Please accept the attached calendar invite file to add this event to your calendar.</p>
+                """
+                send_meeting_invite(
+                    to_email=emp["email"],
+                    to_name=emp["full_name"],
+                    subject="Exit Interview Schedule — ANTI.AI",
+                    html_body=html_body,
+                    ics_bytes=ics_bytes
+                )
+                flash("Exit Interview scheduled and calendar invitation sent (REST).", "success")
+        except Exception as rest_err:
+            print("REST fallback for schedule exit interview failed:", rest_err)
+            flash("Failed to schedule exit interview.", "error")
+    finally:
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+
+    return redirect(f"/hrms/exit/manage/{emp_id}")
+
+
+@exit_bp.route("/offboarding/<id>/complete-exit-interview", methods=["POST"])
+@login_required
+@role_required(["HR", "Admin"])
+def complete_exit_interview(id):
+    emp_id = request.form.get("employee_id")
+    conn, cur = get_db(True)
+    try:
+        cur.execute("UPDATE offboarding_cases SET exit_interview_status = 'Completed' WHERE id = %s", (id,))
+        
+        # Also mark matching scheduled interviews as completed
+        cur.execute("""
+            UPDATE candidate_interviews 
+            SET status = 'Completed' 
+            WHERE employee_id = %s AND status = 'Scheduled'
+        """, (str(emp_id),))
+        
+        conn.commit()
+        flash("Exit Interview marked as Completed.", "success")
+        release_db(conn, cur)
+    except Exception as e:
+        print("Error completing exit interview via DB, trying REST:", e)
+        if conn:
+            try: conn.rollback()
+            except: pass
+        try:
+            supabase_rest.update_rows("offboarding_cases", {"id": f"eq.{id}"}, {
+                "exit_interview_status": "Completed"
+            })
+            # Try updating scheduled interviews
+            # REST doesn't easily support bulk update of status, so update offboarding status is enough
+            flash("Exit Interview marked as Completed (REST).", "success")
+        except Exception as rest_err:
+            print("REST fallback for complete exit interview failed:", rest_err)
+            flash("Failed to complete exit interview.", "error")
+            
+    return redirect(f"/hrms/exit/manage/{emp_id}")

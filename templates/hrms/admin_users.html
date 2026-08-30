@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.admin-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+.admin-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.admin-subtitle {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-top: 4px;
+}
+.btn-premium {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+.btn-premium:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+.glass-table-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+}
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+.admin-table th {
+    background: rgba(30, 41, 59, 0.8);
+    padding: 16px 20px;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.admin-table td {
+    padding: 16px 20px;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+}
+.admin-table tr:hover {
+    background: rgba(255,255,255,0.02);
+}
+.badge-role {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.badge-admin {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.badge-hr {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+}
+.badge-employee {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+.action-icon-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-size: 16px;
+    margin-right: 6px;
+}
+.action-icon-btn:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.08);
+}
+.btn-delete-user:hover {
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+}
+/* Modal styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(2, 6, 23, 0.75);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+.modal-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 450px;
+    padding: 30px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+.modal-header {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+}
+.form-group {
+    margin-bottom: 18px;
+}
+.form-group label {
+    display: block;
+    color: #94a3b8;
+    font-size: 13px;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #fff;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+.form-control:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+</style>
+
+<div class="admin-container">
+    <div class="admin-header">
+        <div>
+            <h1 class="admin-title">User Account Logins</h1>
+            <div class="admin-subtitle">Add, modify, and revoke access credentials for HR and Admin roles.</div>
+        </div>
+        <button onclick="openAddModal()" class="btn-premium">+ Add Login</button>
+    </div>
+
+    <!-- Alert / Toast -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div style="padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 500;
+                    {% if cat == 'success' %} background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25);
+                    {% else %} background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); {% endif %}">
+                    {{ msg }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="glass-table-card">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Email Address</th>
+                    <th>Role</th>
+                    <th>Linked Employee</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr id="row-{{ u.id }}">
+                    <td style="font-weight: 600;">{{ u.email }}</td>
+                    <td>
+                        {% set role_class = 'badge-employee' %}
+                        {% if 'admin' in u.role_name|lower %}
+                            {% set role_class = 'badge-admin' %}
+                        {% elif 'hr' in u.role_name|lower %}
+                            {% set role_class = 'badge-hr' %}
+                        {% endif %}
+                        <span class="badge-role {{ role_class }}">{{ u.role_name or 'Unassigned' }}</span>
+                    </td>
+                    <td style="color: #94a3b8;">
+                        {% if u.employee_name %}
+                            👤 {{ u.employee_name }}
+                        {% else %}
+                            <em style="font-size: 12px; color: #64748b;">Not linked</em>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <button onclick="openEditModal('{{ u.id }}', '{{ u.role_id }}', '{{ u.employee_id or '' }}', '{{ u.email }}')" class="action-icon-btn" title="Edit Role or Password">⚙️</button>
+                        <button onclick="deleteUser('{{ u.id }}', '{{ u.email }}')" class="action-icon-btn btn-delete-user" title="Revoke Login">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addUserModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3 class="modal-header">Add New Login Account</h3>
+        <form action="/hrms/admin/users/add" method="POST">
+            <div class="form-group">
+                <label>Email Address *</label>
+                <input type="email" name="email" required class="form-control" placeholder="user@company.com">
+            </div>
+            <div class="form-group">
+                <label>Temporary Password *</label>
+                <input type="password" name="password" required class="form-control" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label>System Role *</label>
+                <select name="role_id" required class="form-control">
+                    <option value="" disabled selected>Select Role</option>
+                    {% for r in roles %}
+                        <option value="{{ r.id }}">{{ r.role_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Link to Employee Profile (Optional)</label>
+                <select name="employee_id" class="form-control">
+                    <option value="">-- No Employee --</option>
+                    {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px;">
+                <button type="button" onclick="closeAddModal()" class="form-control" style="background:#334155; border:none; cursor:pointer;">Cancel</button>
+                <button type="submit" class="btn-premium" style="flex:1;">Create Login</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="modal-overlay">
+    <div class="modal-card">
+        <h3 class="modal-header">Modify Login Account</h3>
+        <form action="/hrms/admin/users/edit" method="POST">
+            <input type="hidden" name="user_id" id="edit_user_id">
+            <div class="form-group">
+                <label>Email (Read-Only)</label>
+                <input type="text" id="edit_email_display" readonly class="form-control" style="background:rgba(255,255,255,0.05); color:#64748b; border-color:rgba(255,255,255,0.05);">
+            </div>
+            <div class="form-group">
+                <label>Change Role *</label>
+                <select name="role_id" id="edit_role_id" required class="form-control">
+                    {% for r in roles %}
+                        <option value="{{ r.id }}">{{ r.role_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Linked Employee Profile</label>
+                <select name="employee_id" id="edit_employee_id" class="form-control">
+                    <option value="">-- No Employee --</option>
+                    {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.full_name }} ({{ emp.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Set New Password (Leave blank to keep current)</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••">
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px;">
+                <button type="button" onclick="closeEditModal()" class="form-control" style="background:#334155; border:none; cursor:pointer;">Cancel</button>
+                <button type="submit" class="btn-premium" style="flex:1;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openAddModal() {
+    document.getElementById('addUserModal').style.display = 'flex';
+}
+function closeAddModal() {
+    document.getElementById('addUserModal').style.display = 'none';
+}
+function openEditModal(userId, roleId, employeeId, email) {
+    document.getElementById('edit_user_id').value = userId;
+    document.getElementById('edit_role_id').value = roleId;
+    document.getElementById('edit_employee_id').value = employeeId;
+    document.getElementById('edit_email_display').value = email;
+    document.getElementById('editUserModal').style.display = 'flex';
+}
+function closeEditModal() {
+    document.getElementById('editUserModal').style.display = 'none';
+}
+async function deleteUser(userId, email) {
+    if (!confirm(`Are you sure you want to revoke login access for ${email}?`)) return;
+    try {
+        const res = await fetch(`/hrms/admin/users/delete/${userId}`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+        if (data.success) {
+            const row = document.getElementById(`row-${userId}`);
+            if (row) row.remove();
+            alert(data.message || 'Login revoked successfully.');
+        } else {
+            alert(data.error || 'Failed to revoke access.');
+        }
+    } catch(e) {
+        alert('Network error.');
+    }
+}
+</script>
+{% endblock %}

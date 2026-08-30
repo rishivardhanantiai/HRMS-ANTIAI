@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Your Offer Letter — Sign Electronically</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#3b82f6">
 <style>
     * { box-sizing: border-box; }
     body {
@@ -152,6 +154,14 @@ async function submitSign(e) {
         btn.textContent = "I Accept — Sign Offer Letter";
     }
     return false;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js')
+      .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+      .catch(err => console.error('Service Worker registration failed:', err));
+  });
 }
 </script>
 </body>

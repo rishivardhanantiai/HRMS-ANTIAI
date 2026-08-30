@@ -209,6 +209,7 @@ async function submitSchedule(e) {
     fd.append('time', document.getElementById('sched_time').value);
     fd.append('duration_minutes', document.getElementById('sched_duration').value);
     fd.append('location', document.getElementById('sched_location').value);
+    fd.append('notes', document.getElementById('sched_notes').value);
     
     try {
         const res = await fetch(`/hrms/interviews/schedule`, { method: 'POST', body: fd });
@@ -239,7 +240,10 @@ async function submitSchedule(e) {
             <input type="number" id="sched_duration" required value="30" style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:16px; box-sizing:border-box;">
             
             <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px; font-weight:600;">Location / Video Link</label>
-            <input type="text" id="sched_location" required value="Google Meet" style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:24px; box-sizing:border-box;">
+            <input type="text" id="sched_location" required value="Google Meet" style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:16px; box-sizing:border-box;">
+            
+            <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px; font-weight:600;">Custom Message / Notes</label>
+            <textarea id="sched_notes" placeholder="Optional notes for the candidate..." style="width:100%; padding:10px; background:#1e293b; border:1px solid #334155; color:#fff; border-radius:6px; margin-bottom:24px; box-sizing:border-box; height:80px; resize:vertical; font-family:inherit;"></textarea>
             
             <div style="display:flex; gap:10px;">
                 <button type="button" onclick="closeScheduleModal()" style="flex:1; padding:10px; border-radius:6px; border:none; background:#334155; color:#f8fafc; font-weight:600; cursor:pointer;">Cancel</button>
