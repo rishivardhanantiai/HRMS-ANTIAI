@@ -269,42 +269,99 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 
 ## 🧪 5. Verification & Testing Playbook
 
-Ensure local server is active:
+To verify all implementations, ensure your local server is active:
 ```bash
 python app.py
 ```
 
-### 1. Test Admin Dashboard Loading (Task 13)
-1. Login as `admin@company.com`.
-2. Navigate to **Dashboards** on the left menu.
-3. Verify that the page loads completely without any error banners.
-4. Verify that:
-   * Gmail Quota gauge renders live statistics.
-   * Document Hub count correctly displays offers, NDAs, and signed policy counts.
-   * The Hiring Funnel chart groups applicant counts accurately.
-   * Time-to-hire metrics and recent logs are displayed.
+---
 
-### 2. Test Data Retention Auto-Purge & Storage Deletion (Task 14)
-1. Navigate to **Settings** as `admin@company.com`.
-2. Set **Candidate Data Retention** to `12` months and save.
-3. Run the verification script:
+### Task 1: Notification Inbox
+1. **Trigger Action:** Log in as HR (`hr@company.com`) and submit a template edit for approval under **Offer Letters** -> **Edit Templates**.
+2. **Verify Admin Feed:** Log in as Admin (`admin@company.com`). Verify that the top-navbar Bell Icon displays a red unread badge. Click the bell to view the dropdown containing *"Template edit awaiting your review"*.
+3. **Verify Employee Feed:** Log in as HR and approve a leave request for an employee. Log in as that Employee and verify the notification feed shows *"Your leave request has been Approved"*.
+
+### Task 2: Sensitive-Action Approval Queue
+1. **Trigger Action (HR):** Log in as HR (`hr@company.com`). Navigate to **Settings** or **Offer Letters -> Edit Templates**. Make a change and click Save.
+2. **Verify Queue Status:** Observe that the UI returns a *"Submitted for approval"* message instead of saving directly.
+3. **Verify Admin Review:** Log in as Admin (`admin@company.com`). Navigate to **Approval Requests** in the sidebar. Click **Review** on the pending request to inspect the JSON payload changes. Click **Approve**.
+4. **Verify Live Output:** Verify that the setting/template change is now live and active.
+
+### Task 3: Meeting / Interview Invites (.ics)
+1. **Trigger Scheduling:** Log in as HR. Navigate to **Interviews** on the sidebar and click **Schedule Interview** (or click the button on a candidate's review screen). Fill in date, time, duration, and candidate email, and click submit.
+2. **Verify Attachment:** Check the terminal console logs or destination inbox. Verify that an email is dispatched containing a native `.ics` file attachment with headers `Content-Type: text/calendar; method=REQUEST` and a stable `UID`.
+3. **Verify Reschedule/Cancel:** Under **Interviews**, click **Edit** (reschedules and increments `ics_sequence`) or **Cancel** (dispatches cancel update). Verify the candidate's calendar updates/cancels the invitation automatically.
+
+### Task 4: Announcements & Bulk Composer
+1. **Draft and Send:** Log in as HR. Navigate to **Announcements** on the sidebar. Choose a template, customize content, select recipient type **All Active**, and click **Send**.
+2. **Verify Approval Gating:** Because this is a bulk send, verify it is redirected to the Admin Approval Queue (Task 2). Log in as Admin and approve it.
+3. **Verify Scheduler Throttling:** Once approved, inspect the Python terminal execution console. Verify that the `APScheduler` background job pulls the queued messages and dispatches them in batches (maximum 10 sends every 30 seconds) to stay well under the daily 500-send cap.
+
+### Task 5: Pre-Offer Candidate Pipeline (Kanban)
+1. **Create Candidate:** Log in as HR. Navigate to **Candidate Pipeline**. Click **Add Candidate** and save.
+2. **Kanban Transition:** Drag and drop (or select from the dropdown) the candidate across stages: *Applied* ➡️ *Screening* ➡️ *Interview Scheduled* ➡️ *Offer Extended*.
+3. **Trigger Offer:** Transition the candidate to **Offer Extended**. Click **Move to Offer** on their card. Verify that it opens the new offer creation page with candidate name, email, and designation pre-filled.
+
+### Task 6: Google Calendar OAuth Sync
+1. **Setup Connection:** Log in as Admin. Navigate to **Calendar Setup**. Click **Connect Google Calendar** and complete the OAuth authentication screen.
+2. **Verify Calendar Sync:** Schedule a candidate interview. Verify that:
+   * The meeting is inserted directly onto the primary Google Calendar of the connected account.
+   * Google automatically dispatches calendar invites to both the candidate and interviewer.
+3. **Verify Disconnection/Fallback:** Click **Disconnect** on the setup screen. Schedule another interview. Verify that the system falls back cleanly to the Task 3 SMTP mailer attaching custom `.ics` files.
+
+### Task 7: Employee Self-Service
+1. **Verify Documents:** Log in as an Employee. Navigate to **My Documents**. Verify that signed copies of your Offer Letter and NDA are listed and can be downloaded.
+2. **Verify Timeline:** Navigate to **My Payroll**. Verify that your salary progression history is retrieved from the database and formatted cleanly.
+
+### Task 8: Company Directory & Holiday Calendar
+1. **Verify Directory:** Log in and navigate to **Directory**. Enter a name in the search box to check search filtering. Verify that employee cards show manager relationships correctly.
+2. **Verify Holidays:** Navigate to **Holidays** to view the timeline.
+3. **Manage Holidays:** Log in as Admin. Add a holiday in the side form and verify it renders instantly. Delete a holiday and verify it is removed cleanly.
+
+### Task 9: Helpdesk & Policy E-Signatures
+1. **Query Ticket:** Log in as an Employee. Go to **Helpdesk** and submit a question.
+2. **HR Response:** Log in as HR. Go to **Helpdesk** (HR screen at `/hrms/helpdesk/manage`), open the query, change status to *In Progress*, type a response, and click submit. Verify the employee sees the response.
+3. **Policy Sign-off:** Log in as Admin. Go to **Company Policies** and upload a PDF/HTML document. Assign it to all active employees. Log in as an Employee, navigate to **Company Policies**, click **Sign**, check *"I Agree"*, type your legal name, and submit.
+4. **Verify Document Vault:** Verify that a signed copy of the policy is generated, uploaded to Supabase Storage, and added to both the Document Hub and the employee's portal.
+
+### Task 10: Offboarding Workflow
+1. **Trigger Offboarding:** Log in as HR. Go to **Exit Management** and click **Manage** next to an employee.
+2. **Task Checklist:** Verify exit interview scheduling triggers. Toggle asset return and final settlement checkboxes.
+3. **Access Revocation:** Toggle **Revoke Login Access** to ON. Verify that the employee's login credentials are deleted from the `hrms_users` table, preventing them from logging back in.
+
+### Task 11: HR Operational Extras
+1. **Probation/Anniversary Reminders:** Run the python command to execute the daily scheduler checks. Verify that in-app notification alerts are generated for HR/Admin 7 days before probation ends or a work anniversary arrives.
+2. **Bulk CSV Import:** Navigate to **Offer Letters -> Offers Pipeline**. Download the CSV template, populate it, and upload it at **Import Bulk CSV**. Verify that shell candidate profiles and draft offers are successfully created.
+3. **Duplicate Candidate Warning:** Go to **Candidate Pipeline**. Click **Add Candidate** and type an existing candidate's email. Verify that an AJAX warning badge flashes on screen indicating the candidate already exists in the database.
+
+### Task 12: Admin Control Center
+1. **User Logins:** Log in as Admin. Go to **User Logins**. Create a new login, update its password, connect it to an employee profile, change roles (HR/Admin), and delete it.
+2. **System Audit Logs:** Go to **Audit Logs**. Verify that all actions (logins, deletions, template edits, stage updates, and approvals) are logged chronologically with search and pagination controls.
+
+### Task 13: Usage/Quota & Analytics Dashboards
+1. **Verify Load:** Log in as Admin. Go to **Dashboards**.
+2. **Verify Metrics:** Confirm that:
+   * Gmail Quota meter operates and tracks daily email delivery limits.
+   * Document Hub aggregates counts for stored offers, NDAs, and signed policies.
+   * Kanban recruitment metrics are parsed and grouped correctly.
+   * Average days time-to-hire evaluates from actual database records.
+
+### Task 14: Data Retention & Candidate Purge
+1. **Adjust Retention Window:** Log in as Admin. Go to **Settings** and set Candidate Data Retention to `12` months.
+2. **Verify Purge:** Run the verification test script:
    ```bash
    venv\Scripts\python.exe scratch/test_retention.py
    ```
-4. Verify from output that:
-   * Rejected candidates older than 12 months are identified.
-   * Storage delete requests are fired to clean up the Supabase PDF files.
-   * Profiles have name set to `'Anonymized'`, phone/notes set to `NULL`, and email randomized.
-   * `candidate_pii_purged` record is inserted under the system audit logs.
+3. **Confirm Obfuscation:** Verify that rejected candidates older than 12 months are anonymized (name set to `'Anonymized'`, email randomized, and phone/resume cleared to `NULL`), their PDF file is deleted from Supabase Storage, and a `candidate_pii_purged` record is logged in the Audit Trail.
 
-### 3. Test Sensitive-Action Approval Gating (Task 2)
-1. Login as HR user (`hr@company.com`).
-2. Go to **Offer Letters** -> **Edit Templates**.
-3. Edit the Full Time Offer template and click **Save Changes**.
-4. Log back in as `admin@company.com`.
-5. Navigate to **Approval Requests** on the sidebar.
-6. Verify that the template edit request is pending. Click **Review**, examine the JSON side-by-side differences, and approve.
-7. Verify that the changes are now live and logged in **Audit Logs**.
+### Task 15: Granular Role Permissions
+* **Status:** **NOT IMPLEMENTED** (Deferred/On Hold per project roadmap, current HR/Admin roles are sufficient for current team scale).
+
+### Task 16: Mobile UI & PWA Pass
+1. **Service Worker:** Load the application, open Developer Tools -> Application -> Service Workers, and verify `sw.js` is registered.
+2. **Responsive Mobile Shell:** Resize browser window to `< 992px`. Verify that:
+   * A fixed header top-bar renders.
+   * Clicking the animated burger icon rotates it to a close ("X") icon and slides open the sidebar menu overlay.
 
 ---
 
@@ -312,3 +369,4 @@ python app.py
 * All 15 active roadmap requirements are fully coded, verified, and committed.
 * System database schema drift has been completely resolved.
 * Security credentials, background workers, and templates are structured following best practices.
+
