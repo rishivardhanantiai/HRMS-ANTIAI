@@ -572,7 +572,17 @@ def _template_key_for_offer_type(offer_type):
 
 
 def _get_offer_template(template_type):
-    """Fetch the editable template row, seeding it with the default on first use."""
+    """Fetch the editable template row, seeding it with the default on first use (cached per request)."""
+    from flask import g
+    if not hasattr(g, "offer_templates_cache"):
+        g.offer_templates_cache = {}
+    if template_type in g.offer_templates_cache:
+        return g.offer_templates_cache[template_type]
+    res = _get_offer_template_uncached(template_type)
+    g.offer_templates_cache[template_type] = res
+    return res
+
+def _get_offer_template_uncached(template_type):
     default_content = TEMPLATE_DEFAULTS.get(template_type, DEFAULT_OFFER_TEMPLATE_FULLTIME)
     conn, cur = None, None
     try:
@@ -2023,10 +2033,9 @@ def import_bulk_csv():
     skipped = 0
     skipped_reasons = []
     
-    # Try fetching roles via psycopg2 first, fallback to REST
+    # 1. Fetch all roles once
     role_map = {}
     default_role_id = None
-    
     try:
         conn, cur = get_db(True)
         if conn:
@@ -2059,6 +2068,51 @@ def import_bulk_csv():
         except Exception as rest_err:
             print("REST roles fetch failed:", rest_err)
 
+    # 2. Pre-fetch existing employee emails once (eliminates 1 query per row)
+    existing_emails = set()
+    try:
+        conn, cur = get_db(True)
+        if conn:
+            cur.execute("SELECT email FROM hrms_employees WHERE status != 'Deleted'")
+            existing_emails = {str(row["email"]).lower().strip() for row in cur.fetchall() if row.get("email")}
+    except Exception as db_err:
+        print("DB existing emails fetch failed, trying REST:", db_err)
+    finally:
+        if conn:
+            release_db(conn, cur)
+            conn, cur = None, None
+            
+    if not existing_emails:
+        try:
+            rows = supabase_rest.get_rows("hrms_employees", {"status": "neq.Deleted", "select": "email"}) or []
+            existing_emails = {str(row["email"]).lower().strip() for row in rows if row.get("email")}
+        except Exception as rest_err:
+            print("REST existing emails fetch failed:", rest_err)
+
+    # 3. Pre-fetch last employee code sequence once (eliminates 1 query per row)
+    last_num = 0
+    try:
+        conn, cur = get_db(True)
+        if conn:
+            cur.execute("SELECT employee_code FROM hrms_employees WHERE employee_code LIKE 'EMP-%' ORDER BY created_at DESC LIMIT 1")
+            last_emp = cur.fetchone()
+            if last_emp and last_emp["employee_code"]:
+                last_num = int(last_emp["employee_code"].split("-")[1])
+    except Exception as db_err:
+        print("DB last employee code fetch failed, trying REST:", db_err)
+    finally:
+        if conn:
+            release_db(conn, cur)
+            conn, cur = None, None
+            
+    if last_num == 0:
+        try:
+            row_last = supabase_rest.get_first_row("hrms_employees", {"employee_code": "like.EMP-%", "order": "created_at.desc"})
+            if row_last and row_last.get("employee_code"):
+                last_num = int(row_last["employee_code"].split("-")[1])
+        except Exception as rest_err:
+            print("REST last employee code fetch failed:", rest_err)
+
     # Main Row Processing Loop
     for row in reader:
         name = (row.get("candidate_name") or "").strip()
@@ -2071,31 +2125,8 @@ def import_bulk_csv():
             skipped_reasons.append("Row missing name/email/designation")
             continue
             
-        # Duplicate Check
-        email_exists = False
-        conn, cur = None, None
-        try:
-            conn, cur = get_db(True)
-            if conn:
-                cur.execute("SELECT id FROM hrms_employees WHERE email = %s AND status != 'Deleted'", (email,))
-                if cur.fetchone():
-                    email_exists = True
-        except Exception as db_err:
-            print("DB duplicate check failed, trying REST:", db_err)
-        finally:
-            if conn:
-                release_db(conn, cur)
-                conn, cur = None, None
-                
-        if not email_exists:
-            try:
-                existing = supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{email}", "status": "neq.Deleted"})
-                if existing:
-                    email_exists = True
-            except Exception as rest_err:
-                print("REST duplicate check failed:", rest_err)
-                
-        if email_exists:
+        # O(1) Local duplicate check (no DB roundtrip)
+        if email in existing_emails:
             skipped += 1
             skipped_reasons.append(f"Email '{email}' already exists")
             continue
@@ -2140,30 +2171,9 @@ def import_bulk_csv():
         
         content_html = _render_offer_content(offer_fields)
         
-        # Get next employee code (direct DB or REST fallback)
-        employee_code = None
-        conn, cur = None, None
-        try:
-            conn, cur = get_db(True)
-            if conn:
-                employee_code = _next_employee_code(cur)
-        except Exception as db_err:
-            print("DB next code failed, trying REST:", db_err)
-        finally:
-            if conn:
-                release_db(conn, cur)
-                conn, cur = None, None
-                
-        if not employee_code:
-            try:
-                row_last = supabase_rest.get_first_row("hrms_employees", {"employee_code": "like.EMP-%", "order": "created_at.desc"})
-                employee_code = "EMP-0001"
-                if row_last and row_last.get("employee_code"):
-                    last_num = int(row_last["employee_code"].split("-")[1])
-                    employee_code = f"EMP-{(last_num + 1):04d}"
-            except Exception as rest_err:
-                print("REST next code failed:", rest_err)
-                employee_code = "EMP-ERR"
+        # Local employee code sequence calculation (no DB roundtrip)
+        last_num += 1
+        employee_code = f"EMP-{last_num:04d}"
                 
         # Database Inserts (psycopg2 direct first, fallback to REST)
         db_success = False
@@ -2196,6 +2206,7 @@ def import_bulk_csv():
                 conn.commit()
                 db_success = True
                 imported += 1
+                existing_emails.add(email) # Track local uniqueness
         except Exception as db_err:
             print("DB bulk insert failed, trying REST:", db_err)
             if conn:
@@ -2251,6 +2262,7 @@ def import_bulk_csv():
                     if new_offer:
                         db_success = True
                         imported += 1
+                        existing_emails.add(email) # Track local uniqueness
             except Exception as rest_err:
                 print("REST bulk insert failed:", rest_err)
                 skipped += 1
