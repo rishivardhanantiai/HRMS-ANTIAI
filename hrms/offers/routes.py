@@ -905,8 +905,13 @@ def _render_pdf_and_upload(content_html, file_label, doc_title=""):
         font_serif_b64=_FONT_SERIF_B64,
         font_serif_bold_b64=_FONT_SERIF_BOLD_B64,
     )
-    os.makedirs(os.path.join(current_app.root_path, "uploads"), exist_ok=True)
-    pdf_path = os.path.join(current_app.root_path, "uploads", f"{file_label}_{int(time.time())}.pdf")
+    import tempfile
+    if os.getenv("VERCEL") == "1":
+        upload_dir = os.path.join(tempfile.gettempdir(), "uploads")
+    else:
+        upload_dir = os.path.join(current_app.root_path, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    pdf_path = os.path.join(upload_dir, f"{file_label}_{int(time.time())}.pdf")
     try:
         with open(pdf_path, "w+b") as result_file:
             pisa_status = pisa.CreatePDF(full_html, dest=result_file)

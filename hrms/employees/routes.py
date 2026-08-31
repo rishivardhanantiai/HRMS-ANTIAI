@@ -988,7 +988,11 @@ def upload_document_to_supabase(file_storage, employee_id):
 
     # Local Fallback
     local_filename = f"emp_{employee_id}_{timestamp}_{safe_name}"
-    docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
+    import tempfile
+    if os.getenv("VERCEL") == "1":
+        docs_dir = os.path.join(tempfile.gettempdir(), "uploads", "docs")
+    else:
+        docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
     os.makedirs(docs_dir, exist_ok=True)
     
     file_storage.stream.seek(0)
@@ -1184,7 +1188,11 @@ def upload_document():
 @login_required
 def download_local_document(filename):
     from flask import current_app, send_from_directory
-    docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
+    import tempfile
+    if os.getenv("VERCEL") == "1":
+        docs_dir = os.path.join(tempfile.gettempdir(), "uploads", "docs")
+    else:
+        docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
     return send_from_directory(docs_dir, filename, as_attachment=True)
 
 @employees_bp.route("/documents/<doc_id>/view", methods=["GET"])
