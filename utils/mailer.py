@@ -106,7 +106,56 @@ If the button doesn't work, copy this link into your browser:<br>
 </p>"""
 
 
-def send_email(to_email, subject, html_body, to_name=None):
+def _log_outbound_email(to_email, subject, html_body, status='Sent'):
+    """Log the outbound email in outbound_messages using direct SQL or REST fallback."""
+    try:
+        from utils.db import get_db, release_db
+        from utils import supabase_rest
+        from datetime import datetime
+        
+        sent_at_val = datetime.utcnow().isoformat() if status == 'Sent' else None
+        
+        conn, cur = None, None
+        db_success = False
+        try:
+            conn, cur = get_db(True)
+            if conn:
+                cur.execute("""
+                    INSERT INTO outbound_messages (subject, body_html, recipient_email, status, created_by, sent_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (subject, html_body, to_email, status, 'System', datetime.utcnow() if status == 'Sent' else None))
+                conn.commit()
+                db_success = True
+        except Exception as db_err:
+            print("DB logging of outbound email failed, trying REST:", db_err)
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        finally:
+            if conn:
+                release_db(conn, cur)
+                
+        if not db_success:
+            try:
+                payload = {
+                    "subject": subject,
+                    "body_html": html_body,
+                    "recipient_email": to_email,
+                    "status": status,
+                    "created_by": "System"
+                }
+                if sent_at_val:
+                    payload["sent_at"] = sent_at_val
+                supabase_rest.insert_row("outbound_messages", payload)
+            except Exception as rest_err:
+                print("REST fallback logging of outbound email failed:", rest_err)
+    except Exception as e:
+        print("Outbound email logging wrapper error:", e)
+
+
+def send_email(to_email, subject, html_body, to_name=None, log_email=True):
     """Send one HTML email with the company logo inlined. Returns True/False."""
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
@@ -115,6 +164,8 @@ def send_email(to_email, subject, html_body, to_name=None):
         print(f"To: {to_name or ''} <{to_email}>")
         print(f"Subject: {subject}")
         print("--------------------------------------------------------")
+        if log_email:
+            _log_outbound_email(to_email, subject, html_body, 'Failed')
         return False
 
     msg = EmailMessage()
@@ -135,9 +186,13 @@ def send_email(to_email, subject, html_body, to_name=None):
             server.starttls()
             server.login(SENDER_EMAIL, app_password)
             server.send_message(msg)
+        if log_email:
+            _log_outbound_email(to_email, subject, html_body, 'Sent')
         return True
     except Exception as e:
         print(f"Email send failed ({to_email}): {e}")
+        if log_email:
+            _log_outbound_email(to_email, subject, html_body, 'Failed')
         return False
 
 
@@ -354,7 +409,7 @@ sent automatically — you'll see them appear in the Onboarding Pipeline shortly
 # CALENDAR / INTERVIEW INVITES
 # =====================================================================
 
-def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method="REQUEST"):
+def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method="REQUEST", log_email=True):
     """Send an email with an attached .ics calendar invite."""
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
@@ -363,6 +418,8 @@ def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method
         print(f"To: {to_name or ''} <{to_email}>")
         print(f"Subject: {subject}")
         print("--------------------------------------------------------")
+        if log_email:
+            _log_outbound_email(to_email, subject, html_body, 'Failed')
         return False
 
     msg = EmailMessage()
@@ -400,7 +457,11 @@ def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method
             server.starttls()
             server.login(SENDER_EMAIL, app_password)
             server.send_message(msg)
+        if log_email:
+            _log_outbound_email(to_email, subject, html, 'Sent')
         return True
     except Exception as e:
         print(f"Meeting invite send failed ({to_email}): {e}")
+        if log_email:
+            _log_outbound_email(to_email, subject, html, 'Failed')
         return False

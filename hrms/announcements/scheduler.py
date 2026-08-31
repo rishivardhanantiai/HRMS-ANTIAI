@@ -42,7 +42,7 @@ def process_email_queue(app):
                         body_html=final_body
                     )
                     
-                    success = send_email(msg['recipient_email'], msg['subject'], wrapped_body)
+                    success = send_email(msg['recipient_email'], msg['subject'], wrapped_body, log_email=False)
                     
                     status = 'Sent' if success else 'Failed'
                     cur.execute("""
