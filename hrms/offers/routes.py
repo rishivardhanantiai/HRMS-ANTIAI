@@ -2023,125 +2023,242 @@ def import_bulk_csv():
     skipped = 0
     skipped_reasons = []
     
+    # Try fetching roles via psycopg2 first, fallback to REST
+    role_map = {}
+    default_role_id = None
+    
     try:
         conn, cur = get_db(True)
-        if not conn:
-            raise Exception("no db")
-            
-        # Fetch all roles to map name -> id
-        cur.execute("SELECT id, role_name FROM hrms_roles")
-        roles = cur.fetchall()
-        role_map = {str(r["role_name"]).lower().strip(): r["id"] for r in roles}
-        
-        # Fallback default role
-        default_role_id = None
-        if roles:
-            default_role_id = roles[0]["id"]
-            for r in roles:
-                if "unassigned" in str(r["role_name"]).lower():
-                    default_role_id = r["id"]
-                    break
-                    
-        for row in reader:
-            name = (row.get("candidate_name") or "").strip()
-            email = (row.get("candidate_email") or "").strip().lower()
-            designation = (row.get("designation") or "").strip()
-            role_name = (row.get("role_name") or "").strip().lower()
-            
-            if not name or not email or not designation:
-                skipped += 1
-                skipped_reasons.append("Row missing name/email/designation")
-                continue
-                
-            # Duplicate check
-            cur.execute("SELECT id FROM hrms_employees WHERE email = %s AND status != 'Deleted'", (email,))
-            if cur.fetchone():
-                skipped += 1
-                skipped_reasons.append(f"Email '{email}' already exists")
-                continue
-                
-            # Resolve role_id
-            resolved_role_id = role_map.get(role_name)
-            if not resolved_role_id:
-                resolved_role_id = default_role_id
-                
-            offer_type = row.get("offer_type", "Full Time").strip()
-            if offer_type not in OFFER_TYPES:
-                offer_type = "Full Time"
-                
-            # Parse numeric fields
-            def to_num(val):
-                try: return float(str(val).replace(",", "").strip()) or 0.0
-                except: return 0.0
-                
-            def to_int(val):
-                try: return int(str(val).strip()) or None
-                except: return None
-                
-            offer_fields = {
-                "candidate_name": name,
-                "candidate_email": email,
-                "candidate_address": row.get("candidate_address") or None,
-                "designation": designation,
-                "department": row.get("department") or None,
-                "offer_type": offer_type,
-                "effective_date": row.get("effective_date") or None,
-                "ctc_annual": to_num(row.get("ctc_annual")),
-                "basic_monthly": to_num(row.get("basic_monthly")),
-                "hra_monthly": to_num(row.get("hra_monthly")),
-                "special_allowance_monthly": to_num(row.get("special_allowance_monthly")),
-                "pf_monthly": to_num(row.get("pf_monthly")),
-                "bonus_monthly": to_num(row.get("bonus_monthly")),
-                "contract_end_date": row.get("contract_end_date") or None,
-                "commission_min": to_num(row.get("commission_min")),
-                "commission_max": to_num(row.get("commission_max")),
-                "stipend_monthly": to_num(row.get("stipend_monthly")),
-                "duration_months": to_int(row.get("duration_months")),
-                "responsibilities": row.get("responsibilities") or "",
-                "role_id": resolved_role_id
-            }
-            
-            content_html = _render_offer_content(offer_fields)
-            employee_code = _next_employee_code(cur)
-            
-            cur.execute("""
-                INSERT INTO hrms_employees (employee_code, full_name, email, department, designation,
-                    role_id, joining_date, status, employment_type)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,'Offer Pending',%s) RETURNING id
-            """, (employee_code, name, email, offer_fields["department"], designation, 
-                  resolved_role_id, offer_fields["effective_date"] or date.today(), offer_type))
-            employee_id = cur.fetchone()["id"]
-            
-            cur.execute("""
-                INSERT INTO employee_offers (employee_id, candidate_name, candidate_email, candidate_address,
-                    designation, department, offer_type, effective_date, ctc_annual, basic_monthly, hra_monthly,
-                    special_allowance_monthly, pf_monthly, bonus_monthly, contract_end_date, commission_min,
-                    commission_max, stipend_monthly, duration_months, responsibilities,
-                    content_html, status, created_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Draft',%s) RETURNING id
-            """, (employee_id, name, email, offer_fields["candidate_address"], designation, 
-                  offer_fields["department"], offer_type, offer_fields["effective_date"], 
-                  offer_fields["ctc_annual"], offer_fields["basic_monthly"], offer_fields["hra_monthly"], 
-                  offer_fields["special_allowance_monthly"], offer_fields["pf_monthly"], offer_fields["bonus_monthly"], 
-                  offer_fields["contract_end_date"], offer_fields["commission_min"], offer_fields["commission_max"], 
-                  offer_fields["stipend_monthly"], offer_fields["duration_months"], offer_fields["responsibilities"], 
-                  content_html, session.get("user", "HR")))
-            
-            imported += 1
-            
-        conn.commit()
-        if skipped > 0:
-            flash(f"Successfully imported {imported} offer(s) from CSV. Skipped {skipped} rows. Reasons: {'; '.join(skipped_reasons[:3])}...", "warning")
-        else:
-            flash(f"Successfully imported {imported} offer(s) from CSV.", "success")
-            
-    except Exception as e:
-        print("CSV Bulk Onboarding error:", e)
         if conn:
-            conn.rollback()
-        flash(f"Error executing bulk import: {e}", "error")
+            cur.execute("SELECT id, role_name FROM hrms_roles")
+            roles = cur.fetchall()
+            role_map = {str(r["role_name"]).lower().strip(): r["id"] for r in roles}
+            if roles:
+                default_role_id = roles[0]["id"]
+                for r in roles:
+                    if "unassigned" in str(r["role_name"]).lower():
+                        default_role_id = r["id"]
+                        break
+    except Exception as db_err:
+        print("DB roles fetch failed, trying REST:", db_err)
     finally:
         if conn:
             release_db(conn, cur)
+            conn, cur = None, None
             
+    if not role_map:
+        try:
+            roles = supabase_rest.get_rows("hrms_roles") or []
+            role_map = {str(r["role_name"]).lower().strip(): r["id"] for r in roles}
+            if roles:
+                default_role_id = roles[0]["id"]
+                for r in roles:
+                    if "unassigned" in str(r["role_name"]).lower():
+                        default_role_id = r["id"]
+                        break
+        except Exception as rest_err:
+            print("REST roles fetch failed:", rest_err)
+
+    # Main Row Processing Loop
+    for row in reader:
+        name = (row.get("candidate_name") or "").strip()
+        email = (row.get("candidate_email") or "").strip().lower()
+        designation = (row.get("designation") or "").strip()
+        role_name = (row.get("role_name") or "").strip().lower()
+        
+        if not name or not email or not designation:
+            skipped += 1
+            skipped_reasons.append("Row missing name/email/designation")
+            continue
+            
+        # Duplicate Check
+        email_exists = False
+        conn, cur = None, None
+        try:
+            conn, cur = get_db(True)
+            if conn:
+                cur.execute("SELECT id FROM hrms_employees WHERE email = %s AND status != 'Deleted'", (email,))
+                if cur.fetchone():
+                    email_exists = True
+        except Exception as db_err:
+            print("DB duplicate check failed, trying REST:", db_err)
+        finally:
+            if conn:
+                release_db(conn, cur)
+                conn, cur = None, None
+                
+        if not email_exists:
+            try:
+                existing = supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{email}", "status": "neq.Deleted"})
+                if existing:
+                    email_exists = True
+            except Exception as rest_err:
+                print("REST duplicate check failed:", rest_err)
+                
+        if email_exists:
+            skipped += 1
+            skipped_reasons.append(f"Email '{email}' already exists")
+            continue
+            
+        # Resolve role_id
+        resolved_role_id = role_map.get(role_name) or default_role_id
+        offer_type = row.get("offer_type", "Full Time").strip()
+        if offer_type not in OFFER_TYPES:
+            offer_type = "Full Time"
+            
+        # Parse numeric fields
+        def to_num(val):
+            try: return float(str(val).replace(",", "").strip()) or 0.0
+            except: return 0.0
+            
+        def to_int(val):
+            try: return int(str(val).strip()) or None
+            except: return None
+            
+        offer_fields = {
+            "candidate_name": name,
+            "candidate_email": email,
+            "candidate_address": row.get("candidate_address") or None,
+            "designation": designation,
+            "department": row.get("department") or None,
+            "offer_type": offer_type,
+            "effective_date": row.get("effective_date") or None,
+            "ctc_annual": to_num(row.get("ctc_annual")),
+            "basic_monthly": to_num(row.get("basic_monthly")),
+            "hra_monthly": to_num(row.get("hra_monthly")),
+            "special_allowance_monthly": to_num(row.get("special_allowance_monthly")),
+            "pf_monthly": to_num(row.get("pf_monthly")),
+            "bonus_monthly": to_num(row.get("bonus_monthly")),
+            "contract_end_date": row.get("contract_end_date") or None,
+            "commission_min": to_num(row.get("commission_min")),
+            "commission_max": to_num(row.get("commission_max")),
+            "stipend_monthly": to_num(row.get("stipend_monthly")),
+            "duration_months": to_int(row.get("duration_months")),
+            "responsibilities": row.get("responsibilities") or "",
+            "role_id": resolved_role_id
+        }
+        
+        content_html = _render_offer_content(offer_fields)
+        
+        # Get next employee code (direct DB or REST fallback)
+        employee_code = None
+        conn, cur = None, None
+        try:
+            conn, cur = get_db(True)
+            if conn:
+                employee_code = _next_employee_code(cur)
+        except Exception as db_err:
+            print("DB next code failed, trying REST:", db_err)
+        finally:
+            if conn:
+                release_db(conn, cur)
+                conn, cur = None, None
+                
+        if not employee_code:
+            try:
+                row_last = supabase_rest.get_first_row("hrms_employees", {"employee_code": "like.EMP-%", "order": "created_at.desc"})
+                employee_code = "EMP-0001"
+                if row_last and row_last.get("employee_code"):
+                    last_num = int(row_last["employee_code"].split("-")[1])
+                    employee_code = f"EMP-{(last_num + 1):04d}"
+            except Exception as rest_err:
+                print("REST next code failed:", rest_err)
+                employee_code = "EMP-ERR"
+                
+        # Database Inserts (psycopg2 direct first, fallback to REST)
+        db_success = False
+        conn, cur = None, None
+        try:
+            conn, cur = get_db(True)
+            if conn:
+                cur.execute("""
+                    INSERT INTO hrms_employees (employee_code, full_name, email, department, designation,
+                        role_id, joining_date, status, employment_type)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'Offer Pending',%s) RETURNING id
+                """, (employee_code, name, email, offer_fields["department"], designation, 
+                      resolved_role_id, offer_fields["effective_date"] or date.today(), offer_type))
+                employee_id = cur.fetchone()["id"]
+                
+                cur.execute("""
+                    INSERT INTO employee_offers (employee_id, candidate_name, candidate_email, candidate_address,
+                        designation, department, offer_type, effective_date, ctc_annual, basic_monthly, hra_monthly,
+                        special_allowance_monthly, pf_monthly, bonus_monthly, contract_end_date, commission_min,
+                        commission_max, stipend_monthly, duration_months, responsibilities,
+                        content_html, status, created_by)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Draft',%s)
+                """, (employee_id, name, email, offer_fields["candidate_address"], designation, 
+                      offer_fields["department"], offer_type, offer_fields["effective_date"], 
+                      offer_fields["ctc_annual"], offer_fields["basic_monthly"], offer_fields["hra_monthly"], 
+                      offer_fields["special_allowance_monthly"], offer_fields["pf_monthly"], offer_fields["bonus_monthly"], 
+                      offer_fields["contract_end_date"], offer_fields["commission_min"], offer_fields["commission_max"], 
+                      offer_fields["stipend_monthly"], offer_fields["duration_months"], offer_fields["responsibilities"], 
+                      content_html, session.get("email") or session.get("role") or "HR"))
+                conn.commit()
+                db_success = True
+                imported += 1
+        except Exception as db_err:
+            print("DB bulk insert failed, trying REST:", db_err)
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                release_db(conn, cur)
+                conn, cur = None, None
+                
+        # REST Fallback Inserts
+        if not db_success:
+            try:
+                emp_payload = {
+                    "employee_code": employee_code,
+                    "full_name": name,
+                    "email": email,
+                    "department": offer_fields["department"],
+                    "designation": designation,
+                    "role_id": resolved_role_id,
+                    "joining_date": offer_fields["effective_date"] or date.today().isoformat(),
+                    "status": "Offer Pending",
+                    "employment_type": offer_type
+                }
+                new_emp = supabase_rest.insert_row("hrms_employees", emp_payload)
+                if new_emp and new_emp.get("id"):
+                    employee_id = new_emp["id"]
+                    offer_payload = {
+                        "employee_id": employee_id,
+                        "candidate_name": name,
+                        "candidate_email": email,
+                        "candidate_address": offer_fields["candidate_address"],
+                        "designation": designation,
+                        "department": offer_fields["department"],
+                        "offer_type": offer_type,
+                        "effective_date": offer_fields["effective_date"],
+                        "ctc_annual": offer_fields["ctc_annual"],
+                        "basic_monthly": offer_fields["basic_monthly"],
+                        "hra_monthly": offer_fields["hra_monthly"],
+                        "special_allowance_monthly": offer_fields["special_allowance_monthly"],
+                        "pf_monthly": offer_fields["pf_monthly"],
+                        "bonus_monthly": offer_fields["bonus_monthly"],
+                        "contract_end_date": offer_fields["contract_end_date"],
+                        "commission_min": offer_fields["commission_min"],
+                        "commission_max": offer_fields["commission_max"],
+                        "stipend_monthly": offer_fields["stipend_monthly"],
+                        "duration_months": offer_fields["duration_months"],
+                        "responsibilities": offer_fields["responsibilities"],
+                        "content_html": content_html,
+                        "status": "Draft",
+                        "created_by": session.get("email") or session.get("role") or "HR"
+                    }
+                    new_offer = supabase_rest.insert_row("employee_offers", offer_payload)
+                    if new_offer:
+                        db_success = True
+                        imported += 1
+            except Exception as rest_err:
+                print("REST bulk insert failed:", rest_err)
+                skipped += 1
+                skipped_reasons.append("Insert failed")
+
+    if skipped > 0:
+        flash(f"Successfully imported {imported} offer(s) from CSV. Skipped {skipped} rows. Reasons: {'; '.join(skipped_reasons[:3])}", "warning")
+    else:
+        flash(f"Successfully imported {imported} offer(s) from CSV.", "success")
+        
     return redirect(url_for("offers.index"))
