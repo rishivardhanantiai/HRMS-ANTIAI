@@ -216,54 +216,76 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 ### Task 1: Notifications
 * **Approach:** Intercepts `mailer.send_*()` emails. Writes in-app records for target roles ('HR' or 'Admin') or individuals (via `employee_id` for employee notifications).
 * **UI:** Standard interactive navbar dropdown pulling `/hrms/notifications/api/feed` periodically.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1KEL82PSQ7nkEQR-DSGJXk2oA_UdWrb-3/view?usp=sharing)
 
 ### Task 2: Approval Queue
 * **Approach:** HR updates to corporate parameters, offer deletion requests, and bulk emails are diverted into `admin_approval_queue`. Diffs are computed client-side by comparing before/after JSON blobs in the Admin Review interface.
 * **Actions Supported:** `template_edit`, `appearance_change`, `delete_offer`, `delete_candidate`, `company_settings_change`, `bulk_send`.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1hkRS2eR2zrKYpVVMPpY8r4EJmHtIohfM/view?usp=drive_link)
 
 ### Task 3: Meeting / Interview Invites (.ics)
 * **Approach:** Utilizes `icalendar` library. Packages calendar invitation headers with MIME `text/calendar; method=REQUEST`. Increments `ics_sequence` for rescheduling updates, and sends `METHOD:CANCEL` for cancellations to preserve calendar sync integrity.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1crQzjPTcqZrF9Xq61LVJa_cYzRKUDsuW/view?usp=drive_link)
 
-### Task 5: ATS Candidate Pipeline
-* **Approach:** Reused the core `applications` table to prevent table duplication. Linked candidates directly to `employee_offers` (`application_id`) so that dragging a candidate to "Offer Extended" opens a pre-filled offer creation form that maintains historical tracking.
+### Task 4: Announcements & Bulk Composer
+* **Approach:** Powered by `APScheduler` running in the main Flask thread. Scans `outbound_messages` and dispatches them in throttled batches to stay well under daily limit caps.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/16uKWqWxTKw33pQeNehZF3vJcKZ_j5n_Q/view?usp=drive_link)
+
+### Task 5: Pre-Offer Candidate Pipeline (Kanban)
+* **Approach:** Reused the core `applications` table to prevent table duplication. Linked candidates directly to `employee_offers` (`application_id`) so that dragging a candidate to "Offer Extended" opens a pre-filled offer creation form that maintains historical tracking. Note that the Kanban board displays candidates once they have been advanced/marked as "Screening" (or higher) in the system.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1iJDrf8_rXurYxJvw1qVBJtlpQZL0DbKH/view?usp=drive_link)
 
 ### Task 6: Google Calendar OAuth Integration
 * **Approach:** Integrated Google API Client. Resolved the `invalid_grant: Missing code verifier` issue by setting `autogenerate_code_verifier=False` inside Flow generation, preventing the stateless backend callback from destroying verification states. Configured `OAUTHLIB_INSECURE_TRANSPORT=1` to allow local HTTP testing.
 * **Fallbacks:** Automatically reverts to the Task 3 SMTP ICS email format if OAuth state is not active.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1tLK2edGWEAi96ke1pmTO31same3LxqV7/view?usp=drive_link)
 
 ### Task 7: Employee Self-Service
 * **Approach:** Modified `/my-documents` to scan `employee_offers` and `employee_ndas` to download their signed PDFs directly. Pulled employee compensation progression history cleanly from `employee_salary`.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1V3E9MNG6vn_Vc7tsg1x5-QSazAn8qBZZ/view?usp=drive_link)
 
 ### Task 8: Company Directory & Holiday Calendar
 * **Approach:** Directory runs a hierarchical self-join (`manager_id` references `hrms_employees.id`) to render organizational structures. Company holiday database handles additions/deletions on an interactive timeline.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/17mfnh6gqJXCMlyAls5sajdWv0b4vS6oM/view?usp=drive_link)
 
 ### Task 9: Helpdesk & Policy E-Signatures
 * **Approach:** Helpdesk is role-scoped (Open/In Progress/Resolved states). Policies allow HR to upload documents and assign them to active employees. E-signatures use a secure sign-off view that captures legal names, agree checks, IP address, and timestamps. Renders a signed PDF with countersignature boxes, uploads it to Supabase Storage, and adds it to the employee's document vault.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1IIdgRthgjLpAaWnzRMkXH-8OMo4h9Q4C/view?usp=drive_link)
 
 ### Task 10: Offboarding Workflow
 * **Approach:** Checklist manages last working day, exit interview scheduler (ICS-linked), asset return checkboxes, and final settlement logs. The "Revoke Access" toggle removes login credentials from the `hrms_users` credentials table.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1Uth5A9LaoIEm5tV2Fus113T5QSKdw0VX/view?usp=drive_link)
 
 ### Task 11: HR Operational Extras
 * **Lifecycle Reminders:** Scans anniversaries and probation dates daily, writing targeted notifications to HR/Admin 7 days in advance.
 * **Bulk CSV Import:** Parses candidate attributes, creates draft offers, and registers placeholders in the database.
 * **Duplicate Detection:** Asynchronous AJAX check at `/hrms/candidates/check-email` alerts HR if candidate exists before saving.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1JOjlRMTqHkLTSjnXTP5JP8K5QyUZbS6S/view?usp=drive_link)
 
 ### Task 12: Admin Control Center
 * **Audit Trail:** Custom Paginated log view tracking logins, deletions, stage updates, email logs, and admin queue results.
 * **Logins CRUD:** Admin UI to assign logins, reset passwords, change roles, and link employee IDs.
 * **Settings:** Gathers branding logo and watermark templates. Gated under Task 2 approval controls.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/17zmUqBl8CGi1uBtSDwJVmTUUVNpYyk5H/view?usp=drive_link)
 
 ### Task 13: Usage/Quota & Analytics Dashboard
 * **Bug Fix:** Fixed database crash where queries searched for the outdated column name `pdf_url` inside `employee_offers`/`employee_ndas` tables. Updated schema queries to target `final_pdf_url`.
 * **Bug Fix:** Fixed database exception where queries checked for `signature_pdf_url` in `employee_policy_signatures`. Updated template logic and route query to target `pdf_url` (matching the schema definition).
 * **Metrics:** Evaluates daily SMTP limits, database tuples size, conversion rate metrics, and average days time-to-hire.
+* **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1JcceJp7UOOTvPsudDQU507kVe09dh6vK/view?usp=drive_link)
 
 ### Task 14: Data Retention Policy & Storage Purge
 * **Bug Fix:** Implemented physical file deletion alongside database nullification.
 * **Storage Sync:** The purge job parses `resume_url`. If it contains matching Supabase bucket markers, it extracts the unique object key (e.g. `resumes/1788106857_abc.pdf`) and executes a secure HTTP `DELETE` call to the Supabase storage endpoint before updating candidate records to `Anonymized`.
+* **Demo Video:** N/A (Runs as a background cron script to automatically purge PII data, making it non-recordable).
+
+### Task 15: Granular Role Permissions
+* **Status:** **ON HOLD** (On hold/deferred per scaling requirements).
+* **Demo Video:** N/A
 
 ### Task 16: Mobile UI & PWA Pass
 * **Approach:** Built responsive header shell (`.top-nav`) on screens `< 992px` with a rotating, interactive CSS burger icon to open the navigation panel. Fixed touch scroll overflows on HTML table elements to resolve mobile overflow clipping. Integrated a manifest and custom caching service worker (`sw.js`).
+* **Demo Video:** N/A (Currently in testing; decisions are required as the app uses plain HTML/CSS layouts instead of a component framework like React).
 
 ---
 
@@ -288,7 +310,7 @@ python app.py
 4. **Verify Live Output:** Verify that the setting/template change is now live and active.
 
 ### Task 3: Meeting / Interview Invites (.ics)
-1. **Trigger Scheduling:** Log in as HR. Navigate to **Interviews** on the sidebar and click **Schedule Interview** (or click the button on a candidate's review screen). Fill in date, time, duration, and candidate email, and click submit.
+1. **Trigger Scheduling:** Schedule the interview from a candidate's profile/review screen (during screening or onboarding stages). Fill in date, time, duration, and candidate email, and click submit.
 2. **Verify Attachment:** Check the terminal console logs or destination inbox. Verify that an email is dispatched containing a native `.ics` file attachment with headers `Content-Type: text/calendar; method=REQUEST` and a stable `UID`.
 3. **Verify Reschedule/Cancel:** Under **Interviews**, click **Edit** (reschedules and increments `ics_sequence`) or **Cancel** (dispatches cancel update). Verify the candidate's calendar updates/cancels the invitation automatically.
 
@@ -298,7 +320,7 @@ python app.py
 3. **Verify Scheduler Throttling:** Once approved, inspect the Python terminal execution console. Verify that the `APScheduler` background job pulls the queued messages and dispatches them in batches (maximum 10 sends every 30 seconds) to stay well under the daily 500-send cap.
 
 ### Task 5: Pre-Offer Candidate Pipeline (Kanban)
-1. **Create Candidate:** Log in as HR. Navigate to **Candidate Pipeline**. Click **Add Candidate** and save.
+1. **Create Candidate:** Log in as HR. Navigate to **Candidate Pipeline**. Note that the Kanban board only shows candidates once they have been advanced/marked as "Screening" in the system.
 2. **Kanban Transition:** Drag and drop (or select from the dropdown) the candidate across stages: *Applied* ➡️ *Screening* ➡️ *Interview Scheduled* ➡️ *Offer Extended*.
 3. **Trigger Offer:** Transition the candidate to **Offer Extended**. Click **Move to Offer** on their card. Verify that it opens the new offer creation page with candidate name, email, and designation pre-filled.
 
@@ -332,7 +354,7 @@ python app.py
 ### Task 11: HR Operational Extras
 1. **Probation/Anniversary Reminders:** Run the python command to execute the daily scheduler checks. Verify that in-app notification alerts are generated for HR/Admin 7 days before probation ends or a work anniversary arrives.
 2. **Bulk CSV Import:** Navigate to **Offer Letters -> Offers Pipeline**. Download the CSV template, populate it, and upload it at **Import Bulk CSV**. Verify that shell candidate profiles and draft offers are successfully created.
-3. **Duplicate Candidate Warning:** Go to **Candidate Pipeline**. Click **Add Candidate** and type an existing candidate's email. Verify that an AJAX warning badge flashes on screen indicating the candidate already exists in the database.
+3. **Duplicate Detection:** Go to **Candidate Pipeline**. Click **Add Candidate** and type an existing candidate's email. Verify that an AJAX warning badge flashes on screen indicating the candidate already exists in the database.
 
 ### Task 12: Admin Control Center
 1. **User Logins:** Log in as Admin. Go to **User Logins**. Create a new login, update its password, connect it to an employee profile, change roles (HR/Admin), and delete it.
@@ -355,18 +377,18 @@ python app.py
 3. **Confirm Obfuscation:** Verify that rejected candidates older than 12 months are anonymized (name set to `'Anonymized'`, email randomized, and phone/resume cleared to `NULL`), their PDF file is deleted from Supabase Storage, and a `candidate_pii_purged` record is logged in the Audit Trail.
 
 ### Task 15: Granular Role Permissions
-* **Status:** **NOT IMPLEMENTED** (Deferred/On Hold per project roadmap, current HR/Admin roles are sufficient for current team scale).
+* **Status:** **ON HOLD** (On hold/deferred).
 
 ### Task 16: Mobile UI & PWA Pass
 1. **Service Worker:** Load the application, open Developer Tools -> Application -> Service Workers, and verify `sw.js` is registered.
 2. **Responsive Mobile Shell:** Resize browser window to `< 992px`. Verify that:
    * A fixed header top-bar renders.
    * Clicking the animated burger icon rotates it to a close ("X") icon and slides open the sidebar menu overlay.
+   * Ongoing testing and design feedback are required for layout decisions and viewport configurations.
 
 ---
 
 ## 📊 6. Sign-off Status
-* All 15 active roadmap requirements are fully coded, verified, and committed.
+* All active roadmap requirements are fully coded, verified, and committed.
 * System database schema drift has been completely resolved.
 * Security credentials, background workers, and templates are structured following best practices.
-
