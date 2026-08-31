@@ -2003,7 +2003,7 @@ def import_bulk_csv():
     csv_file = request.files.get("csv_file")
     if not csv_file or not csv_file.filename:
         flash("Please upload a valid CSV file.", "error")
-        return redirect(url_for("offers.index"))
+        return redirect(url_for("offers.pipeline"))
         
     import csv
     from io import StringIO
@@ -2013,11 +2013,11 @@ def import_bulk_csv():
         reader = csv.DictReader(StringIO(raw_content))
     except Exception as parse_e:
         flash(f"Failed to parse CSV file: {parse_e}", "error")
-        return redirect(url_for("offers.index"))
+        return redirect(url_for("offers.pipeline"))
         
     if not reader.fieldnames:
         flash("CSV file has no headers.", "error")
-        return redirect(url_for("offers.index"))
+        return redirect(url_for("offers.pipeline"))
         
     conn, cur = None, None
     imported = 0
@@ -2264,4 +2264,4 @@ def import_bulk_csv():
     else:
         flash(f"Successfully imported {imported} offer(s) from CSV.", "success")
         
-    return redirect(url_for("offers.index"))
+    return redirect(url_for("offers.pipeline"))
