@@ -47,7 +47,7 @@ from datetime import date, datetime, timedelta
 
 from flask import (
     Blueprint, request, render_template, redirect, session,
-    jsonify, url_for, current_app, Response
+    jsonify, url_for, current_app, Response, flash
 )
 
 from utils.db import get_db, release_db
