@@ -1671,11 +1671,6 @@ def delete_offer(offer_id):
     if offer["status"] not in ("Draft", "Changes Requested", "Pending Approval"):
         return jsonify({"error": "Signed or sent offers can't be deleted — use Onboarding's Delete instead."}), 400
 
-    from hrms.approvals.routes import create_approval_request
-    if session.get("role") != "Admin":
-        create_approval_request("delete_offer", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "employee_id": offer["employee_id"]}, None)
-        return jsonify({"success": True, "message": "Delete request submitted for approval"})
-
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
@@ -1685,14 +1680,14 @@ def delete_offer(offer_id):
         cur.execute("DELETE FROM hrms_employees WHERE id=%s AND status='Offer Pending'", (offer["employee_id"],))
         conn.commit()
         from utils.audit import log_action
-        log_action(session.get("email") or "Admin", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"]})
+        log_action(session.get("email") or "HR", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"]})
     except Exception as e:
         print("Error deleting offer via DB, trying REST:", e)
         try:
             supabase_rest.delete_rows("employee_offers", {"id": f"eq.{offer_id}"})
             supabase_rest.delete_rows("hrms_employees", {"id": f"eq.{offer['employee_id']}", "status": "eq.Offer Pending"})
             from utils.audit import log_action
-            log_action(session.get("email") or "Admin", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "fallback": True})
+            log_action(session.get("email") or "HR", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "fallback": True})
         except Exception as rest_err:
             print("REST fallback for delete offer failed:", rest_err)
             return jsonify({"error": "Failed to delete offer."}), 500
@@ -1700,10 +1695,6 @@ def delete_offer(offer_id):
         if conn:
             release_db(conn, cur)
             
-    if session.get("role") == "Admin":
-        from hrms.approvals.routes import create_approval_request
-        create_approval_request("delete_offer", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "employee_id": offer["employee_id"]}, None, auto_approve=True)
-        
     return jsonify({"success": True})
 
 
