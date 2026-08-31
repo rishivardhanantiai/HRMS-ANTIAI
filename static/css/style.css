@@ -330,6 +330,51 @@ button:hover {
     background: #e6e6e6;
 }
 
+/* Specific class buttons override generic button styling */
+button.btn, .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    text-decoration: none;
+    line-height: 1.2;
+    transition: 0.2s ease;
+    width: auto;
+}
+
+button.btn-sm, .btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+}
+
+button.btn-secondary, .btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+button.btn-secondary:hover, .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+button.btn-danger, .btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+button.btn-danger:hover, .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
 /* ================= TABLE ================= */
 table {
     width: 100%;

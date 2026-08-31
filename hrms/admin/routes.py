@@ -507,7 +507,9 @@ def calendar_oauth_callback():
         flow = get_oauth_flow(redirect_uri=redirect_uri)
         
         auth_response = request.url
-        if redirect_uri.startswith("http://") and auth_response.startswith("https://"):
+        if redirect_uri.startswith("https://") and auth_response.startswith("http://"):
+            auth_response = auth_response.replace("http://", "https://", 1)
+        elif redirect_uri.startswith("http://") and auth_response.startswith("https://"):
             auth_response = auth_response.replace("https://", "http://", 1)
         
         # Restore PKCE code_verifier if it was saved during the auth step

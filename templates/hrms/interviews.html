@@ -42,8 +42,10 @@
                 </td>
                 <td>
                     {% if inv.status != 'Cancelled' %}
-                    <button class="btn btn-sm btn-secondary" onclick="openRescheduleModal('{{ inv.id }}', '{{ inv.scheduled_at.strftime('%Y-%m-%d') }}', '{{ inv.scheduled_at.strftime('%H:%M') }}', '{{ inv.duration_minutes }}', '{{ inv.location }}')">Reschedule</button>
-                    <button class="btn btn-sm btn-danger" onclick="cancelInterview('{{ inv.id }}')">Cancel</button>
+                    <div style="display: flex; gap: 8px; align-items: center; white-space: nowrap;">
+                        <button class="btn btn-sm btn-secondary" onclick="openRescheduleModal('{{ inv.id }}', '{{ inv.scheduled_at.strftime('%Y-%m-%d') }}', '{{ inv.scheduled_at.strftime('%H:%M') }}', '{{ inv.duration_minutes }}', '{{ inv.location }}')">Reschedule</button>
+                        <button class="btn btn-sm btn-danger" onclick="cancelInterview('{{ inv.id }}')">Cancel</button>
+                    </div>
                     {% endif %}
                 </td>
             </tr>
