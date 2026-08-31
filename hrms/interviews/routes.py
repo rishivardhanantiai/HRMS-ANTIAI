@@ -182,7 +182,7 @@ def schedule_interview():
     google_event_id = None
     user_email = session.get("email") or "hr@company.com"
     
-    # Try Google Calendar Sync with try-except wrapper
+    # Try Google Calendar Sync but handle errors gracefully
     try:
         creds = get_credentials(user_email)
         if creds:
@@ -196,26 +196,26 @@ def schedule_interview():
                 attendees=[candidate_email]
             )
     except Exception as cal_err:
-        print("Google Calendar sync failed, falling back to SMTP:", cal_err)
+        print("Google Calendar sync failed, will rely on SMTP:", cal_err)
         google_event_id = None
         
-    if not google_event_id:
-        print("Using SMTP Fallback invitation...")
-        ics_bytes = _generate_ics(uid, 0, dtstart, dtend, summary, location)
-        notes_paragraph = f"<p><strong>Note:</strong> {notes}</p>" if notes else ""
-        body_html = f"""
-            <p>Hi {candidate_name},</p>
-            <p>We would like to invite you for an interview.</p>
-            {notes_paragraph}
-            <p><strong>When:</strong> {dtstart_naive.strftime('%A, %B %d, %Y at %I:%M %p')}</p>
-            <p><strong>Duration:</strong> {duration} minutes</p>
-            <p><strong>Location/Link:</strong> {location}</p>
-            <p>Please find the calendar invite attached. You can RSVP directly from your email client.</p>
-            <p>Looking forward to speaking with you!</p>
-        """
-        success = send_meeting_invite(candidate_email, candidate_name, summary, body_html, ics_bytes)
-        if not success:
-            return jsonify({"error": "Failed to send email invite."}), 500
+    # ALWAYS send the custom SMTP invitation email to candidate to guarantee email delivery
+    print("Sending SMTP invitation email to candidate...")
+    ics_bytes = _generate_ics(uid, 0, dtstart, dtend, summary, location)
+    notes_paragraph = f"<p><strong>Note:</strong> {notes}</p>" if notes else ""
+    body_html = f"""
+        <p>Hi {candidate_name},</p>
+        <p>We would like to invite you for an interview.</p>
+        {notes_paragraph}
+        <p><strong>When:</strong> {dtstart_naive.strftime('%A, %B %d, %Y at %I:%M %p')}</p>
+        <p><strong>Duration:</strong> {duration} minutes</p>
+        <p><strong>Location/Link:</strong> {location}</p>
+        <p>Please find the calendar invite attached. You can RSVP directly from your email client.</p>
+        <p>Looking forward to speaking with you!</p>
+    """
+    success = send_meeting_invite(candidate_email, candidate_name, summary, body_html, ics_bytes)
+    if not success:
+        return jsonify({"error": "Failed to send email invite."}), 500
             
     # Insert record into database
     db_success = False
@@ -360,20 +360,20 @@ def reschedule_interview(interview_id):
         print("Google Calendar reschedule failed, using SMTP fallback:", cal_err)
         google_event_id = None
         
-    if not google_event_id:
-        print("Using SMTP Fallback reschedule invitation...")
-        ics_bytes = _generate_ics(interview['ics_uid'], new_seq, dtstart, dtend, summary, location)
-        body_html = f"""
-            <p>Hi {interview['candidate_name']},</p>
-            <p>Your interview has been rescheduled.</p>
-            <p><strong>New Time:</strong> {dtstart_naive.strftime('%A, %B %d, %Y at %I:%M %p')}</p>
-            <p><strong>Duration:</strong> {duration} minutes</p>
-            <p><strong>Location/Link:</strong> {location}</p>
-            <p>Please find the updated calendar invite attached.</p>
-        """
-        success = send_meeting_invite(interview['candidate_email'], interview['candidate_name'], summary, body_html, ics_bytes)
-        if not success:
-            return jsonify({"error": "Failed to send updated invite."}), 500
+    # ALWAYS send the SMTP reschedule invitation email to candidate to guarantee email delivery
+    print("Sending SMTP reschedule invitation email...")
+    ics_bytes = _generate_ics(interview['ics_uid'], new_seq, dtstart, dtend, summary, location)
+    body_html = f"""
+        <p>Hi {interview['candidate_name']},</p>
+        <p>Your interview has been rescheduled.</p>
+        <p><strong>New Time:</strong> {dtstart_naive.strftime('%A, %B %d, %Y at %I:%M %p')}</p>
+        <p><strong>Duration:</strong> {duration} minutes</p>
+        <p><strong>Location/Link:</strong> {location}</p>
+        <p>Please find the updated calendar invite attached.</p>
+    """
+    success = send_meeting_invite(interview['candidate_email'], interview['candidate_name'], summary, body_html, ics_bytes)
+    if not success:
+        return jsonify({"error": "Failed to send updated invite."}), 500
             
     # Update Database record
     db_success = False
@@ -487,30 +487,28 @@ def cancel_interview(interview_id):
     user_email = session.get("email") or "hr@company.com"
     
     # Try Google Calendar Cancellation with try-except wrapper
-    google_cancelled = False
     try:
         creds = get_credentials(user_email)
         if creds and google_event_id:
             print("Google Calendar connected. Cancelling calendar event...")
-            google_cancelled = cancel_calendar_event(user_email, google_event_id)
+            cancel_calendar_event(user_email, google_event_id)
     except Exception as cal_err:
-        print("Google Calendar cancellation failed, using SMTP fallback:", cal_err)
-        google_cancelled = False
+        print("Google Calendar cancellation failed, will rely on SMTP:", cal_err)
         
-    if not google_cancelled:
-        print("Using SMTP Fallback cancellation invite...")
-        sched_time = interview['scheduled_at']
-        if isinstance(sched_time, str):
-            from utils.supabase_rest import _safe_parse_iso
-            sched_time = _safe_parse_iso(sched_time)
-            
-        ics_bytes = _generate_ics(interview['ics_uid'], new_seq, sched_time, sched_time, summary, interview['location'], method="CANCEL")
-        body_html = f"""
-            <p>Hi {interview['candidate_name']},</p>
-            <p>We are writing to let you know that your scheduled interview has been cancelled.</p>
-            <p>Your calendar event should update automatically from the attached file.</p>
-        """
-        send_meeting_invite(interview['candidate_email'], interview['candidate_name'], summary, body_html, ics_bytes, method="CANCEL")
+    # ALWAYS send the SMTP cancellation invitation email to candidate to guarantee email delivery
+    print("Sending SMTP cancellation email to candidate...")
+    sched_time = interview['scheduled_at']
+    if isinstance(sched_time, str):
+        from utils.supabase_rest import _safe_parse_iso
+        sched_time = _safe_parse_iso(sched_time)
+        
+    ics_bytes = _generate_ics(interview['ics_uid'], new_seq, sched_time, sched_time, summary, interview['location'], method="CANCEL")
+    body_html = f"""
+        <p>Hi {interview['candidate_name']},</p>
+        <p>We are writing to let you know that your scheduled interview has been cancelled.</p>
+        <p>Your calendar event should update automatically from the attached file.</p>
+    """
+    send_meeting_invite(interview['candidate_email'], interview['candidate_name'], summary, body_html, ics_bytes, method="CANCEL")
         
     # Update Database record
     db_success = False
