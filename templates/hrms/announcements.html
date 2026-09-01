@@ -2363,7 +2363,7 @@
         </div>
 
 
-        <div class="modal-actions">
+        <div class="modal-actions" id="modalActions">
 
             <button
                 type="button"
@@ -2372,11 +2372,30 @@
                 Go back
             </button>
 
+            <!-- Normal path: within quota -->
             <button
                 type="button"
                 id="confirmSend"
                 class="primary-send">
-                Confirm & Send
+                Confirm &amp; Send
+            </button>
+
+            <!-- Over-quota path: send only what fits today -->
+            <button
+                type="button"
+                id="confirmWithinQuota"
+                class="primary-send"
+                style="display:none;background:linear-gradient(135deg,#f59e0b,#d97706);">
+                Send within quota (<span id="withinQuotaCount">0</span>)
+            </button>
+
+            <!-- Over-quota path: queue all, overflow sends next day -->
+            <button
+                type="button"
+                id="confirmQueueAll"
+                class="secondary-action"
+                style="display:none;border-color:#6366f1;color:#a5b4fc;">
+                Queue all &mdash; overflow sends tomorrow
             </button>
 
         </div>
@@ -2925,12 +2944,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const QUOTA_USED  = parseInt("{{ quota_used  | default(0) }}", 10) || 0;
     const QUOTA_LIMIT = parseInt("{{ quota_limit | default(500) }}", 10) || 500;
 
+    // Track current over-quota send mode for the two extra buttons
+    let _currentOverQuotaRemaining = 0;
+
     function openModal() {
 
         const count = calculateRecipientCount();
         const bulk  = isBulkSend(count);
         const afterSend = QUOTA_USED + count;
         const overCap   = afterSend > QUOTA_LIMIT;
+        const remaining = Math.max(0, QUOTA_LIMIT - QUOTA_USED);
+        _currentOverQuotaRemaining = remaining;
 
         modalRecipientCount.textContent = count;
 
@@ -2943,27 +2967,55 @@ document.addEventListener("DOMContentLoaded", function () {
 
         modalApprovalState.textContent = bulk ? "Admin approval" : "Immediate";
 
-        // Warning text
-        let warningText = "";
-        if (overCap) {
+        // Button visibility
+        const normalBtn       = document.getElementById("confirmSend");
+        const withinQuotaBtn  = document.getElementById("confirmWithinQuota");
+        const queueAllBtn     = document.getElementById("confirmQueueAll");
+        const withinCount     = document.getElementById("withinQuotaCount");
+
+        if (overCap && remaining > 0) {
+            // Show both over-quota options, hide normal button
+            normalBtn.style.display      = "none";
+            withinQuotaBtn.style.display = "";
+            queueAllBtn.style.display    = "";
+            withinCount.textContent = remaining;
+
             const over = afterSend - QUOTA_LIMIT;
-            warningText = "⚠️ This send exceeds the daily Gmail cap by " + over + " email" +
-                (over === 1 ? "" : "s") + ". Excess messages will stay Queued and send tomorrow.";
-            modalWarning.style.background = "rgba(239,68,68,0.15)";
+            modalWarning.textContent =
+                "⚠️ This send exceeds today\'s Gmail cap by " + over + " email" +
+                (over === 1 ? "" : "s") + ". Choose how to proceed below.";
+            modalWarning.style.background  = "rgba(239,68,68,0.15)";
             modalWarning.style.borderColor = "rgba(239,68,68,0.4)";
             modalWarning.style.color       = "#fca5a5";
-        } else if (bulk) {
-            warningText = "This message is a bulk send. It will enter the Admin approval queue before Gmail delivery.";
-            modalWarning.style.background = "";
-            modalWarning.style.borderColor = "";
-            modalWarning.style.color       = "";
+
+        } else if (overCap && remaining === 0) {
+            // Quota fully exhausted — only queue-all option makes sense
+            normalBtn.style.display      = "none";
+            withinQuotaBtn.style.display = "none";
+            queueAllBtn.style.display    = "";
+
+            modalWarning.textContent =
+                "⚠️ Today\'s Gmail quota is fully used (" + QUOTA_LIMIT + " / " + QUOTA_LIMIT + "). " +
+                "All messages will be queued and sent from tomorrow.";
+            modalWarning.style.background  = "rgba(239,68,68,0.15)";
+            modalWarning.style.borderColor = "rgba(239,68,68,0.4)";
+            modalWarning.style.color       = "#fca5a5";
+
         } else {
-            warningText = "This message targets a single recipient and can be sent immediately.";
-            modalWarning.style.background = "";
+            // Normal path — within quota
+            normalBtn.style.display      = "";
+            withinQuotaBtn.style.display = "none";
+            queueAllBtn.style.display    = "none";
+
+            if (bulk) {
+                modalWarning.textContent = "This message is a bulk send. It will enter the Admin approval queue before Gmail delivery.";
+            } else {
+                modalWarning.textContent = "This message targets a single recipient and can be sent immediately.";
+            }
+            modalWarning.style.background  = "";
             modalWarning.style.borderColor = "";
             modalWarning.style.color       = "";
         }
-        modalWarning.textContent = warningText;
 
         sendModal.classList.add("show");
 
@@ -3048,66 +3100,68 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
     /* =====================================================
-       FINAL SEND
+       FINAL SEND  (shared helper)
     ===================================================== */
 
-    confirmSend.addEventListener(
-        "click",
-        async function () {
+    async function doSend(extraFields, btn, originalLabel) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner"></span> Sending...`;
 
-            confirmSend.disabled = true;
+        const formData = new FormData(form);
+        for (const [k, v] of Object.entries(extraFields || {})) {
+            formData.append(k, v);
+        }
 
-            confirmSend.innerHTML =
-                `
-                <span class="spinner"></span>
-                Sending...
-                `;
+        try {
+            const response = await fetch("/hrms/announcements/send", {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
 
-
-            const formData =
-                new FormData(form);
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        "/hrms/announcements/send",
-                        {
-                            method: "POST",
-                            body: formData
-                        }
-                    );
-
-
-                const data =
-                    await response.json();
-
-
-                if (data.success) {
-                    confirmSend.innerHTML = `Success!`;
-                    confirmSend.style.background = "#22c55e";
-                    confirmSend.style.borderColor = "#22c55e";
-                    confirmSend.style.color = "#ffffff";
-                    
-                    modalWarning.innerHTML = `<strong style="color: #4ade80;">${data.message || "Announcement queued successfully."}</strong>`;
-                    
-                    setTimeout(() => location.reload(), 1500);
-                    return;
-                }
-
-                modalWarning.innerHTML = `<strong style="color: #ef4444;">Error: ${data.error || "Unknown error."}</strong>`;
-                confirmSend.disabled = false;
-                confirmSend.textContent = "Confirm & Send";
-            } catch (error) {
-                console.error(error);
-                modalWarning.innerHTML = `<strong style="color: #ef4444;">Server error while sending the announcement.</strong>`;
-                confirmSend.disabled = false;
-                confirmSend.textContent = "Confirm & Send";
+            if (data.success) {
+                btn.innerHTML = "Success!";
+                btn.style.background  = "#22c55e";
+                btn.style.borderColor = "#22c55e";
+                btn.style.color       = "#ffffff";
+                modalWarning.innerHTML =
+                    `<strong style="color:#4ade80;">${data.message || "Announcement queued successfully."}</strong>`;
+                setTimeout(() => location.reload(), 1500);
+                return;
             }
 
+            modalWarning.innerHTML =
+                `<strong style="color:#ef4444;">Error: ${data.error || "Unknown error."}</strong>`;
+            btn.disabled = false;
+            btn.textContent = originalLabel;
+
+        } catch (err) {
+            console.error(err);
+            modalWarning.innerHTML =
+                `<strong style="color:#ef4444;">Server error while sending the announcement.</strong>`;
+            btn.disabled = false;
+            btn.textContent = originalLabel;
         }
+    }
+
+    /* Normal path */
+    confirmSend.addEventListener("click", () =>
+        doSend({}, confirmSend, "Confirm & Send")
     );
+
+    /* Over-quota: trim list to remaining quota */
+    document.getElementById("confirmWithinQuota").addEventListener("click", function () {
+        doSend(
+            { limit_to: _currentOverQuotaRemaining },
+            this,
+            "Send within quota (" + _currentOverQuotaRemaining + ")"
+        );
+    });
+
+    /* Over-quota: queue all, scheduler drains naturally across days */
+    document.getElementById("confirmQueueAll").addEventListener("click", function () {
+        doSend({}, this, "Queue all \u2014 overflow sends tomorrow");
+    });
 
 
     /* =====================================================

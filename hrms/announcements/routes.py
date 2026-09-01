@@ -278,8 +278,17 @@ def send_message():
             
         if not emails:
             return jsonify({"error": "No valid recipients found."}), 400
+        
+        # Optional: trim to first N recipients (used by "Send within quota" button)
+        limit_to = request.form.get("limit_to")
+        if limit_to:
+            try:
+                limit_to = int(limit_to)
+                emails = emails[:limit_to]
+            except (ValueError, TypeError):
+                pass
             
-        # 500/day limit warning handled heavily on frontend, but we enforce safety here if desired
+        # Hard cap: never exceed 500 in a single send call
         if len(emails) > 500:
             return jsonify({"error": "Cannot send to more than 500 recipients at once."}), 400
             
