@@ -201,7 +201,7 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 | **Task 6** | Real Google Calendar OAuth Sync | Admin | Sidebar: **Calendar Setup** |
 | **Task 7** | Employee Portal (Payslips & Documents) | Employee | Sidebar: **My Documents** / **My Payroll** |
 | **Task 8** | Directory & Holiday Schedule | All Users | Sidebar: **Directory** / **Holidays** |
-| **Task 9** | Helpdesk & Compliance E-Signatures | Employee, HR | Sidebar: **Helpdesk** / **Company Policies** |
+| **Task 9** | Helpdesk & Compliance E-Signatures | Employee, HR, Admin | Sidebar: **Helpdesk** / **Company Policies** |
 | **Task 10** | Offboarding Workflow Checklist | HR | Sidebar: **Exit Management** |
 | **Task 11** | Bulk CSV Upload / Candidate Email Check | HR | Pipeline Headers / Kanban Add Form |
 | **Task 12** | Logins CRUD / Branding Config / System Logs | Admin | Sidebar: **User Logins** / **Settings** / **Audit Logs** |
@@ -219,8 +219,9 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1KEL82PSQ7nkEQR-DSGJXk2oA_UdWrb-3/view?usp=sharing)
 
 ### Task 2: Approval Queue
-* **Approach:** HR updates to corporate parameters, offer deletion requests, and bulk emails are diverted into `admin_approval_queue`. Diffs are computed client-side by comparing before/after JSON blobs in the Admin Review interface.
+* **Approach:** HR updates to corporate parameters, offer deletion requests, and bulk emails are diverted into `admin_approval_queue`. Diffs are rendered client-side by comparing before/after JSON blobs in the Admin Review interface (display only, not input).
 * **Actions Supported:** `template_edit`, `appearance_change`, `delete_offer`, `delete_candidate`, `company_settings_change`, `bulk_send`.
+* **Server-Side Re-validation (verified):** When Admin clicks Approve, the `resolve_request` endpoint (`hrms/approvals/routes.py`) re-fetches the full `admin_approval_queue` row by its UUID from the database (`SELECT * FROM admin_approval_queue WHERE id = %s`). It reads `payload_before`/`payload_after` exclusively from that DB row — the browser sends only the `status` string and an optional `comment`. The acting user's role is enforced by the `@role_required(["Admin"])` decorator on every request. Nothing is trusted from the client except those two fields.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1hkRS2eR2zrKYpVVMPpY8r4EJmHtIohfM/view?usp=drive_link)
 
 ### Task 3: Meeting / Interview Invites (.ics)
@@ -228,7 +229,8 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1crQzjPTcqZrF9Xq61LVJa_cYzRKUDsuW/view?usp=drive_link)
 
 ### Task 4: Announcements & Bulk Composer
-* **Approach:** Powered by `APScheduler` running in the main Flask thread. Scans `outbound_messages` and dispatches them in throttled batches to stay well under daily limit caps.
+* **Approach:** Powered by `APScheduler` running in the main Flask thread. Scans `outbound_messages` and dispatches them in throttled batches (max 10 every 30 seconds) to stay well under daily limit caps.
+* **Pre-send Remaining-Sends Warning (verified — IS built):** The compose UI page (`/hrms/announcements/`) computes `quota_used` (Sent + Queued today) and `quota_remaining` server-side on every page load and passes them to the template. The confirmation modal before sending renders `quota_remaining` and live recipient count so HR can see exactly how many of their ~500 daily sends this batch will consume before clicking confirm.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/16uKWqWxTKw33pQeNehZF3vJcKZ_j5n_Q/view?usp=drive_link)
 
 ### Task 5: Pre-Offer Candidate Pipeline (Kanban)
@@ -236,8 +238,10 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1iJDrf8_rXurYxJvw1qVBJtlpQZL0DbKH/view?usp=drive_link)
 
 ### Task 6: Google Calendar OAuth Integration
-* **Approach:** Integrated Google API Client. Resolved the `invalid_grant: Missing code verifier` issue by setting `autogenerate_code_verifier=False` inside Flow generation, preventing the stateless backend callback from destroying verification states. Configured `OAUTHLIB_INSECURE_TRANSPORT=1` to allow local HTTP testing.
-* **Fallbacks:** Automatically reverts to the Task 3 SMTP ICS email format if OAuth state is not active.
+* **Approach:** Integrated Google API Client (`google-auth-oauthlib`). Fallback: automatically reverts to the Task 3 SMTP ICS email format if OAuth is not connected.
+* **`OAUTHLIB_INSECURE_TRANSPORT` — FIXED (now dev-only):** The flag was previously set unconditionally as a bare `os.environ[...]` line in `app.py`, `hrms/admin/routes.py`, and `utils/google_calendar.py`. This has been corrected. All three files now gate the flag behind `if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "production"`. On Vercel (where `VERCEL=1` is set automatically by the platform) the flag is never set, so OAuth token exchanges are always required to go over HTTPS in production.
+* **PKCE disabled — root cause documented:** `autogenerate_code_verifier=False` was set to resolve `invalid_grant: Missing code verifier`. The actual root cause was that Vercel's serverless workers are stateless — the `code_verifier` generated at redirect-out lived only in the worker process that handled that request; by the time the OAuth callback arrived it landed on a different worker with no knowledge of that verifier, causing the grant to fail. Since this is a confidential client (client_secret is present), disabling PKCE preserves the standard `code + secret` security model. The correct long-term fix is to persist the `state`/`code_verifier` in the database across the OAuth round-trip rather than in memory/session; this is tracked as a follow-up improvement for the next sprint.
+* **KEY NOTE — SECRET_KEY rotation:** Rotating `SECRET_KEY` will invalidate all stored Google Calendar tokens (which are Fernet-encrypted using a key derived from `SECRET_KEY`). All connected accounts will need to re-authenticate. This is documented in `google_calendar_prod_setup.md` and should be added to the deployment runbook before any key rotation.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1tLK2edGWEAi96ke1pmTO31same3LxqV7/view?usp=drive_link)
 
 ### Task 7: Employee Self-Service
@@ -266,11 +270,12 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 * **Audit Trail:** Custom Paginated log view tracking logins, deletions, stage updates, email logs, and admin queue results.
 * **Logins CRUD:** Admin UI to assign logins, reset passwords, change roles, and link employee IDs.
 * **Settings:** Gathers branding logo and watermark templates. Gated under Task 2 approval controls.
+* **Migration defaults vs. live schema (verified — no functional issue):** The migration block in Section 2 adds `offer_watermark_opacity DEFAULT 0.15`, `offer_watermark_width_cm DEFAULT 10.0`, and `offer_logo_width_px DEFAULT 150.0` via `ADD COLUMN IF NOT EXISTS`. The live Supabase schema already has these columns with different defaults (`1.0 / 13.5 / 95`). Because of `IF NOT EXISTS`, the migration is a no-op against production — no data is changed or overwritten. There is no functional bug. However, the report's claim that "schema drift has been completely resolved" was premature; the migration script was not diffed against a live clone. Future migrations will be run against a pg_dump of production before documenting as resolved.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/17zmUqBl8CGi1uBtSDwJVmTUUVNpYyk5H/view?usp=drive_link)
 
 ### Task 13: Usage/Quota & Analytics Dashboard
-* **Bug Fix:** Fixed database crash where queries searched for the outdated column name `pdf_url` inside `employee_offers`/`employee_ndas` tables. Updated schema queries to target `final_pdf_url`.
-* **Bug Fix:** Fixed database exception where queries checked for `signature_pdf_url` in `employee_policy_signatures`. Updated template logic and route query to target `pdf_url` (matching the schema definition).
+* **Column name — VERIFIED CORRECT (`final_pdf_url` is the real schema name):** Kunal's review flagged that the report described renaming `pdf_url` → `final_pdf_url` as a fix, which would be a bug if the production column were still `pdf_url`. Verified against `schema_offers_ndas.sql`: both `employee_offers` and `employee_ndas` define the column as `final_pdf_url` (line 34 and line 54 respectively). This is the authoritative schema that was used to create the production tables. The dashboard queries (`SELECT COUNT(*) FROM employee_offers WHERE final_pdf_url IS NOT NULL`) are correct. No column rename is needed — the original schema used `final_pdf_url` from the start.
+* **Bug Fix (confirmed correct):** The earlier crash was because an older version of the dashboard query used `pdf_url`, which did not match the actual schema. Updating to `final_pdf_url` was the correct fix.
 * **Metrics:** Evaluates daily SMTP limits, database tuples size, conversion rate metrics, and average days time-to-hire.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1JcceJp7UOOTvPsudDQU507kVe09dh6vK/view?usp=drive_link)
 

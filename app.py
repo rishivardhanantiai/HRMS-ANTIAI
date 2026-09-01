@@ -8,7 +8,9 @@ import csv
 from io import BytesIO
 from io import StringIO
 import os
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+# Only allow insecure HTTP transport in local dev — never in production (Vercel sets VERCEL=1)
+if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "production":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 import tempfile
 from datetime import datetime, date
 import httpx

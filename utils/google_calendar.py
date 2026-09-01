@@ -1,5 +1,7 @@
 import os
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+# Only allow insecure HTTP transport in local dev — never in production
+if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "production":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 import json
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials

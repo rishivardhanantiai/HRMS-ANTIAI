@@ -1,5 +1,7 @@
 import os
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+# Only allow insecure HTTP transport in local dev — never in production
+if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "production":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 import uuid
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
