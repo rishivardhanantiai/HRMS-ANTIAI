@@ -2339,8 +2339,13 @@
             </div>
 
             <div>
-                <span>Gmail usage</span>
-                <strong id="modalQuotaUsage">0</strong>
+                <span>Used today</span>
+                <strong id="modalQuotaUsed">0 / 500</strong>
+            </div>
+
+            <div>
+                <span>After this send</span>
+                <strong id="modalQuotaAfter" style="color:#10b981;">0 / 500</strong>
             </div>
 
             <div>
@@ -2901,8 +2906,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const modalRecipientCount =
         document.getElementById("modalRecipientCount");
 
-    const modalQuotaUsage =
-        document.getElementById("modalQuotaUsage");
+
 
     const modalApprovalState =
         document.getElementById("modalApprovalState");
@@ -2918,41 +2922,48 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
+    const QUOTA_USED  = parseInt("{{ quota_used  | default(0) }}", 10) || 0;
+    const QUOTA_LIMIT = parseInt("{{ quota_limit | default(500) }}", 10) || 500;
+
     function openModal() {
 
-        const count =
-            calculateRecipientCount();
+        const count = calculateRecipientCount();
+        const bulk  = isBulkSend(count);
+        const afterSend = QUOTA_USED + count;
+        const overCap   = afterSend > QUOTA_LIMIT;
 
-        const bulk =
-            isBulkSend(count);
+        modalRecipientCount.textContent = count;
 
+        document.getElementById("modalQuotaUsed").textContent =
+            QUOTA_USED + " / " + QUOTA_LIMIT;
 
-        modalRecipientCount.textContent =
-            count;
+        const afterEl = document.getElementById("modalQuotaAfter");
+        afterEl.textContent = afterSend + " / " + QUOTA_LIMIT;
+        afterEl.style.color = overCap ? "#ef4444" : "#10b981";
 
+        modalApprovalState.textContent = bulk ? "Admin approval" : "Immediate";
 
-        modalQuotaUsage.textContent =
-            count;
-
-
-        modalApprovalState.textContent =
-            bulk
-                ? "Admin approval"
-                : "Immediate";
-
-
-        if (bulk) {
-
-            modalWarning.textContent =
-                "This message is a bulk send. It will enter the Admin approval queue before Gmail delivery.";
-
+        // Warning text
+        let warningText = "";
+        if (overCap) {
+            const over = afterSend - QUOTA_LIMIT;
+            warningText = "⚠️ This send exceeds the daily Gmail cap by " + over + " email" +
+                (over === 1 ? "" : "s") + ". Excess messages will stay Queued and send tomorrow.";
+            modalWarning.style.background = "rgba(239,68,68,0.15)";
+            modalWarning.style.borderColor = "rgba(239,68,68,0.4)";
+            modalWarning.style.color       = "#fca5a5";
+        } else if (bulk) {
+            warningText = "This message is a bulk send. It will enter the Admin approval queue before Gmail delivery.";
+            modalWarning.style.background = "";
+            modalWarning.style.borderColor = "";
+            modalWarning.style.color       = "";
         } else {
-
-            modalWarning.textContent =
-                "This message targets a single recipient and can be sent immediately.";
-
+            warningText = "This message targets a single recipient and can be sent immediately.";
+            modalWarning.style.background = "";
+            modalWarning.style.borderColor = "";
+            modalWarning.style.color       = "";
         }
-
+        modalWarning.textContent = warningText;
 
         sendModal.classList.add("show");
 
