@@ -230,7 +230,9 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 
 ### Task 4: Announcements & Bulk Composer
 * **Approach:** Powered by `APScheduler` running in the main Flask thread. Scans `outbound_messages` and dispatches them in throttled batches (max 10 every 30 seconds) to stay well under daily limit caps.
-* **Pre-send Remaining-Sends Warning (verified — IS built):** The compose UI page (`/hrms/announcements/`) computes `quota_used` (Sent + Queued today) and `quota_remaining` server-side on every page load and passes them to the template. The confirmation modal before sending renders `quota_remaining` and live recipient count so HR can see exactly how many of their ~500 daily sends this batch will consume before clicking confirm.
+* **Pre-send Remaining-Sends Warning & Over-Quota Handling:** The compose UI page (`/hrms/announcements/`) computes `quota_used` (Sent + Queued today) and `quota_remaining` server-side on every page load and passes them to the template. The confirmation modal displays live recipient count, used quota today (`X / 500`), and projected quota after send. When a send exceeds today's remaining cap, HR is presented with two explicit choices:
+  1. **Send within quota ($N$):** Automatically trims the recipient list to the remaining $N$ quota slots so the batch fires immediately without exceeding daily limits.
+  2. **Queue all — overflow sends tomorrow:** Queues all recipients in the database. The background scheduler sends up to today's cap immediately and automatically resumes dispatching the rest the next day when the quota resets.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/16uKWqWxTKw33pQeNehZF3vJcKZ_j5n_Q/view?usp=drive_link)
 
 ### Task 5: Pre-Offer Candidate Pipeline (Kanban)
