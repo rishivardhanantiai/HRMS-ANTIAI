@@ -322,12 +322,22 @@ def dashboards():
         email_quota_max = 500
         email_quota_pct = min(100.0, (emails_sent_today / email_quota_max) * 100.0)
         
-        # Document Hub count of stored files
-        cur.execute("SELECT COUNT(*) FROM employee_offers WHERE final_pdf_url IS NOT NULL")
-        offers_pdf_count = cur.fetchone()["count"]
-        
-        cur.execute("SELECT COUNT(*) FROM employee_ndas WHERE final_pdf_url IS NOT NULL")
-        ndas_pdf_count = cur.fetchone()["count"]
+        # Document Hub count of stored files (production schema uses pdf_url)
+        try:
+            cur.execute("SELECT COUNT(*) FROM employee_offers WHERE pdf_url IS NOT NULL")
+            offers_pdf_count = cur.fetchone()["count"]
+        except Exception:
+            conn.rollback()
+            cur.execute("SELECT COUNT(*) FROM employee_offers WHERE final_pdf_url IS NOT NULL")
+            offers_pdf_count = cur.fetchone()["count"]
+            
+        try:
+            cur.execute("SELECT COUNT(*) FROM employee_ndas WHERE pdf_url IS NOT NULL")
+            ndas_pdf_count = cur.fetchone()["count"]
+        except Exception:
+            conn.rollback()
+            cur.execute("SELECT COUNT(*) FROM employee_ndas WHERE final_pdf_url IS NOT NULL")
+            ndas_pdf_count = cur.fetchone()["count"]
         
         # Check if table employee_policy_signatures exists first
         cur.execute("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'employee_policy_signatures')")

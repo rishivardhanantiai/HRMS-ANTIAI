@@ -1028,21 +1028,39 @@ def my_documents():
         cur.execute("SELECT * FROM employee_documents WHERE employee_id=%s ORDER BY created_at DESC", (employee_id,))
         documents = cur.fetchall()
 
-        # Fetch official signed offer letters
-        cur.execute("""
-            SELECT id, 'Offer Letter' as doc_type, designation as title, final_pdf_url, countersigned_at as date
-            FROM employee_offers 
-            WHERE employee_id = %s AND status = 'Countersigned' AND final_pdf_url IS NOT NULL
-        """, (employee_id,))
-        signed_offers = cur.fetchall()
+        # Fetch official signed offer letters (production schema uses pdf_url)
+        try:
+            cur.execute("""
+                SELECT id, 'Offer Letter' as doc_type, designation as title, pdf_url, countersigned_at as date
+                FROM employee_offers 
+                WHERE employee_id = %s AND status = 'Countersigned' AND pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_offers = cur.fetchall()
+        except Exception:
+            conn.rollback()
+            cur.execute("""
+                SELECT id, 'Offer Letter' as doc_type, designation as title, final_pdf_url as pdf_url, countersigned_at as date
+                FROM employee_offers 
+                WHERE employee_id = %s AND status = 'Countersigned' AND final_pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_offers = cur.fetchall()
 
         # Fetch official signed NDAs
-        cur.execute("""
-            SELECT id, 'Non-Disclosure Agreement (NDA)' as doc_type, 'NDA' as title, final_pdf_url, countersigned_at as date
-            FROM employee_ndas 
-            WHERE employee_id = %s AND status = 'Countersigned' AND final_pdf_url IS NOT NULL
-        """, (employee_id,))
-        signed_ndas = cur.fetchall()
+        try:
+            cur.execute("""
+                SELECT id, 'Non-Disclosure Agreement (NDA)' as doc_type, 'NDA' as title, pdf_url, countersigned_at as date
+                FROM employee_ndas 
+                WHERE employee_id = %s AND status = 'Countersigned' AND pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_ndas = cur.fetchall()
+        except Exception:
+            conn.rollback()
+            cur.execute("""
+                SELECT id, 'Non-Disclosure Agreement (NDA)' as doc_type, 'NDA' as title, final_pdf_url as pdf_url, countersigned_at as date
+                FROM employee_ndas 
+                WHERE employee_id = %s AND status = 'Countersigned' AND final_pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_ndas = cur.fetchall()
 
         if conn:
             release_db(conn, cur)
@@ -1068,10 +1086,10 @@ def my_documents():
                     "id": x["id"], 
                     "doc_type": "Offer Letter", 
                     "title": x.get("designation") or "Offer Letter", 
-                    "final_pdf_url": x.get("final_pdf_url"), 
+                    "pdf_url": x.get("pdf_url") or x.get("final_pdf_url"), 
                     "date": x.get("countersigned_at") or x.get("created_at")
                 }
-                for x in raw_offers if x.get("final_pdf_url")
+                for x in raw_offers if (x.get("pdf_url") or x.get("final_pdf_url"))
             ]
 
             raw_ndas = supabase_rest.get_rows("employee_ndas", {
@@ -1083,10 +1101,10 @@ def my_documents():
                     "id": x["id"], 
                     "doc_type": "Non-Disclosure Agreement (NDA)", 
                     "title": "NDA", 
-                    "final_pdf_url": x.get("final_pdf_url"), 
+                    "pdf_url": x.get("pdf_url") or x.get("final_pdf_url"), 
                     "date": x.get("countersigned_at") or x.get("created_at")
                 }
-                for x in raw_ndas if x.get("final_pdf_url")
+                for x in raw_ndas if (x.get("pdf_url") or x.get("final_pdf_url"))
             ]
         except Exception as rest_err:
             print("REST fallback for my documents failed:", rest_err)

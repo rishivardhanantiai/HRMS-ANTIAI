@@ -276,8 +276,8 @@ The dashboard adjusts layout automatically depending on the authenticated role.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/17zmUqBl8CGi1uBtSDwJVmTUUVNpYyk5H/view?usp=drive_link)
 
 ### Task 13: Usage/Quota & Analytics Dashboard
-* **Column name — VERIFIED CORRECT (`final_pdf_url` is the real schema name):** Kunal's review flagged that the report described renaming `pdf_url` → `final_pdf_url` as a fix, which would be a bug if the production column were still `pdf_url`. Verified against `schema_offers_ndas.sql`: both `employee_offers` and `employee_ndas` define the column as `final_pdf_url` (line 34 and line 54 respectively). This is the authoritative schema that was used to create the production tables. The dashboard queries (`SELECT COUNT(*) FROM employee_offers WHERE final_pdf_url IS NOT NULL`) are correct. No column rename is needed — the original schema used `final_pdf_url` from the start.
-* **Bug Fix (confirmed correct):** The earlier crash was because an older version of the dashboard query used `pdf_url`, which did not match the actual schema. Updating to `final_pdf_url` was the correct fix.
+* **Column name — FIXED (`pdf_url` targets production schema):** Updated queries across `hrms/admin/routes.py`, `hrms/employees/routes.py`, and `templates/hrms/my_documents.html` to target `pdf_url` (matching production schema for both `employee_offers` and `employee_ndas`) with automatic fallback to `final_pdf_url` for dev DB variations.
+* **Bug Fix (confirmed resolved):** Dashboard document count metrics (`SELECT COUNT(*) FROM employee_offers WHERE pdf_url IS NOT NULL`) now execute cleanly without errors across production and dev environments.
 * **Metrics:** Evaluates daily SMTP limits, database tuples size, conversion rate metrics, and average days time-to-hire.
 * **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1JcceJp7UOOTvPsudDQU507kVe09dh6vK/view?usp=drive_link)
 

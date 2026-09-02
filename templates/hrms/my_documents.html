@@ -280,7 +280,7 @@ select.form-control {
                     <td>{{ offer.title }}</td>
                     <td><span class="badge-status status-verified">Signed</span></td>
                     <td>
-                        <a href="{{ offer.final_pdf_url }}" target="_blank" class="btn-attachment">Download PDF</a>
+                        <a href="{{ offer.pdf_url or offer.final_pdf_url }}" target="_blank" class="btn-attachment">Download PDF</a>
                     </td>
                 </tr>
                 {% endfor %}
@@ -291,7 +291,7 @@ select.form-control {
                     <td>{{ nda.title }}</td>
                     <td><span class="badge-status status-verified">Signed</span></td>
                     <td>
-                        <a href="{{ nda.final_pdf_url }}" target="_blank" class="btn-attachment">Download PDF</a>
+                        <a href="{{ nda.pdf_url or nda.final_pdf_url }}" target="_blank" class="btn-attachment">Download PDF</a>
                     </td>
                 </tr>
                 {% endfor %}

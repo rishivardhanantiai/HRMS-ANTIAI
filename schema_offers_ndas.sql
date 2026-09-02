@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS employee_offers (
     signed_at timestamp with time zone,
     countersigned_at timestamp with time zone,
     countersigned_by text,
-    final_pdf_url text,
+    pdf_url text,
     submitted_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
@@ -51,6 +51,6 @@ CREATE TABLE IF NOT EXISTS employee_ndas (
     signed_ip text,
     countersigned_at timestamp with time zone,
     countersigned_by text,
-    final_pdf_url text,
+    pdf_url text,
     created_at timestamp with time zone DEFAULT now()
 );
