@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Announcements Timeline ── */
+.feed-container {
+    max-width: 800px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.feed-timeline {
+    position: relative;
+    padding-left: 30px;
+    margin-top: 30px;
+}
+.feed-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 5px;
+    bottom: 5px;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Timeline Item */
+.feed-item {
+    position: relative;
+    margin-bottom: 40px;
+}
+.feed-item::before {
+    content: '';
+    position: absolute;
+    left: -30px;
+    top: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #0f172a;
+    border: 3px solid #3b82f6;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+    z-index: 2;
+    transition: all 0.25s ease;
+}
+.feed-item:hover::before {
+    border-color: #6366f1;
+    transform: scale(1.15);
+}
+
+.feed-time {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.feed-card {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.25s ease;
+}
+.feed-card:hover {
+    border-color: rgba(59, 130, 246, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.feed-subject {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 12px 0;
+}
+
+.feed-sender {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #475569;
+    background: rgba(255,255,255,0.03);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+}
+
+.feed-body {
+    font-size: 14px;
+    color: #cbd5e1;
+    line-height: 1.6;
+}
+.feed-body p {
+    margin: 0 0 12px 0;
+}
+.feed-body p:last-child {
+    margin-bottom: 0;
+}
+</style>
+
+<div class="feed-container">
+    <h1 class="page-title">Announcements</h1>
+    <p class="subtitle">Latest updates and bulletins from your HR and Management team.</p>
+
+    <div class="feed-timeline">
+        {% for msg in messages %}
+        <div class="feed-item">
+            <div class="feed-time">
+                {% if msg.sent_at %}
+                    {{ (msg.sent_at|string)[:16] }}
+                {% else %}
+                    Recently Sent
+                {% endif %}
+            </div>
+            
+            <div class="feed-card">
+                <h3 class="feed-subject">{{ msg.subject }}</h3>
+                <div class="feed-sender">
+                    👤 Sent by {{ msg.created_by or 'HR Team' }}
+                </div>
+                <div class="feed-body">
+                    {{ msg.body_html | safe }}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px; color: #64748b; background: rgba(15,15,15,0.5); border: 1px dashed rgba(255,255,255,0.06); border-radius: 12px;">
+            No announcements found in your feed.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

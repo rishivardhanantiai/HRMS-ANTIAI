@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 1300px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .hrms-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .hrms-title { font-size: 24px; font-weight: 600; color: #ffffff; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 25px; }
+
+    .btn-add {
+        background: #3b82f6; border: none; color: white; padding: 10px 20px;
+        border-radius: 8px; font-weight: 500; text-decoration: none; transition: .3s;
+    }
+    .btn-add:hover { background: #2563eb; }
+
+    .hrms-card { background: #0f172a; border-radius: 12px; padding: 20px; }
+    .table-wrap { overflow-x: auto; }
+    .hrms-table { width: 100%; border-collapse: collapse; }
+    .hrms-table thead th {
+        color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        padding-bottom: 15px; text-align: left; border-bottom: 1px solid #1e293b; letter-spacing: 0.5px;
+    }
+    .hrms-table tbody tr { border-bottom: 1px solid #1e293b; }
+    .hrms-table tbody tr:last-child { border-bottom: none; }
+    .hrms-table td { padding: 14px 10px; color: #e2e8f0; font-size: 0.88rem; vertical-align: middle; }
+
+    .name-cell .name { font-weight: 600; color: #fff; }
+    .name-cell .sub { font-size: 0.75rem; color: #64748b; }
+
+    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; }
+    .st-invited { background: rgba(234,179,8,0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+    .st-submitted { background: rgba(59,130,246,0.15); color: #38bdf8; border: 1px solid rgba(59,130,246,0.3); }
+    .st-active { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+    .st-expired { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+
+    .row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-mini {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 6px 12px; border-radius: 7px; font-size: 0.78rem; cursor: pointer; text-decoration: none;
+    }
+    .btn-mini:hover { background: #334155; }
+    .btn-mini.primary { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-mini.primary:hover { background: #15803d; }
+    .btn-mini.danger { background: transparent; border-color: #7f1d1d; color: #f87171; }
+    .btn-mini.danger:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    .empty-state { text-align: center; color: #64748b; padding: 40px 20px; }
+</style>
+
+<div class="hrms-wrapper">
+    <div class="hrms-header">
+        <div>
+            <div class="hrms-title">Onboarding Pipeline</div>
+            <div class="hrms-subtitle">Invite new hires to fill in their own details — no more manual data entry.</div>
+        </div>
+        <a href="/hrms/onboarding/invite/ui" class="btn-add">+ Invite Candidate</a>
+    </div>
+
+    <div class="hrms-card">
+        <div class="table-wrap">
+            <table class="hrms-table">
+                <thead>
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Designation</th>
+                        <th>Status</th>
+                        <th>Invited</th>
+                        <th>Submitted</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in invitees %}
+                    {% set is_expired = (e.onboarding_status == 'Invited' and e.onboarding_token_expires_at and e.onboarding_token_expires_at < now) %}
+                    <tr>
+                        <td class="name-cell">
+                            <div class="name">{{ e.full_name }}</div>
+                            <div class="sub">{{ e.employee_code }} &middot; {{ e.email }}</div>
+                        </td>
+                        <td>{{ e.designation or '-' }}{% if e.department %} &middot; {{ e.department }}{% endif %}</td>
+                        <td>
+                            {% if e.onboarding_status == 'Active' %}
+                                <span class="status-badge st-active">Active</span>
+                            {% elif e.onboarding_status == 'Submitted' %}
+                                <span class="status-badge st-submitted">Awaiting Review</span>
+                            {% elif is_expired %}
+                                <span class="status-badge st-expired">Link Expired</span>
+                            {% else %}
+                                <span class="status-badge st-invited">Invited</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ e.invited_at | format_datetime if e.invited_at else '-' }}</td>
+                        <td>{{ e.submitted_at | format_datetime if e.submitted_at else '-' }}</td>
+                        <td>
+                            <div class="row-actions">
+                                {% if e.onboarding_status == 'Submitted' %}
+                                    <a class="btn-mini" href="/hrms/employees/{{ e.id }}/profile?tab=docs">Review Docs</a>
+                                    <button class="btn-mini primary" onclick="activateCandidate('{{ e.id }}')">Activate</button>
+                                    <a class="btn-mini" href="/hrms/onboarding/{{ e.id }}/edit/ui">Edit</a>
+                                    <button class="btn-mini danger" onclick="deleteInvite('{{ e.id }}', '{{ e.full_name }}')">Delete</button>
+                                {% elif e.onboarding_status == 'Invited' %}
+                                    <button class="btn-mini" onclick="resendInvite('{{ e.id }}')">{{ 'Resend' if is_expired else 'Resend Invite' }}</button>
+                                    <a class="btn-mini" href="/hrms/onboarding/{{ e.id }}/edit/ui">Edit</a>
+                                    <button class="btn-mini danger" onclick="deleteInvite('{{ e.id }}', '{{ e.full_name }}')">Delete</button>
+                                {% elif e.onboarding_status == 'Active' %}
+                                    <a class="btn-mini" href="/hrms/employees/{{ e.id }}/profile?tab=profile">View Profile</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="empty-state">No onboarding invites yet. Click "Invite Candidate" to get started.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function resendInvite(id) {
+    const res = await fetch(`/hrms/onboarding/${id}/resend`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); }
+    else { showToast("Invite resent successfully!", "success"); setTimeout(() => location.reload(), 900); }
+}
+
+async function activateCandidate(id) {
+    window.customConfirm("Activate Account", "Confirm the candidate's documents look good? This activates their login.", async () => {
+        const res = await fetch(`/hrms/onboarding/${id}/activate`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, "error"); }
+        else { showToast("Employee activated!", "success"); setTimeout(() => location.reload(), 900); }
+    }, { confirmLabel: "Yes, Activate", safe: true });
+}
+
+function deleteInvite(id, name) {
+    window.customConfirm(
+        "Delete Candidate",
+        `Remove ${name} from onboarding? This deletes their invite and anything they've submitted so far — it can't be undone.`,
+        async () => {
+            const res = await fetch(`/hrms/onboarding/${id}/delete`, { method: "POST" });
+            const data = await res.json();
+            if (data.error) { showToast(data.error, "error"); }
+            else { showToast("Candidate removed.", "success"); setTimeout(() => location.reload(), 900); }
+        }
+    );
+}
+</script>
+
+{% endblock %}

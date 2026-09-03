@@ -8,6 +8,9 @@ import csv
 from io import BytesIO
 from io import StringIO
 import os
+# Only allow insecure HTTP transport in local dev — never in production (Vercel sets VERCEL=1)
+if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "production":
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 import tempfile
 from datetime import datetime, date
 import httpx
@@ -34,6 +37,17 @@ from hrms.roles.routes import roles_bp
 from hrms.performance.routes import performance_bp
 from hrms.exit.routes import exit_bp
 from hrms.letters.routes import letters_bp
+from hrms.onboarding.routes import onboarding_bp, onboarding_public_bp
+from hrms.offers.routes import offers_bp, offers_public_bp
+from hrms.notifications.routes import notifications_bp
+from hrms.approvals.routes import approvals_bp
+from hrms.interviews.routes import interviews_bp
+from hrms.announcements.routes import announcements_bp
+from hrms.candidates.routes import candidates_bp
+from hrms.helpdesk.routes import helpdesk_bp
+from hrms.policies.routes import policies_bp
+from hrms.admin.routes import admin_bp
+from hrms.announcements.scheduler import start_scheduler
 
 load_dotenv()
 
@@ -51,6 +65,22 @@ app.register_blueprint(employees_bp)
 app.register_blueprint(roles_bp)
 app.register_blueprint(exit_bp)
 app.register_blueprint(letters_bp)
+app.register_blueprint(onboarding_bp)
+app.register_blueprint(onboarding_public_bp)
+app.register_blueprint(offers_bp)
+app.register_blueprint(offers_public_bp)
+app.register_blueprint(notifications_bp)
+app.register_blueprint(approvals_bp)
+app.register_blueprint(interviews_bp)
+app.register_blueprint(announcements_bp)
+app.register_blueprint(candidates_bp)
+app.register_blueprint(helpdesk_bp)
+app.register_blueprint(policies_bp)
+app.register_blueprint(admin_bp)
+
+# Start background scheduler for announcements
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    start_scheduler(app)
 
 # Vercel runtime is read-only except for /tmp, so use /tmp there.
 if os.getenv("VERCEL") == "1":
@@ -324,6 +354,8 @@ def login(role):
                     session["employee_name"] = emp["full_name"]
 
             release_db(conn, cur)
+            from utils.audit import log_action
+            log_action(session.get("email") or session.get("role"), "login", details={"ip_address": request.remote_addr})
             flash("Login Successful", "success")
             return redirect("/dashboard")
 
@@ -344,6 +376,8 @@ def login(role):
             if fallback_user.get("employee_name"):
                 session["employee_name"] = fallback_user["employee_name"]
 
+            from utils.audit import log_action
+            log_action(session.get("email") or session.get("role"), "login", details={"ip_address": request.remote_addr, "fallback": True})
             flash("Login Successful", "success")
             return redirect("/dashboard")
 
@@ -1087,7 +1121,8 @@ def serve_resume(filename):
 def applications():
     selected_job = request.args.get("job_id", "")
     search_q = request.args.get("search", "").strip()
-    selected_status = request.args.get("status", "").strip()
+    # Task 5 ATS: The Inbox defaults to 'Pending' so active candidates don't clutter it
+    selected_status = request.args.get("status", "Pending").strip()
     
     # --- PAGINATION SETTINGS ---
     page = int(request.args.get("page", 1))
@@ -1110,7 +1145,7 @@ def applications():
             clauses.append("a.job_id = %s")
             count_params.append(selected_job)
             
-        if selected_status:
+        if selected_status and selected_status != "All":
             if selected_status == "Pending":
                 clauses.append("(a.status = 'Pending' OR a.status IS NULL OR a.status = '')")
             else:
@@ -1179,7 +1214,7 @@ def applications():
         for a in all_app_rows:
             # status filter
             st = a.get("status") or ""
-            if selected_status:
+            if selected_status and selected_status != "All":
                 if selected_status == "Pending":
                     if st not in ("Pending", "Pending (Default)", ""):
                         continue
@@ -1847,4 +1882,8 @@ def download_salary_records():
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    # Only start scheduler in the main process to avoid double running with Werkzeug reloader
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from hrms.announcements.scheduler import start_scheduler
+        start_scheduler(app)
     app.run(host="0.0.0.0", port=port, debug=True)

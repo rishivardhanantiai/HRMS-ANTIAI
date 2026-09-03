@@ -351,6 +351,10 @@ def my_payroll():
     if session.get("role") != "Employee":
         return redirect("/dashboard")
 
+    employee_id = session.get("employee_id")
+    payrolls = []
+    salary_history = []
+
     try:
         conn, cur = get_db(True)
 
@@ -359,17 +363,48 @@ def my_payroll():
             FROM payroll_runs
             WHERE employee_id = %s
             ORDER BY year DESC, month DESC
-        """, (session.get("employee_id"),))
-
+        """, (employee_id,))
         payrolls = cur.fetchall()
 
+        # Query salary history
+        cur.execute("""
+            SELECT es.monthly_salary, es.effective_from, ss.name as structure_name
+            FROM employee_salary es
+            LEFT JOIN salary_structures ss ON es.structure_id = ss.id
+            WHERE es.employee_id = %s
+            ORDER BY es.effective_from DESC
+        """, (employee_id,))
+        salary_history = cur.fetchall()
+
         release_db(conn, cur)
-    except Exception:
-        payrolls = supabase_rest.list_my_payrolls(session.get("employee_id"))
+    except Exception as e:
+        print("Error fetching my payroll via DB, trying REST fallback:", e)
+        try:
+            payrolls = supabase_rest.list_my_payrolls(employee_id)
+            
+            raw_salary = supabase_rest.get_rows("employee_salary", {
+                "employee_id": f"eq.{employee_id}",
+                "order": "effective_from.desc"
+            })
+            
+            # Fetch salary structures to resolve structure names in fallback
+            raw_structures = supabase_rest.get_rows("salary_structures", {"select": "id,name"})
+            structures_map = {str(s["id"]): s["name"] for s in raw_structures if "id" in s}
+            
+            salary_history = []
+            for s in raw_salary:
+                salary_history.append({
+                    "monthly_salary": s.get("monthly_salary"),
+                    "effective_from": s.get("effective_from"),
+                    "structure_name": structures_map.get(str(s.get("structure_id")), "Standard Structure")
+                })
+        except Exception as rest_err:
+            print("REST fallback for my payroll failed:", rest_err)
 
     return render_template(
         "hrms/employee_payroll.html",
-        payrolls=payrolls
+        payrolls=payrolls,
+        salary_history=salary_history
     )
 
 

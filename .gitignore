@@ -9,34 +9,30 @@ __pycache__/
 # Environment variables
 .env
 
-# Excel exports (generated)
+# Excel & CSV exports / data
 *.xlsx
+*.csv
 
-# Database
+# Database & SQL scripts
 *.db
+*.sql
 
-# Uploads (optional)
+# Uploads
 uploads/
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Environment
-.env
-venv/
-
-# Python
-__pycache__/
-*.pyc
-
-# Database
-*.db
-
-# Uploads
-uploads/
-
-# Testing files
-*.xlsx
+# Testing & Scratch files
 exports/
+scratch/
+
+# Credentials / Secrets
+utils/client_secrets.json
+
+# PDFs & Markdown documentation (keep local, ignore in git)
+*.pdf
+*.md
+!README.md
 

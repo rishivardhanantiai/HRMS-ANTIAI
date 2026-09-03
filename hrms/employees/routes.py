@@ -988,7 +988,11 @@ def upload_document_to_supabase(file_storage, employee_id):
 
     # Local Fallback
     local_filename = f"emp_{employee_id}_{timestamp}_{safe_name}"
-    docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
+    import tempfile
+    if os.getenv("VERCEL") == "1":
+        docs_dir = os.path.join(tempfile.gettempdir(), "uploads", "docs")
+    else:
+        docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
     os.makedirs(docs_dir, exist_ok=True)
     
     file_storage.stream.seek(0)
@@ -1014,6 +1018,8 @@ def my_documents():
 
     conn, cur = None, None
     documents = []
+    signed_offers = []
+    signed_ndas = []
     try:
         conn, cur = get_db(True)
         if not conn:
@@ -1021,6 +1027,41 @@ def my_documents():
         
         cur.execute("SELECT * FROM employee_documents WHERE employee_id=%s ORDER BY created_at DESC", (employee_id,))
         documents = cur.fetchall()
+
+        # Fetch official signed offer letters (production schema uses pdf_url)
+        try:
+            cur.execute("""
+                SELECT id, 'Offer Letter' as doc_type, designation as title, pdf_url, countersigned_at as date
+                FROM employee_offers 
+                WHERE employee_id = %s AND status = 'Countersigned' AND pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_offers = cur.fetchall()
+        except Exception:
+            conn.rollback()
+            cur.execute("""
+                SELECT id, 'Offer Letter' as doc_type, designation as title, final_pdf_url as pdf_url, countersigned_at as date
+                FROM employee_offers 
+                WHERE employee_id = %s AND status = 'Countersigned' AND final_pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_offers = cur.fetchall()
+
+        # Fetch official signed NDAs
+        try:
+            cur.execute("""
+                SELECT id, 'Non-Disclosure Agreement (NDA)' as doc_type, 'NDA' as title, pdf_url, countersigned_at as date
+                FROM employee_ndas 
+                WHERE employee_id = %s AND status = 'Countersigned' AND pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_ndas = cur.fetchall()
+        except Exception:
+            conn.rollback()
+            cur.execute("""
+                SELECT id, 'Non-Disclosure Agreement (NDA)' as doc_type, 'NDA' as title, final_pdf_url as pdf_url, countersigned_at as date
+                FROM employee_ndas 
+                WHERE employee_id = %s AND status = 'Countersigned' AND final_pdf_url IS NOT NULL
+            """, (employee_id,))
+            signed_ndas = cur.fetchall()
+
         if conn:
             release_db(conn, cur)
     except Exception as e:
@@ -1035,10 +1076,46 @@ def my_documents():
                 "employee_id": f"eq.{employee_id}",
                 "order": "created_at.desc"
             })
+            
+            raw_offers = supabase_rest.get_rows("employee_offers", {
+                "employee_id": f"eq.{employee_id}",
+                "status": "eq.Countersigned"
+            })
+            signed_offers = [
+                {
+                    "id": x["id"], 
+                    "doc_type": "Offer Letter", 
+                    "title": x.get("designation") or "Offer Letter", 
+                    "pdf_url": x.get("pdf_url") or x.get("final_pdf_url"), 
+                    "date": x.get("countersigned_at") or x.get("created_at")
+                }
+                for x in raw_offers if (x.get("pdf_url") or x.get("final_pdf_url"))
+            ]
+
+            raw_ndas = supabase_rest.get_rows("employee_ndas", {
+                "employee_id": f"eq.{employee_id}",
+                "status": "eq.Countersigned"
+            })
+            signed_ndas = [
+                {
+                    "id": x["id"], 
+                    "doc_type": "Non-Disclosure Agreement (NDA)", 
+                    "title": "NDA", 
+                    "pdf_url": x.get("pdf_url") or x.get("final_pdf_url"), 
+                    "date": x.get("countersigned_at") or x.get("created_at")
+                }
+                for x in raw_ndas if (x.get("pdf_url") or x.get("final_pdf_url"))
+            ]
         except Exception as rest_err:
             print("REST fallback for my documents failed:", rest_err)
 
-    return render_template("hrms/my_documents.html", documents=documents, employee_name=session.get("employee_name"))
+    return render_template(
+        "hrms/my_documents.html", 
+        documents=documents, 
+        signed_offers=signed_offers,
+        signed_ndas=signed_ndas,
+        employee_name=session.get("employee_name")
+    )
 
 
 @employees_bp.route("/documents/upload", methods=["POST"])
@@ -1129,7 +1206,11 @@ def upload_document():
 @login_required
 def download_local_document(filename):
     from flask import current_app, send_from_directory
-    docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
+    import tempfile
+    if os.getenv("VERCEL") == "1":
+        docs_dir = os.path.join(tempfile.gettempdir(), "uploads", "docs")
+    else:
+        docs_dir = os.path.join(current_app.root_path, "uploads", "docs")
     return send_from_directory(docs_dir, filename, as_attachment=True)
 
 @employees_bp.route("/documents/<doc_id>/view", methods=["GET"])
@@ -1528,3 +1609,45 @@ def request_document():
         if conn: release_db(conn, cur)
 
     return redirect("/hrms/employees/documents-hub")
+
+
+@employees_bp.route("/directory", methods=["GET"])
+@login_required
+def directory():
+    conn, cur = None, None
+    employees = []
+    try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("No DB Connection")
+        cur.execute("""
+            SELECT e.id, e.full_name, e.email, e.designation, e.department, m.full_name as manager_name
+            FROM hrms_employees e
+            LEFT JOIN hrms_employees m ON e.manager_id = m.id
+            WHERE e.status = 'Active'
+            ORDER BY e.full_name ASC
+        """)
+        employees = cur.fetchall()
+        release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching employee directory via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+        try:
+            raw_emp = supabase_rest.get_rows("hrms_employees", {"status": "eq.Active", "order": "full_name.asc"})
+            emp_map = {str(emp["id"]): emp["full_name"] for emp in raw_emp if "id" in emp}
+            employees = []
+            for emp in raw_emp:
+                employees.append({
+                    "id": emp.get("id"),
+                    "full_name": emp.get("full_name"),
+                    "email": emp.get("email"),
+                    "designation": emp.get("designation") or "N/A",
+                    "department": emp.get("department") or "N/A",
+                    "manager_name": emp_map.get(str(emp.get("manager_id")), "N/A")
+                })
+        except Exception as rest_err:
+            print("REST fallback for directory failed:", rest_err)
+            
+    return render_template("hrms/directory.html", employees=employees)

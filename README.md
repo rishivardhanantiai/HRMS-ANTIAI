@@ -22,6 +22,7 @@ The application is built to work with a local PostgreSQL database and also inclu
 - Attendance tracking
 - Payroll and salary management
 - Resume upload and serving support
+- Self-service candidate onboarding (invite link, candidate-filled details/documents, HR verification &amp; activation)
 
 ## Access Control
 
@@ -32,10 +33,11 @@ The application is built to work with a local PostgreSQL database and also inclu
 ## Project Structure
 
 - `app.py` contains the main Flask app, shared routes, dashboard, jobs, applications, uploads, exports, and settings
-- `hrms/attendance/`, `hrms/leave/`, `hrms/payroll/`, `hrms/salary/`, `hrms/employees/`, and `hrms/roles/` contain feature blueprints
+- `hrms/attendance/`, `hrms/leave/`, `hrms/payroll/`, `hrms/salary/`, `hrms/employees/`, `hrms/roles/`, and `hrms/onboarding/` contain feature blueprints
 - `utils/auth.py` contains login and role checks
 - `utils/db.py` manages PostgreSQL connections
 - `utils/supabase_rest.py` contains Supabase fallback helpers
+- `utils/mailer.py` contains the Gmail-SMTP email sender used for onboarding emails
 
 ## Data and Storage Behavior
 
@@ -53,6 +55,23 @@ The application is built to work with a local PostgreSQL database and also inclu
 - `SERVICE_KEY`
 - `SUPABASE_RESUME_BUCKET`
 - `VERCEL`
+- `EMAIL_ADDRESS` — mailbox used to send onboarding emails (`antiai.hr@gmail.com`)
+- `EMAIL_APP_PASSWORD` — Gmail App Password for that mailbox (free — see `.env.example`)
+- `EMAIL_SENDER_NAME`, `COMPANY_NAME` — cosmetic, shown in outgoing emails
+- `HR_NOTIFY_EMAIL` — who gets notified when a candidate submits onboarding (defaults to `EMAIL_ADDRESS`)
+
+## Self-Service Onboarding
+
+- Run `schema_onboarding.sql` once against the database to add the onboarding columns to `hrms_employees`.
+- HR/Admin invites a candidate from `/hrms/onboarding/invite/ui` with just name, email, designation, role, and department.
+- The candidate receives an emailed link (`/onboarding/<token>`, valid 7 days) where they fill in their own
+  personal, bank, and compliance details, upload their own documents, and set their own login password —
+  no HR data entry required.
+- HR reviews the submission (documents can be checked in the existing Documents Hub) and activates the account
+  from `/hrms/onboarding/` (the Onboarding Pipeline page). The candidate then gets an activation email.
+- `hrms/onboarding/routes.py` holds both the HR-facing blueprint (`onboarding_bp`) and the public, token-gated
+  candidate blueprint (`onboarding_public_bp`).
+- `utils/mailer.py` sends all onboarding emails through free Gmail SMTP (an App Password, no paid email service).
 
 ## Developer Notes
 

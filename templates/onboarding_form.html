@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome — Complete Your Onboarding</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .toast-container { position: fixed; top: 25px; right: 25px; z-index: 9999; }
+        .toast { padding: 14px 18px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); font-size: 14px; min-width: 220px; }
+        .toast.error { background: #ef4444; color: white; }
+        .toast.success { background: #22c55e; color: white; }
+
+        .onb-shell {
+            min-height: 100vh; display: flex; justify-content: center; padding: 36px 14px;
+            background:
+                radial-gradient(900px 500px at 8% -8%, rgba(59,130,246,0.14), transparent 55%),
+                radial-gradient(900px 500px at 100% 0%, rgba(34,197,94,0.12), transparent 55%),
+                #020202;
+        }
+        .onb-card { width: min(760px, 100%); }
+
+        .onb-header {
+            background: linear-gradient(135deg, #0d0d0d, #080808);
+            border: 1px solid #1f1f1f; border-radius: 16px; padding: 26px 28px;
+            margin-bottom: 18px; display: flex; align-items: center; gap: 16px;
+        }
+        .onb-header img { width: 48px; border-radius: 10px; }
+        .onb-header h1 { margin: 0 0 4px; font-size: 21px; }
+        .onb-header p { margin: 0; color: #94a3b8; font-size: 13.5px; }
+
+        /* ===== STEPPER ===== */
+        .stepper {
+            display: flex; align-items: flex-start; margin: 0 4px 22px; overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .step-pill {
+            display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 74px;
+            position: relative;
+        }
+        .step-pill .dot {
+            width: 26px; height: 26px; border-radius: 50%; background: #1e293b; border: 1px solid #334155;
+            color: #94a3b8; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; z-index: 1;
+        }
+        .step-pill .lbl { font-size: 10.5px; color: #64748b; text-align: center; font-weight: 600; letter-spacing: 0.2px; }
+        .step-pill::after {
+            content: ""; position: absolute; top: 13px; left: 50%; width: 100%; height: 2px;
+            background: #1e293b; z-index: 0;
+        }
+        .step-pill:last-child::after { display: none; }
+        .step-pill.done .dot { background: #16a34a; border-color: #16a34a; color: #fff; }
+        .step-pill.done::after { background: #16a34a; }
+        .step-pill.active .dot { background: #3b82f6; border-color: #3b82f6; color: #fff; box-shadow: 0 0 0 4px rgba(59,130,246,0.2); }
+        .step-pill.active .lbl { color: #e2e8f0; }
+
+        .req-legend { color: #64748b; font-size: 12px; margin: 0 4px 16px; text-align: right; }
+        .req-legend .req { color: #f87171; }
+
+        .section {
+            background: linear-gradient(180deg, #0d0d0d, #080808);
+            border: 1px solid #1f1f1f; border-radius: 16px; padding: 24px 28px;
+            margin-bottom: 16px; display: none;
+        }
+        .section.active { display: block; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+        .section h2 {
+            font-size: 15px; margin: 0 0 4px; color: #fff;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section .step-num {
+            width: 22px; height: 22px; border-radius: 50%; background: #3b82f6;
+            color: #fff; font-size: 12px; display: inline-flex; align-items: center;
+            justify-content: center; font-weight: 700; flex-shrink: 0;
+        }
+        .section .desc { color: #64748b; font-size: 12.5px; margin: 0 0 16px 30px; }
+        .section .desc.optional-note { color: #38bdf8; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grid .full { grid-column: 1 / -1; }
+
+        label { display: block; font-size: 12px; color: #9ca3af; margin: 0 0 6px; font-weight: 600; }
+        label .req { color: #f87171; margin-left: 2px; }
+        label .opt { color: #64748b; font-weight: 500; text-transform: none; letter-spacing: 0; }
+        input, select, textarea { width: 100%; margin-bottom: 0 !important; }
+        .field { margin-bottom: 2px; }
+        .field small.hint { display: block; color: #64748b; font-size: 11px; margin-top: 4px; }
+        .field.field-error input, .field.field-error select { border-color: #f87171; }
+        .field-error-msg { color: #f87171; font-size: 11px; margin-top: 4px; display: none; }
+        .field.field-error .field-error-msg { display: block; }
+
+        .file-field { border: 1px dashed #333; border-radius: 10px; padding: 12px; background: #0b0b0b; }
+        .file-field small { display: block; color: #64748b; font-size: 11px; margin-top: 4px; }
+
+        .offer-box {
+            background: #0b0b0b; border: 1px solid #262626; border-radius: 10px;
+            padding: 14px 16px; display: flex; gap: 10px; align-items: flex-start;
+        }
+        .offer-box input { width: auto; margin-top: 3px; }
+        .offer-box label { font-weight: 500; color: #d1d5db; font-size: 13px; margin: 0; }
+
+        /* ===== REVIEW STEP ===== */
+        .review-group { margin-bottom: 18px; }
+        .review-group h3 {
+            font-size: 12.5px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;
+            margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .review-group h3 a { color: #38bdf8; font-size: 11.5px; text-transform: none; font-weight: 600; text-decoration: none; }
+        .review-group h3 a:hover { text-decoration: underline; }
+        .review-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+        .review-row { font-size: 13.5px; }
+        .review-row .rk { color: #64748b; font-size: 11.5px; display: block; margin-bottom: 2px; }
+        .review-row .rv { color: #e5e7eb; font-weight: 500; }
+        .review-row .rv.empty { color: #475569; font-style: italic; font-weight: 400; }
+        hr.review-sep { border: none; border-top: 1px solid #1f1f1f; margin: 16px 0; }
+
+        /* ===== NAV BUTTONS ===== */
+        .wizard-nav { display: flex; gap: 12px; margin-top: 4px; }
+        .btn-nav {
+            flex: 1; padding: 13px; border-radius: 10px; font-weight: 700; font-size: 14.5px;
+            border: none; cursor: pointer; transition: 0.2s;
+        }
+        .btn-back { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; flex: 0 0 120px; }
+        .btn-back:hover { background: #334155; }
+        .btn-next, .submit-btn {
+            background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff;
+        }
+        .btn-next:hover { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+        .submit-btn {
+            background: linear-gradient(135deg, #16a34a, #22c55e); color: #052e14;
+        }
+        .submit-btn:hover { background: linear-gradient(135deg, #22c55e, #4ade80); }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        @media (max-width: 640px) {
+            .grid, .review-rows { grid-template-columns: 1fr; }
+            .section { padding: 20px 18px; }
+            .onb-header { flex-direction: column; text-align: center; }
+            .step-pill .lbl { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="toast-container">
+    {% for category, message in messages %}
+    <div class="toast {{category}}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="onb-shell">
+<div class="onb-card">
+
+    <div class="onb-header">
+        <img src="/static/images/logo.png" alt="Logo">
+        <div>
+            <h1>Welcome, {{ employee.full_name.split(' ')[0] }} 👋</h1>
+            <p>You're joining as <strong>{{ employee.designation }}</strong>{% if employee.department %} in {{ employee.department }}{% endif %}. Let's get you set up.</p>
+        </div>
+    </div>
+
+    <div class="stepper" id="stepper">
+        <div class="step-pill" data-pill="1"><div class="dot">1</div><div class="lbl">Personal</div></div>
+        <div class="step-pill" data-pill="2"><div class="dot">2</div><div class="lbl">Bank</div></div>
+        <div class="step-pill" data-pill="3"><div class="dot">3</div><div class="lbl">Compliance</div></div>
+        <div class="step-pill" data-pill="4"><div class="dot">4</div><div class="lbl">Documents</div></div>
+        <div class="step-pill" data-pill="5"><div class="dot">5</div><div class="lbl">Password</div></div>
+        <div class="step-pill" data-pill="6"><div class="dot">6</div><div class="lbl">Review</div></div>
+        <div class="step-pill" data-pill="7"><div class="dot">7</div><div class="lbl">Submit</div></div>
+    </div>
+
+    <p class="req-legend"><span class="req">*</span> required, everything else is optional</p>
+
+    <form method="POST" enctype="multipart/form-data" id="onboardingForm" novalidate>
+
+        <div class="section" data-step="1">
+            <h2><span class="step-num">1</span> Personal Details</h2>
+            <p class="desc">Basic information for your employee profile.</p>
+            <div class="grid">
+                <div class="field"><label>Phone Number<span class="req">*</span></label>
+                    <input type="tel" name="phone" pattern="[0-9+ ()-]{7,15}" placeholder="+91 98765 43210" required>
+                    <div class="field-error-msg">Enter a valid phone number.</div></div>
+                <div class="field"><label>Date of Birth<span class="req">*</span></label>
+                    <input type="date" name="date_of_birth" required>
+                    <div class="field-error-msg">Date of birth is required.</div></div>
+                <div class="field">
+                    <label>Gender<span class="req">*</span></label>
+                    <select name="gender" required>
+                        <option value="">Select</option>
+                        <option>Male</option><option>Female</option><option>Other</option>
+                    </select>
+                    <div class="field-error-msg">Please select a gender.</div>
+                </div>
+                <div class="field">
+                    <label>Blood Group <span class="opt">(optional)</span></label>
+                    <select name="blood_group">
+                        <option value="">Select</option>
+                        <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                        <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                    </select>
+                </div>
+                <div class="field full"><label>Current Address<span class="req">*</span></label>
+                    <input type="text" name="address" placeholder="House no., street, city, state, PIN" required>
+                    <div class="field-error-msg">Address is required.</div></div>
+                <div class="field"><label>Emergency Contact Name<span class="req">*</span></label>
+                    <input type="text" name="emergency_contact" required>
+                    <div class="field-error-msg">Emergency contact name is required.</div></div>
+                <div class="field"><label>Emergency Contact Number<span class="req">*</span></label>
+                    <input type="tel" name="emergency_contact_number" pattern="[0-9+ ()-]{7,15}" required>
+                    <div class="field-error-msg">Enter a valid contact number.</div></div>
+            </div>
+        </div>
+
+        <div class="section" data-step="2">
+            <h2><span class="step-num">2</span> Bank Details</h2>
+            <p class="desc">Used to process your salary. Double-check these carefully.</p>
+            <div class="grid">
+                <div class="field"><label>Bank Name<span class="req">*</span></label>
+                    <input type="text" name="bank_name" required>
+                    <div class="field-error-msg">Bank name is required.</div></div>
+                <div class="field"><label>Account Number<span class="req">*</span></label>
+                    <input type="text" name="account_number" inputmode="numeric" pattern="[0-9]{6,20}" required>
+                    <div class="field-error-msg">Enter a valid account number.</div></div>
+                <div class="field"><label>IFSC Code<span class="req">*</span></label>
+                    <input type="text" name="ifsc_code" required maxlength="11" pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}"
+                           style="text-transform:uppercase;" placeholder="e.g. HDFC0001234">
+                    <small class="hint">11 characters — first 4 letters are the bank code.</small>
+                    <div class="field-error-msg">Enter a valid 11-character IFSC code.</div>
+                </div>
+                <div class="field"><label>Branch Name <span class="opt">(optional)</span></label>
+                    <input type="text" name="branch_name"></div>
+            </div>
+        </div>
+
+        <div class="section" data-step="3">
+            <h2><span class="step-num">3</span> Compliance Details</h2>
+            <p class="desc">Needed for statutory compliance &amp; payroll (PF/ESIC/TDS). Leave blank if not applicable.</p>
+            <div class="grid">
+                <div class="field"><label>PAN Number <span class="opt">(optional)</span></label>
+                    <input type="text" name="pan_number" maxlength="10" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}"
+                           style="text-transform:uppercase;" placeholder="e.g. ABCDE1234F">
+                    <div class="field-error-msg">PAN format looks off — should be like ABCDE1234F.</div></div>
+                <div class="field"><label>Aadhaar Number <span class="opt">(optional)</span></label>
+                    <input type="text" name="aadhaar_number" inputmode="numeric" maxlength="12" pattern="[0-9]{12}" placeholder="12-digit number">
+                    <div class="field-error-msg">Aadhaar should be exactly 12 digits.</div></div>
+                <div class="field"><label>UAN Number <span class="opt">(optional, if you have prior PF)</span></label>
+                    <input type="text" name="uan_number"></div>
+            </div>
+        </div>
+
+        <div class="section" data-step="4">
+            <h2><span class="step-num">4</span> Documents</h2>
+            <p class="desc optional-note">All optional right now — upload what you have handy. HR can request anything specific afterwards from your Documents page, and everything here gets verified before activation.</p>
+            <div class="grid">
+                <div class="field file-field">
+                    <label>Government ID Proof <span class="opt">(optional — Aadhaar / Passport / DL)</span></label>
+                    <input type="file" name="doc_id_proof" accept=".pdf,image/*">
+                </div>
+                <div class="field file-field">
+                    <label>PAN Card <span class="opt">(optional)</span></label>
+                    <input type="file" name="doc_pan" accept=".pdf,image/*">
+                </div>
+                <div class="field file-field">
+                    <label>Education Certificate <span class="opt">(optional)</span></label>
+                    <input type="file" name="doc_education" accept=".pdf,image/*">
+                </div>
+                <div class="field file-field">
+                    <label>Profile Photo <span class="opt">(optional)</span></label>
+                    <input type="file" name="profile_photo" accept="image/*">
+                    <small>Used across the HRMS — team directory, dashboard, etc.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" data-step="5">
+            <h2><span class="step-num">5</span> Set Your Login Password</h2>
+            <p class="desc">You'll use your email ({{ employee.email }}) and this password to log in to the HRMS.</p>
+            <div class="grid">
+                <div class="field"><label>Password<span class="req">*</span></label>
+                    <input type="password" name="password" id="pw" minlength="8" required>
+                    <small class="hint">At least 8 characters.</small>
+                    <div class="field-error-msg">Password must be at least 8 characters.</div>
+                </div>
+                <div class="field"><label>Confirm Password<span class="req">*</span></label>
+                    <input type="password" name="confirm_password" id="pw2" minlength="8" required>
+                    <div class="field-error-msg">Passwords don't match.</div></div>
+            </div>
+        </div>
+
+        <div class="section" data-step="6">
+            <h2><span class="step-num">6</span> Review Your Details</h2>
+            <p class="desc">Take a moment to check everything before you submit — you can jump back to fix anything.</p>
+            <div id="reviewContent"></div>
+        </div>
+
+        <div class="section" data-step="7">
+            <h2><span class="step-num">7</span> Acknowledge &amp; Submit</h2>
+            <div class="offer-box">
+                <input type="checkbox" name="offer_accepted" id="offer_accepted" required>
+                <label for="offer_accepted">
+                    I confirm the details I've provided are accurate, and I formally accept my offer to join as
+                    <strong>{{ employee.designation }}</strong>{% if employee.department %} in the {{ employee.department }} department{% endif %}.
+                </label>
+            </div>
+        </div>
+
+        <div class="wizard-nav">
+            <button type="button" class="btn-nav btn-back" id="backBtn" style="display:none;">← Back</button>
+            <button type="button" class="btn-nav btn-next" id="nextBtn">Next →</button>
+            <button type="submit" class="btn-nav submit-btn" id="submitBtn" style="display:none;">Submit &amp; Complete Onboarding</button>
+        </div>
+
+    </form>
+
+</div>
+</div>
+
+<script>
+const TOTAL_STEPS = 7;
+let current = 1;
+
+const sections = document.querySelectorAll(".section");
+const pills = document.querySelectorAll(".step-pill");
+const backBtn = document.getElementById("backBtn");
+const nextBtn = document.getElementById("nextBtn");
+const submitBtn = document.getElementById("submitBtn");
+const form = document.getElementById("onboardingForm");
+
+function fieldsOf(step) {
+    const section = document.querySelector(`.section[data-step="${step}"]`);
+    return section ? Array.from(section.querySelectorAll("input, select")) : [];
+}
+
+function showError(field, show) {
+    const wrap = field.closest(".field");
+    if (!wrap) return;
+    wrap.classList.toggle("field-error", show);
+}
+
+function validateStep(step) {
+    let valid = true;
+    fieldsOf(step).forEach(f => {
+        if (f.type === "checkbox") {
+            const ok = !f.required || f.checked;
+            showError(f, !ok);
+            if (!ok) valid = false;
+            return;
+        }
+        let ok = f.checkValidity();
+        showError(f, !ok);
+        if (!ok) valid = false;
+    });
+
+    if (step === 5) {
+        const pw = document.getElementById("pw").value;
+        const pw2 = document.getElementById("pw2").value;
+        if (pw !== pw2) {
+            showError(document.getElementById("pw2"), true);
+            valid = false;
+        }
+    }
+    return valid;
+}
+
+function renderReview() {
+    const get = name => {
+        const el = form.querySelector(`[name="${name}"]`);
+        return el ? el.value.trim() : "";
+    };
+    const rowsHtml = (rows) => rows.map(([label, val]) =>
+        `<div class="review-row"><span class="rk">${label}</span><span class="rv ${val ? '' : 'empty'}">${val || 'Not provided'}</span></div>`
+    ).join("");
+
+    const files = (names) => names
+        .map(n => { const el = form.querySelector(`[name="${n}"]`); return el && el.files && el.files[0] ? el.files[0].name : null; })
+        .filter(Boolean);
+
+    const docFiles = files(["doc_id_proof", "doc_pan", "doc_education", "profile_photo"]);
+
+    document.getElementById("reviewContent").innerHTML = `
+        <div class="review-group">
+            <h3>Personal Details <a href="#" data-goto="1">Edit</a></h3>
+            <div class="review-rows">
+                ${rowsHtml([
+                    ["Phone", get("phone")], ["Date of Birth", get("date_of_birth")],
+                    ["Gender", get("gender")], ["Blood Group", get("blood_group")],
+                    ["Address", get("address")],
+                    ["Emergency Contact", get("emergency_contact")], ["Emergency Number", get("emergency_contact_number")]
+                ])}
+            </div>
+        </div>
+        <hr class="review-sep">
+        <div class="review-group">
+            <h3>Bank Details <a href="#" data-goto="2">Edit</a></h3>
+            <div class="review-rows">
+                ${rowsHtml([
+                    ["Bank Name", get("bank_name")], ["Account Number", get("account_number")],
+                    ["IFSC Code", get("ifsc_code").toUpperCase()], ["Branch", get("branch_name")]
+                ])}
+            </div>
+        </div>
+        <hr class="review-sep">
+        <div class="review-group">
+            <h3>Compliance <a href="#" data-goto="3">Edit</a></h3>
+            <div class="review-rows">
+                ${rowsHtml([
+                    ["PAN Number", get("pan_number").toUpperCase()], ["Aadhaar Number", get("aadhaar_number")],
+                    ["UAN Number", get("uan_number")]
+                ])}
+            </div>
+        </div>
+        <hr class="review-sep">
+        <div class="review-group">
+            <h3>Documents <a href="#" data-goto="4">Edit</a></h3>
+            <div class="review-rows">
+                <div class="review-row"><span class="rk">Files attached</span><span class="rv ${docFiles.length ? '' : 'empty'}">${docFiles.length ? docFiles.join(", ") : "None — you can add these later"}</span></div>
+            </div>
+        </div>
+    `;
+    document.getElementById("reviewContent").querySelectorAll("[data-goto]").forEach(a => {
+        a.addEventListener("click", (e) => { e.preventDefault(); goTo(parseInt(a.dataset.goto, 10)); });
+    });
+}
+
+function goTo(step) {
+    current = step;
+    sections.forEach(s => s.classList.toggle("active", parseInt(s.dataset.step, 10) === step));
+    pills.forEach(p => {
+        const n = parseInt(p.dataset.pill, 10);
+        p.classList.toggle("active", n === step);
+        p.classList.toggle("done", n < step);
+    });
+    backBtn.style.display = step === 1 ? "none" : "block";
+    nextBtn.style.display = step === TOTAL_STEPS ? "none" : "block";
+    submitBtn.style.display = step === TOTAL_STEPS ? "block" : "none";
+    if (step === 6) renderReview();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+nextBtn.addEventListener("click", () => {
+    if (!validateStep(current)) return;
+    if (current < TOTAL_STEPS) goTo(current + 1);
+});
+
+backBtn.addEventListener("click", () => {
+    if (current > 1) goTo(current - 1);
+});
+
+pills.forEach(p => {
+    p.addEventListener("click", () => {
+        const target = parseInt(p.dataset.pill, 10);
+        if (target <= current) goTo(target);
+    });
+    p.style.cursor = "pointer";
+});
+
+form.addEventListener("submit", function (e) {
+    if (!validateStep(7)) { e.preventDefault(); return; }
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+    btn.textContent = "Submitting...";
+});
+
+goTo(1);
+
+setTimeout(() => {
+    document.querySelectorAll(".toast").forEach(t => {
+        t.style.transition = "opacity 0.5s";
+        t.style.opacity = "0";
+        setTimeout(() => t.remove(), 500);
+    });
+}, 4000);
+</script>
+
+</body>
+</html>

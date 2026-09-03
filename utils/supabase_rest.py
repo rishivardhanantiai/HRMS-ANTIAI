@@ -771,3 +771,28 @@ def upload_file_bytes(file_bytes, object_key, content_type="application/pdf"):
     except Exception as e:
         print("Error uploading to supabase:", e)
         return None
+
+def delete_file(object_key):
+    supabase_url = _supabase_url()
+    service_key = os.getenv("SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+    bucket = os.getenv("SUPABASE_RESUME_BUCKET", "resumes")
+    if not supabase_url or not service_key or not object_key:
+        return False
+
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+    
+    delete_url = f"{supabase_url}/storage/v1/object/{bucket}"
+    try:
+        response = httpx.request("DELETE", delete_url, json={"prefixes": [object_key]}, headers=headers, timeout=30.0)
+        if response.status_code in (200, 204):
+            print(f"Supabase Storage: Successfully deleted {object_key} from bucket {bucket}")
+            return True
+        print(f"Supabase Storage: Failed to delete {object_key}. Status: {response.status_code}, Body: {response.text}")
+        return False
+    except Exception as e:
+        print("Error deleting from supabase:", e)
+        return False

@@ -576,8 +576,13 @@ def generate_pdf():
         company=company,
     )
 
-    os.makedirs(os.path.join(current_app.root_path, "uploads"), exist_ok=True)
-    pdf_path = os.path.join(current_app.root_path, "uploads", f"doc_{int(time.time())}.pdf")
+    import tempfile
+    if os.getenv("VERCEL") == "1":
+        upload_dir = os.path.join(tempfile.gettempdir(), "uploads")
+    else:
+        upload_dir = os.path.join(current_app.root_path, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    pdf_path = os.path.join(upload_dir, f"doc_{int(time.time())}.pdf")
 
     try:
         if not PDF_GENERATOR_AVAILABLE:

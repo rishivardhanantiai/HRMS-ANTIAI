@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    {% if font_serif_b64 %}
+    @font-face {
+        font-family: "OfferSerif";
+        src: url("data:font/ttf;base64,{{ font_serif_b64 }}");
+    }
+    {% endif %}
+    {% if font_serif_bold_b64 %}
+    @font-face {
+        font-family: "OfferSerif";
+        font-weight: bold;
+        src: url("data:font/ttf;base64,{{ font_serif_bold_b64 }}");
+    }
+    {% endif %}
+
+    @page {
+        size: A4;
+        margin: 2.4cm 1.8cm 2.6cm 1.8cm;
+        @frame watermark_frame {
+            -pdf-frame-content: watermark_content;
+            top: 0cm; left: 0cm; width: 21cm; height: 29.7cm;
+        }
+        @frame footer_frame {
+            -pdf-frame-content: footer_content;
+            bottom: 0.8cm; margin-left: 1.8cm; margin-right: 1.8cm; height: 1.5cm;
+        }
+    }
+    body {
+        font-family: "OfferSerif", "Times New Roman", Times, serif;
+        color: #111111;
+        line-height: 1.55;
+        font-size: 11.5pt;
+    }
+    .content { text-align: justify; }
+    .content h3 { font-size: 13.5pt; font-weight: bold; margin: 20px 0 8px; }
+    .content p { margin: 0 0 10px; }
+    .content ul { margin: 6px 0 12px; padding-left: 22px; }
+    .content li { margin-bottom: 8px; }
+    .content table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+    .content table th, .content table td { border: 1px solid #333; padding: 7px 10px; font-size: 10pt; }
+    .content table th { background-color: #f0f0f0; text-align: left; font-weight: bold; }
+    .sec-divider { border: none; border-top: 1.4pt solid #111; margin: 10px 0 4px; }
+
+    .header-table { width: 100%; margin-bottom: 4px; }
+    .company-name { font-size: 20pt; }
+    .company-address { font-size: 10pt; font-weight: bold; margin-top: 2px; }
+    .header-rule { border: none; border-top: 2pt solid #111; margin: 6px 0 22px; }
+    .doc-title { text-align: center; font-size: 15pt; font-weight: bold; text-decoration: underline; margin: 0 0 18px; }
+
+    #footer_content table { width: 100%; font-size: 9pt; }
+    #footer_content td { border: 1px solid #333; padding: 4px 8px; height: 0.9cm; vertical-align: top; }
+</style>
+</head>
+<body>
+
+<div id="watermark_content">
+    {% if watermark_b64 %}
+    <div style="text-align:center; padding-top: 6.5cm; opacity: {{ watermark_opacity if watermark_opacity is not none else 1.0 }};">
+        <img src="data:image/png;base64,{{ watermark_b64 }}" style="width: {{ watermark_width_cm or 13.5 }}cm;">
+    </div>
+    {% endif %}
+</div>
+
+<table class="header-table">
+    <tr>
+        {% if logo_wordmark_b64 %}
+        <td style="width: {{ (logo_width_px or 95)|int + 15 }}px; vertical-align: middle;">
+            <img src="data:image/png;base64,{{ logo_wordmark_b64 }}" style="width: {{ logo_width_px or 95 }}px;">
+        </td>
+        {% endif %}
+        <td style="vertical-align: middle;">
+            <div class="company-name">{{ company.company_name or 'ANTI.AI PRIVATE LIMITED' }}</div>
+            <div class="company-address">{{ company.company_address or '73, Rose Villa, Rajendra Nagar, Bharatpur' }}</div>
+        </td>
+    </tr>
+</table>
+<hr class="header-rule">
+
+<div class="doc-title">{{ doc_title or 'OFFER LETTER' }}</div>
+
+<div class="content">
+{{ content | safe }}
+</div>
+
+<div id="footer_content">
+<table>
+<tr>
+<td style="width:50%;">HR Signature</td>
+<td style="width:50%;">Candidate Signature</td>
+</tr>
+</table>
+</div>
+
+</body>
+</html>

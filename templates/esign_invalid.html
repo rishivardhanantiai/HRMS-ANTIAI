@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Link Unavailable</title>
+<style>
+    body { margin:0; font-family:'Segoe UI',Helvetica,Arial,sans-serif; background:#f1f5f9; color:#0f172a; }
+    .wrap { max-width:480px; margin:90px auto; text-align:center; padding:0 20px; }
+    .icon { font-size:48px; margin-bottom:10px; }
+    h2 { margin:0 0 10px; }
+    p { color:#475569; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    {% if reason == 'already_signed' %}
+        <div class="icon">✅</div>
+        <h2>Already Signed</h2>
+        <p>This {{ 'offer letter' if doc == 'offer' else 'NDA' }} has already been signed. If you think this is a mistake,
+        please reach out to HR.</p>
+    {% elif reason == 'expired' %}
+        <div class="icon">⏰</div>
+        <h2>Link Expired</h2>
+        <p>This signing link has expired. Please contact HR and ask them to resend it.</p>
+    {% elif reason == 'not_ready' %}
+        <div class="icon">⏳</div>
+        <h2>Not Ready Yet</h2>
+        <p>This document isn't ready for signature yet. Please check back once HR has sent it to you.</p>
+    {% else %}
+        <div class="icon">🔒</div>
+        <h2>Link Not Found</h2>
+        <p>This link doesn't look right. Please use the link from your most recent email, or contact HR.</p>
+    {% endif %}
+</div>
+</body>
+</html>

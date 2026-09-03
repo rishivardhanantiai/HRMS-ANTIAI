@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Policies Layout ── */
+.pol-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.pol-header {
+    margin-bottom: 30px;
+}
+
+/* Card list */
+.pol-card {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 25px;
+}
+.pol-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* Table styling */
+.pol-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.pol-table th {
+    text-align: left;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.pol-table td {
+    padding: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: #cbd5e1;
+    font-size: 14px;
+}
+.pol-table tr:hover {
+    background: rgba(255,255,255,0.02);
+}
+
+.badge-status {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.status-pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.status-signed { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+
+.btn-action {
+    background: #3b82f6;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.2s;
+    border: none;
+    display: inline-block;
+}
+.btn-action:hover {
+    background: #2563eb;
+}
+.btn-download {
+    background: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.btn-download:hover {
+    background: rgba(16, 185, 129, 0.2);
+    color: #a7f3d0;
+}
+</style>
+
+<div class="pol-container">
+    <div class="pol-header">
+        <h1 class="page-title">Policies &amp; Compliance</h1>
+        <p class="subtitle">Review and electronically sign official company policies.</p>
+    </div>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="padding: 12px; margin-bottom: 20px; border-radius: 6px; 
+              {% if category == 'error' %}background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);
+              {% else %}background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2);{% endif %}">
+              {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- PENDING SIGNATURES -->
+    <div class="pol-card" style="border-color: #f59e0b; background: rgba(245,158,11,0.02);">
+        <h3 class="pol-section-title" style="color: #fbbf24; display: flex; align-items: center; gap: 8px;">⚠️ Action Required: Pending Sign-offs</h3>
+        <table class="pol-table">
+            <thead>
+                <tr>
+                    <th>Policy Document</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pending %}
+                <tr>
+                    <td style="color: #fff; font-weight: 600;">{{ p.title }}</td>
+                    <td><span class="badge-status status-pending">Pending Signature</span></td>
+                    <td style="text-align: right;">
+                        <a href="/hrms/policies/esign/{{ p.sig_id }}" class="btn-action">View &amp; E-Sign</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #64748b; padding: 20px;">
+                        No pending policy documents to sign. You are fully compliant!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- SIGNED POLICIES -->
+    <div class="pol-card" style="border-color: #10b981; background: rgba(16,185,129,0.01);">
+        <h3 class="pol-section-title" style="color: #34d399; display: flex; align-items: center; gap: 8px;">📜 Acknowledged Policies</h3>
+        <table class="pol-table">
+            <thead>
+                <tr>
+                    <th>Policy Document</th>
+                    <th>Signed Date</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Attachment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in signed %}
+                <tr>
+                    <td style="color: #fff; font-weight: 600;">{{ p.title }}</td>
+                    <td>{{ (p.signed_at|string)[:16] if p.signed_at else '-' }}</td>
+                    <td><span class="badge-status status-signed">Signed</span></td>
+                    <td style="text-align: right;">
+                        {% if p.pdf_url %}
+                        <a href="{{ p.pdf_url }}" target="_blank" class="btn-action btn-download">Download Signed PDF</a>
+                        {% else %}
+                        <span style="color:#64748b;">Processing...</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #64748b; padding: 25px;">
+                        No signed policy documents yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

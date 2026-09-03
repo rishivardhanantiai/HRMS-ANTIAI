@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.settings-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+}
+.settings-header {
+    margin-bottom: 30px;
+}
+.settings-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.settings-subtitle {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-top: 4px;
+}
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+@media (min-width: 768px) {
+    .settings-grid {
+        grid-template-columns: 1.5fr 1fr;
+    }
+}
+.settings-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+}
+.settings-section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-top: 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 10px;
+}
+.form-group {
+    margin-bottom: 18px;
+}
+.form-group label {
+    display: block;
+    color: #94a3b8;
+    font-size: 13px;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #fff;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+.form-control:focus {
+    border-color: #3b82f6;
+    outline: none;
+}
+.btn-save {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    width: 100%;
+    margin-top: 10px;
+}
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+.preview-pane {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    min-height: 120px;
+}
+.preview-img {
+    max-height: 80px;
+    max-width: 100%;
+    object-fit: contain;
+}
+</style>
+
+<div class="settings-container">
+    <div class="settings-header">
+        <h1 class="settings-title">Company Settings</h1>
+        <div class="settings-subtitle">Manage legal entity name, corporate office address, and PDF document layout overrides.</div>
+    </div>
+
+    <!-- Warning / Notification for HR -->
+    {% if session.role != 'Admin' %}
+        <div style="background: rgba(234, 179, 8, 0.1); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.2); padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 500;">
+            ⚠️ <strong>Propose Change Only:</strong> You are logged in as HR. Saving changes here will create a sensitive action request in the <strong>Admin Approval Queue</strong> rather than overwriting database records directly.
+        </div>
+    {% endif %}
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for cat, msg in messages %}
+                <div style="padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 500;
+                    {% if cat == 'success' %} background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25);
+                    {% else %} background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); {% endif %}">
+                    {{ msg }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="/hrms/admin/settings/save" method="POST" enctype="multipart/form-data">
+        <div class="settings-grid">
+            <!-- Left Panel: Core settings -->
+            <div class="settings-card">
+                <h3 class="settings-section-title">Corporate Information</h3>
+                
+                <div class="form-group">
+                    <label>Legal Entity Name</label>
+                    <input type="text" name="company_name" required value="{{ company.company_name or '' }}" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label>Office Address</label>
+                    <textarea name="company_address" required class="form-control" style="height: 80px; resize: vertical;">{{ company.company_address or '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Corporate Contact Number</label>
+                    <input type="text" name="company_contact" value="{{ company.company_contact or '' }}" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Corporate Email</label>
+                    <input type="email" name="company_email" value="{{ company.company_email or '' }}" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Company Website</label>
+                    <input type="text" name="company_website" value="{{ company.company_website or '' }}" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Candidate Data Retention (Months)</label>
+                    <input type="number" name="candidate_retention_months" min="1" max="120" required value="{{ company.candidate_retention_months or 12 }}" class="form-control">
+                    <span style="color:#64748b; font-size:11px; display:block; margin-top:4px;">
+                        Candidates in a "Rejected" state older than this duration will have their PII automatically anonymized daily.
+                    </span>
+                </div>
+            </div>
+
+            <!-- Right Panel: Document Branding overrides -->
+            <div class="settings-card">
+                <h3 class="settings-section-title">Letterhead Branding</h3>
+                
+                <div class="form-group">
+                    <label>Company Wordmark/Logo (PNG/JPG)</label>
+                    <input type="file" name="logo_file" accept="image/*" class="form-control">
+                    <div style="margin-top: 10px;">
+                        <span style="color:#64748b; font-size:11px; display:block; margin-bottom:5px;">Current Logo Preview:</span>
+                        <div class="preview-pane">
+                            {% if company.offer_logo_wordmark_b64 %}
+                                <img src="data:image/png;base64,{{ company.offer_logo_wordmark_b64 }}" class="preview-img" alt="Logo Preview">
+                            {% else %}
+                                <span style="color:#475569; font-size:12px;">No Logo Uploaded</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Logo Width (Pixels)</label>
+                    <input type="number" name="logo_width_px" value="{{ company.offer_logo_width_px or 200 }}" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Document Watermark Image (PNG)</label>
+                    <input type="file" name="watermark_file" accept="image/png" class="form-control">
+                    <div style="margin-top: 10px;">
+                        <span style="color:#64748b; font-size:11px; display:block; margin-bottom:5px;">Current Watermark Preview:</span>
+                        <div class="preview-pane">
+                            {% if company.offer_watermark_b64 %}
+                                <img src="data:image/png;base64,{{ company.offer_watermark_b64 }}" class="preview-img" style="opacity: 0.4;" alt="Watermark Preview">
+                            {% else %}
+                                <span style="color:#475569; font-size:12px;">No Watermark Uploaded</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Watermark Width (CM)</label>
+                    <input type="number" step="0.1" name="watermark_width_cm" value="{{ company.offer_watermark_width_cm or 8.0 }}" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Watermark Opacity (0.05 to 0.40)</label>
+                    <input type="number" step="0.01" name="watermark_opacity" value="{{ company.offer_watermark_opacity or 0.10 }}" class="form-control">
+                </div>
+
+                <button type="submit" class="btn-save">
+                    {% if session.role == 'Admin' %}
+                        Save Company Settings
+                    {% else %}
+                        Propose Settings Update
+                    {% endif %}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function setupPreview(fileInputName) {
+        const input = document.querySelector(`input[name="${fileInputName}"]`);
+        if (!input) return;
+        const container = input.closest('.form-group').querySelector('.preview-pane');
+        
+        input.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    container.innerHTML = `<img src="${e.target.result}" class="preview-img" alt="Preview" style="${fileInputName === 'watermark_file' ? 'opacity: 0.4;' : ''}">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    setupPreview('logo_file');
+    setupPreview('watermark_file');
+});
+</script>
+{% endblock %}

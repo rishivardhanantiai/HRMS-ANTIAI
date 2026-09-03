@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, session, request, redirect, flash
 from utils.db import get_db, release_db
 from utils import supabase_rest
 from utils.auth import login_required, role_required
+from hrms.notifications.routes import create_notification
 
 leave_bp = Blueprint("leave", __name__, url_prefix="/hrms/leave")
 
@@ -201,6 +202,13 @@ def employee_leave():
             ))
 
             conn.commit()
+            employee_name = session.get("employee_name") or "An employee"
+            create_notification(
+                recipient_role="HR",
+                notif_type="leave_applied",
+                message=f"{employee_name} requested leave from {from_date_str} to {to_date_str}",
+                link="/hrms/leave/manage"
+            )
             flash("Leave applied successfully.", "success")
             return redirect("/hrms/leave/")
 
@@ -233,6 +241,13 @@ def employee_leave():
             to_date = request.form["to_date"]
             reason = request.form["reason"]
             supabase_rest.create_leave_request(employee_id, leave_type, from_date, to_date, reason)
+            employee_name = session.get("employee_name") or "An employee"
+            create_notification(
+                recipient_role="HR",
+                notif_type="leave_applied",
+                message=f"{employee_name} requested leave from {from_date} to {to_date}",
+                link="/hrms/leave/manage"
+            )
 
         leave_types = supabase_rest.list_leave_types()
         leaves = supabase_rest.list_employee_leaves(employee_id)
@@ -295,9 +310,9 @@ def update_leave_status(leave_id):
     try:
         conn, cur = get_db(True)
 
-        # Get employee email for simulation
+        # Get employee email and employee_id for simulation and notification
         cur.execute("""
-            SELECT e.email, e.full_name, la.from_date, la.to_date 
+            SELECT e.email, e.full_name, la.from_date, la.to_date, la.employee_id 
             FROM leave_applications la
             JOIN hrms_employees e ON la.employee_id = e.id
             WHERE la.id = %s
@@ -311,9 +326,16 @@ def update_leave_status(leave_id):
         """, (status, leave_id))
 
         conn.commit()
-        release_db(conn, cur)
 
         if emp_details:
+            create_notification(
+                recipient_role="Employee",
+                notif_type="leave_resolved",
+                message=f"Your leave request from {emp_details['from_date']} to {emp_details['to_date']} was {status.lower()}",
+                link="/hrms/leave/",
+                employee_id=emp_details["employee_id"]
+            )
+            
             print(f"--- EMAIL AUTOMATION ---")
             print(f"To: {emp_details['email']}")
             print(f"Subject: Leave Request {status} - {emp_details['full_name']}")
@@ -321,9 +343,26 @@ def update_leave_status(leave_id):
             print(f"------------------------")
             flash(f"Leave request has been {status}. Notification email simulated.", "success")
 
+        release_db(conn, cur)
+
     except Exception as e:
         print("Error updating leave status:", e)
-        supabase_rest.update_leave_status(leave_id, status)
+        try:
+            supabase_rest.update_leave_status(leave_id, status)
+            leave_row = supabase_rest.get_first_row("leave_applications", {"id": f"eq.{leave_id}"})
+            if leave_row:
+                emp_id = leave_row.get("employee_id")
+                emp_details = supabase_rest.get_first_row("hrms_employees", {"id": f"eq.{emp_id}"})
+                if emp_details:
+                    create_notification(
+                        recipient_role="Employee",
+                        notif_type="leave_resolved",
+                        message=f"Your leave request from {leave_row.get('from_date')} to {leave_row.get('to_date')} was {status.lower()}",
+                        link="/hrms/leave/",
+                        employee_id=emp_id
+                    )
+        except Exception as rest_notif_err:
+            print("REST notification fallback failed:", rest_notif_err)
         flash(f"Leave status updated to {status}.", "success")
 
     return redirect("/hrms/leave/manage")
@@ -493,3 +532,104 @@ def api_pending_leaves():
             r['leave_type'] = r.get('type')
             
         return {"requests": pending}, 200
+
+
+@leave_bp.route("/holidays", methods=["GET"])
+@login_required
+def holidays():
+    from datetime import date
+    conn, cur = None, None
+    holidays = []
+    try:
+        conn, cur = get_db(True)
+        if not conn:
+            raise Exception("No DB Connection")
+        cur.execute("SELECT * FROM company_holidays ORDER BY holiday_date ASC")
+        holidays = cur.fetchall()
+        release_db(conn, cur)
+    except Exception as e:
+        print("Error fetching holidays via DB, trying REST fallback:", e)
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+        try:
+            holidays = supabase_rest.get_rows("company_holidays", {"order": "holiday_date.asc"})
+        except Exception as rest_err:
+            print("REST fallback for holidays failed:", rest_err)
+            
+    # Normalize holiday_date to actual date objects
+    today = date.today()
+    for h in holidays:
+        h_date = h.get("holiday_date")
+        if isinstance(h_date, str):
+            try:
+                from datetime import datetime
+                h_date = datetime.strptime(h_date[:10], "%Y-%m-%d").date()
+                h["holiday_date"] = h_date
+            except:
+                pass
+            
+    return render_template("hrms/holidays.html", holidays=holidays, today=today)
+
+
+@leave_bp.route("/holidays/add", methods=["POST"])
+@login_required
+@role_required(["Admin"])
+def add_holiday():
+    name = request.form.get("name")
+    date_str = request.form.get("holiday_date")
+    
+    if not name or not date_str:
+        flash("Name and Date are required.", "error")
+        return redirect("/hrms/leave/holidays")
+        
+    conn, cur = get_db()
+    try:
+        if not conn:
+            raise Exception("No DB Connection")
+        cur.execute("""
+            INSERT INTO company_holidays (name, holiday_date)
+            VALUES (%s, %s)
+        """, (name, date_str))
+        conn.commit()
+        flash("Holiday added successfully.", "success")
+    except Exception as e:
+        print("DB Add Holiday Error:", e)
+        try:
+            supabase_rest.insert_row("company_holidays", {
+                "name": name,
+                "holiday_date": date_str
+            })
+            flash("Holiday added successfully (REST).", "success")
+        except Exception as rest_err:
+            print("REST Add Holiday Error:", rest_err)
+            flash("Failed to add holiday.", "error")
+    finally:
+        if conn: release_db(conn, cur)
+        
+    return redirect("/hrms/leave/holidays")
+
+
+@leave_bp.route("/holidays/<id>/delete", methods=["POST"])
+@login_required
+@role_required(["Admin"])
+def delete_holiday(id):
+    conn, cur = get_db()
+    try:
+        if not conn:
+            raise Exception("No DB Connection")
+        cur.execute("DELETE FROM company_holidays WHERE id=%s", (id,))
+        conn.commit()
+        flash("Holiday deleted successfully.", "success")
+    except Exception as e:
+        print("DB Delete Holiday Error:", e)
+        try:
+            supabase_rest.delete_rows("company_holidays", {"id": f"eq.{id}"})
+            flash("Holiday deleted successfully (REST).", "success")
+        except Exception as rest_err:
+            print("REST Delete Holiday Error:", rest_err)
+            flash("Failed to delete holiday.", "error")
+    finally:
+        if conn: release_db(conn, cur)
+        
+    return redirect("/hrms/leave/holidays")

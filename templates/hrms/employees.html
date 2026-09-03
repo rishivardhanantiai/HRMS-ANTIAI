@@ -486,7 +486,7 @@
             <td>${mgr}</td>
             <td>${jd}</td>
             <td>
-                <span class="status-badge ${emp.status === "Active" ? "status-active" : (emp.status === "On Leave" ? "status-warning" : "status-inactive")}">
+                <span class="status-badge ${emp.status === "Active" ? "status-active" : (["On Leave", "Onboarding", "Offer Pending"].includes(emp.status) ? "status-warning" : "status-inactive")}">
                     ${emp.status}
                 </span>
             </td>

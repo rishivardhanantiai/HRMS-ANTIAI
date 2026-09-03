@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Non-Disclosure Agreement — Sign Electronically</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#3b82f6">
+<style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background: #f1f5f9; color: #0f172a; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 30px 16px 60px; }
+    .brand { text-align: center; margin-bottom: 22px; }
+    .brand .name { font-size: 18px; font-weight: 700; color: #0f172a; }
+    .brand .sub { font-size: 12.5px; color: #64748b; }
+
+    .letter-paper {
+        background: #fff; border-radius: 12px; padding: 44px 48px; box-shadow: 0 10px 30px rgba(15,23,42,0.08);
+        font-family: 'Times New Roman', Georgia, serif; font-size: 14.5px; line-height: 1.65; color: #111111;
+        position: relative; text-align: justify;
+    }
+    .letter-paper .watermark {
+        position: absolute; top: 260px; left: 50%; transform: translateX(-50%);
+        width: 480px; opacity: 0.07; pointer-events: none; z-index: 0;
+    }
+    .letter-header {
+        display: flex; align-items: center; gap: 16px; margin-bottom: 6px; position: relative; z-index: 1;
+    }
+    .letter-header img { width: 90px; height: auto; }
+    .letter-header .co-name { font-size: 22px; font-weight: 700; color: #111111; font-family: 'Times New Roman', Georgia, serif; }
+    .letter-header .co-addr { font-size: 11.5px; font-weight: 700; color: #111111; margin-top: 3px; }
+    .letter-header-rule { border: none; border-top: 2.5px solid #111; margin: 8px 0 20px; position: relative; z-index: 1; }
+    .doc-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 0 0 20px; position: relative; z-index: 1; }
+    .letter-body { position: relative; z-index: 1; }
+    .letter-body h3 { font-size: 15.5px; font-weight: 700; margin: 22px 0 8px; }
+    .letter-body p { margin: 0 0 10px; }
+    .letter-body .sec-divider { border: none; border-top: 1.4px solid #111; margin: 12px 0 4px; }
+    .letter-paper h2, .letter-paper h3 { color: #111111; }
+    .letter-paper table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; }
+    .letter-paper table th, .letter-paper table td { border: 1px solid #333; padding: 8px 10px; font-size: 12.5px; }
+    .letter-paper table th { background: #f0f0f0; text-align: left; font-weight: 700; }
+    .letter-footer {
+        display: flex; margin-top: 44px; position: relative; z-index: 1; font-size: 11.5px; color: #111111;
+    }
+    .letter-footer > div { flex: 1; border: 1px solid #333; padding: 10px 12px; min-height: 40px; }
+    .letter-footer > div:first-child { border-right: none; }
+
+    .sign-card { background: #fff; border-radius: 12px; padding: 28px; margin-top: 20px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); }
+    .sign-card h3 { margin-top: 0; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+    input[type=text] { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 14px; margin-bottom: 16px; }
+    .agree-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+    .agree-row input { margin-top: 3px; }
+    .agree-row label { font-size: 13px; color: #475569; font-weight: 400; margin: 0; }
+
+    .sign-btn {
+        width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6); border: none; color: #fff;
+        padding: 14px; border-radius: 9px; font-weight: 700; font-size: 15px; cursor: pointer;
+    }
+    .sign-btn:hover { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+    .sign-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .esign-note { font-size: 11.5px; color: #94a3b8; margin-top: 14px; line-height: 1.5; text-align: center; }
+    .error-msg { color: #dc2626; font-size: 13px; margin-bottom: 12px; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="brand">
+        <div class="name">Non-Disclosure Agreement</div>
+        <div class="sub">Please review carefully before signing</div>
+    </div>
+
+    <div class="letter-paper">
+        <img class="watermark" src="/static/images/logo_globe_watermark.png" alt="">
+        <div class="letter-header">
+            <img src="/static/images/logo_wordmark.png" alt="">
+            <div>
+                <div class="co-name">ANTI.AI PRIVATE LIMITED</div>
+                <div class="co-addr">73, Rose Villa, Rajendra Nagar, Bharatpur</div>
+            </div>
+        </div>
+        <hr class="letter-header-rule">
+        <div class="doc-title">NON-DISCLOSURE AGREEMENT</div>
+        <div class="letter-body">{{ nda.content_html | safe }}</div>
+        <div class="letter-footer">
+            <div>Disclosing Party Signature</div>
+            <div>Receiving Party Signature</div>
+        </div>
+    </div>
+
+    <div class="sign-card">
+        <h3>Accept &amp; Sign Electronically</h3>
+        <div class="error-msg" id="errorMsg"></div>
+        <form id="signForm" onsubmit="return submitSign(event)">
+            <label>Type your full legal name to sign</label>
+            <input type="text" name="signed_name" id="signedName" required>
+
+            <div class="agree-row">
+                <input type="checkbox" name="agree" id="agree" required>
+                <label for="agree">I have read and understood this Non-Disclosure Agreement, and I accept it. I understand
+                that typing my name and clicking "I Accept" below constitutes my electronic signature, along with a
+                timestamp and IP address recorded as an audit trail.</label>
+            </div>
+
+            <button type="submit" class="sign-btn" id="signBtn">I Accept — Sign NDA</button>
+        </form>
+        <div class="esign-note">This is a valid electronic signature under India's Information Technology Act, 2000.</div>
+    </div>
+</div>
+
+<script>
+async function submitSign(e) {
+    e.preventDefault();
+    const form = document.getElementById("signForm");
+    const btn = document.getElementById("signBtn");
+    const err = document.getElementById("errorMsg");
+    err.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Signing...";
+
+    try {
+        const res = await fetch(window.location.pathname, { method: "POST", body: new FormData(form) });
+        const data = await res.json();
+        if (data.error) {
+            err.textContent = data.error;
+            err.style.display = "block";
+            btn.disabled = false;
+            btn.textContent = "I Accept — Sign NDA";
+        } else {
+            document.body.innerHTML = `
+                <div style="max-width:520px;margin:80px auto;text-align:center;font-family:'Segoe UI',sans-serif;padding:0 20px;">
+                    <div style="font-size:48px;">✅</div>
+                    <h2>NDA Signed!</h2>
+                    <p style="color:#475569;">Thanks — it's now with HR for countersignature. Once that's done, we'll
+                    email you a link to complete your onboarding (bank details, documents, and setting your password).</p>
+                </div>`;
+        }
+    } catch (err2) {
+        err.textContent = "Something went wrong. Please try again.";
+        err.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "I Accept — Sign NDA";
+    }
+    return false;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js')
+      .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+      .catch(err => console.error('Service Worker registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+/* ── Directory Layout ── */
+.dir-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+}
+.dir-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.dir-search-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+}
+.dir-search-input {
+    width: 100%;
+    padding: 12px 16px 12px 42px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.25s ease;
+}
+.dir-search-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+.dir-search-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #64748b;
+    pointer-events: none;
+    width: 16px;
+    height: 16px;
+}
+
+/* Card Grid */
+.dir-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+.dir-card {
+    background: rgba(15, 15, 15, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 24px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+}
+.dir-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.dir-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(59, 130, 246, 0.25);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+.dir-card:hover::before {
+    opacity: 1;
+}
+
+/* Avatar Placeholder */
+.dir-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #3b82f6;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.dir-info-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.dir-name-block {
+    display: flex;
+    flex-direction: column;
+}
+.dir-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: #fff;
+    margin: 0;
+}
+.dir-designation {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 2px 0 0 0;
+}
+
+/* Meta list */
+.dir-meta-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+    color: #64748b;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 14px;
+}
+.dir-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #94a3b8;
+}
+.dir-meta-label {
+    color: #475569;
+    font-weight: 500;
+    width: 75px;
+    flex-shrink: 0;
+}
+.dir-meta-val {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>
+
+<div class="dir-container">
+    <div class="dir-header">
+        <div>
+            <h1 class="page-title">Company Directory</h1>
+            <p class="subtitle">Search and connect with your colleagues.</p>
+        </div>
+        <div class="dir-search-wrap">
+            <svg class="dir-search-icon" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" id="dirSearch" class="dir-search-input" placeholder="Search by name, department, title...">
+        </div>
+    </div>
+
+    <div class="dir-grid" id="dirGrid">
+        {% for emp in employees %}
+        {% set initials = emp.full_name[:2] if emp.full_name else 'EE' %}
+        <div class="dir-card" data-search="{{ emp.full_name|lower }} {{ emp.designation|lower }} {{ emp.department|lower }}">
+            <div class="dir-info-main">
+                <div class="dir-avatar">{{ initials }}</div>
+                <div class="dir-name-block">
+                    <p class="dir-name">{{ emp.full_name }}</p>
+                    <p class="dir-designation">{{ emp.designation or 'N/A' }}</p>
+                </div>
+            </div>
+            
+            <div class="dir-meta-list">
+                <div class="dir-meta-item">
+                    <span class="dir-meta-label">Department</span>
+                    <span class="dir-meta-val">{{ emp.department or 'N/A' }}</span>
+                </div>
+                <div class="dir-meta-item">
+                    <span class="dir-meta-label">Email</span>
+                    <span class="dir-meta-val" title="{{ emp.email }}">{{ emp.email }}</span>
+                </div>
+                <div class="dir-meta-item">
+                    <span class="dir-meta-label">Manager</span>
+                    <span class="dir-meta-val" style="color: #6366f1;">{{ emp.manager_name or 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">
+            No employees found in the directory.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+document.getElementById('dirSearch').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase().strip();
+    const cards = document.querySelectorAll('.dir-card');
+    
+    cards.forEach(card => {
+        const searchData = card.getAttribute('data-search');
+        if(!term || searchData.includes(term)) {
+            card.style.display = 'flex';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+});
+
+// Polyfill strip
+if (!String.prototype.strip) {
+    String.prototype.strip = function () {
+        return this.trim();
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 1100px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #94a3b8; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .back-link:hover { color: #fff; }
+    .hrms-title { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 22px; line-height: 1.5; }
+
+    .tabs { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+    .tab-btn {
+        background: #0f172a; border: 1px solid #334155; color: #94a3b8; padding: 9px 16px;
+        border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .tab-btn.active { background: #1e293b; border-color: #3b82f6; color: #fff; }
+
+    .hrms-card { background: #0f172a; border-radius: 12px; padding: 22px; margin-bottom: 20px; }
+    .card-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .card-sub { color: #64748b; font-size: 12.5px; margin-bottom: 14px; line-height: 1.5; }
+
+    .tpl-panel { display: none; }
+    .tpl-panel.active { display: block; }
+
+    textarea.tpl-editor {
+        width: 100%; min-height: 480px; background: #0b1120; border: 1px solid #334155; color: #d1e0f0;
+        padding: 14px; border-radius: 8px; outline: none; font-size: 12.5px; font-family: 'SF Mono', Consolas, monospace;
+        line-height: 1.6; resize: vertical; white-space: pre; overflow-x: auto;
+    }
+    textarea.tpl-editor:focus { border-color: #3b82f6; }
+
+    .placeholder-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 16px; }
+    .ph-chip {
+        background: #1e293b; border: 1px solid #334155; color: #7dd3fc; font-size: 11px;
+        font-family: 'SF Mono', Consolas, monospace; padding: 4px 8px; border-radius: 6px; cursor: pointer;
+    }
+    .ph-chip:hover { background: #263244; }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .btn-mini {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 9px 16px; border-radius: 7px; font-size: 0.85rem; cursor: pointer; text-decoration: none; font-weight: 600;
+    }
+    .btn-mini:hover { background: #334155; }
+    .btn-mini.primary { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-mini.primary:hover { background: #15803d; }
+    .btn-mini.danger { background: transparent; border-color: #7f1d1d; color: #f87171; }
+    .btn-mini.danger:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    .appearance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 800px) { .appearance-grid { grid-template-columns: 1fr; } }
+    .app-field { margin-bottom: 18px; }
+    .app-field label { display: block; font-size: 12.5px; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
+    .app-field .val { color: #38bdf8; font-weight: 700; }
+    input[type=range] { width: 100%; }
+    input[type=file] {
+        width: 100%; background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 8px 10px; border-radius: 8px; font-size: 0.82rem;
+    }
+    .img-preview {
+        background: #1e293b; border: 1px dashed #334155; border-radius: 8px; padding: 14px;
+        text-align: center; margin-bottom: 10px; min-height: 90px; display: flex; align-items: center; justify-content: center;
+    }
+    .img-preview img { max-width: 100%; max-height: 90px; }
+    .hint { font-size: 11.5px; color: #64748b; margin-top: 4px; line-height: 1.5; }
+</style>
+
+<div class="hrms-wrapper">
+    <a class="back-link" href="/hrms/offers/">← Back to Offer Letters</a>
+
+    <div class="hrms-title">Edit Document Templates</div>
+    <div class="hrms-subtitle">
+        Edit the raw HTML for each of the four documents (offer letters, contract agreement, internship agreement,
+        NDA) and the shared watermark/logo appearance — changes apply immediately to every document generated from
+        here on, no restart needed. Use "Preview PDF" to check your edits with sample data before they touch a real
+        offer.
+    </div>
+
+    <div class="tabs" id="tabs">
+        {% for key, label in template_labels.items() %}
+        <button type="button" class="tab-btn {% if loop.first %}active{% endif %}" data-tab="{{ key }}" onclick="switchTab('{{ key }}')">{{ label }}</button>
+        {% endfor %}
+        <button type="button" class="tab-btn" data-tab="appearance" onclick="switchTab('appearance')">Watermark &amp; Logo</button>
+    </div>
+
+    {% for key, label in template_labels.items() %}
+    <div class="hrms-card tpl-panel {% if loop.first %}active{% endif %}" id="panel-{{ key }}">
+        <div class="card-title">{{ label }}</div>
+        <div class="card-sub">
+            Raw HTML — use <code>&lt;h3&gt;</code> for section headings, <code>&lt;hr class="sec-divider"&gt;</code>
+            for the divider line between clauses, and the placeholders below (click to insert). Anything else is
+            printed exactly as written.
+        </div>
+        <div class="placeholder-row">
+            {% for ph in template_placeholders[key] %}
+            <span class="ph-chip" onclick="insertPlaceholder('{{ key }}', '{{ ph }}')">{{ '{{' }}{{ ph }}{{ '}}' }}</span>
+            {% endfor %}
+        </div>
+        <textarea class="tpl-editor" id="editor-{{ key }}">{{ templates[key] }}</textarea>
+        <div class="btn-row">
+            <button class="btn-mini primary" onclick="saveTemplate('{{ key }}')">Save Changes</button>
+            <button class="btn-mini" onclick="previewTemplate('{{ key }}')">Preview PDF</button>
+            <button class="btn-mini danger" onclick="resetTemplate('{{ key }}')">Reset to Default</button>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="hrms-card tpl-panel" id="panel-appearance">
+        <div class="card-title">Watermark &amp; Logo</div>
+        <div class="card-sub">Applies to every document's PDF (header logo + background watermark). Upload a PNG with a transparent background for best results.</div>
+
+        <div class="appearance-grid">
+            <div>
+                <div class="app-field">
+                    <label>Header Logo</label>
+                    <div class="img-preview" id="logoPreview">
+                        <img src="data:image/png;base64,{{ company.get('offer_logo_wordmark_b64') or default_logo_b64 }}">
+                    </div>
+                    <input type="file" accept="image/png,image/jpeg" id="logoFile">
+                    <div class="hint">Shown beside the company name/address in the letterhead.</div>
+                </div>
+                <div class="app-field">
+                    <label>Logo Width — <span class="val" id="logoWidthVal">{{ (company.get('offer_logo_width_px') or 95)|int }}px</span></label>
+                    <input type="range" id="logoWidthRange" min="50" max="180" step="5" value="{{ (company.get('offer_logo_width_px') or 95)|int }}" oninput="document.getElementById('logoWidthVal').textContent = this.value + 'px'">
+                </div>
+            </div>
+            <div>
+                <div class="app-field">
+                    <label>Watermark Image</label>
+                    <div class="img-preview" id="watermarkPreview">
+                        <img src="data:image/png;base64,{{ company.get('offer_watermark_b64') or default_watermark_b64 }}">
+                    </div>
+                    <input type="file" accept="image/png,image/jpeg" id="watermarkFile">
+                    <div class="hint">Printed faintly behind the body text on every page. Use a low-opacity or single-color PNG.</div>
+                </div>
+                <div class="app-field">
+                    <label>Watermark Width — <span class="val" id="wmWidthVal">{{ (company.get('offer_watermark_width_cm') or 13.5) }}cm</span></label>
+                    <input type="range" id="wmWidthRange" min="5" max="20" step="0.5" value="{{ company.get('offer_watermark_width_cm') or 13.5 }}" oninput="document.getElementById('wmWidthVal').textContent = this.value + 'cm'">
+                </div>
+                <div class="app-field">
+                    <label>Watermark Opacity — <span class="val" id="wmOpacityVal">{{ ((company.get('offer_watermark_opacity') if company.get('offer_watermark_opacity') is not none else 1.0) * 100)|round|int }}%</span></label>
+                    <input type="range" id="wmOpacityRange" min="0.05" max="1" step="0.05" value="{{ company.get('offer_watermark_opacity') if company.get('offer_watermark_opacity') is not none else 1.0 }}" oninput="document.getElementById('wmOpacityVal').textContent = Math.round(this.value*100) + '%'">
+                </div>
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn-mini primary" onclick="saveAppearance()">Save Appearance</button>
+            <button class="btn-mini danger" onclick="resetAppearanceImages()">Reset Images to Default</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchTab(key) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === key));
+    document.querySelectorAll('.tpl-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + key));
+}
+
+function insertPlaceholder(key, ph) {
+    const el = document.getElementById('editor-' + key);
+    const start = el.selectionStart, end = el.selectionEnd;
+    const token = '{{' + ph + '}}';
+    el.value = el.value.slice(0, start) + token + el.value.slice(end);
+    el.focus();
+    el.selectionStart = el.selectionEnd = start + token.length;
+}
+
+async function saveTemplate(key) {
+    const content = document.getElementById('editor-' + key).value;
+    const fd = new FormData();
+    fd.append('content', content);
+    const res = await fetch(`/hrms/offers/templates/${key}/save`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); }
+    else { showToast(data.message || 'Template saved!', 'success'); }
+}
+
+function previewTemplate(key) {
+    const content = document.getElementById('editor-' + key).value;
+    const url = `/hrms/offers/templates/${key}/preview?content=` + encodeURIComponent(content);
+    window.open(url, '_blank');
+}
+
+function resetTemplate(key) {
+    window.customConfirm('Reset to Default', 'Discard your edits and restore the original wording for this document? This can\'t be undone.', async () => {
+        const res = await fetch(`/hrms/offers/templates/${key}/reset`, { method: 'POST' });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); }
+        else {
+            document.getElementById('editor-' + key).value = data.content;
+            showToast('Reset to default.', 'success');
+        }
+    }, { confirmLabel: 'Yes, Reset' });
+}
+
+async function saveAppearance() {
+    const fd = new FormData();
+    fd.append('watermark_opacity', document.getElementById('wmOpacityRange').value);
+    fd.append('watermark_width_cm', document.getElementById('wmWidthRange').value);
+    fd.append('logo_width_px', document.getElementById('logoWidthRange').value);
+    const logoFile = document.getElementById('logoFile').files[0];
+    const wmFile = document.getElementById('watermarkFile').files[0];
+    if (logoFile) fd.append('logo_file', logoFile);
+    if (wmFile) fd.append('watermark_file', wmFile);
+
+    const res = await fetch('/hrms/offers/templates/appearance/save', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); }
+    else { showToast(data.message || 'Appearance saved!', 'success'); setTimeout(() => location.reload(), 900); }
+}
+
+function resetAppearanceImages() {
+    window.customConfirm('Reset Images', 'Remove your custom logo/watermark and go back to the default images?', async () => {
+        const res = await fetch('/hrms/offers/templates/appearance/reset-images', { method: 'POST' });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, 'error'); }
+        else { showToast('Reset to default images.', 'success'); setTimeout(() => location.reload(), 900); }
+    }, { confirmLabel: 'Yes, Reset' });
+}
+</script>
+
+{% endblock %}

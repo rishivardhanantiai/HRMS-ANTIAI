@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 1300px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .hrms-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .hrms-title { font-size: 24px; font-weight: 600; color: #ffffff; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 25px; }
+
+    .btn-add {
+        background: #3b82f6; border: none; color: white; padding: 10px 20px;
+        border-radius: 8px; font-weight: 500; text-decoration: none; transition: .3s;
+    }
+    .btn-add:hover { background: #2563eb; }
+
+    .hrms-card { background: #0f172a; border-radius: 12px; padding: 20px; }
+    .table-wrap { overflow-x: auto; }
+    .hrms-table { width: 100%; border-collapse: collapse; }
+    .hrms-table thead th {
+        color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        padding-bottom: 15px; text-align: left; border-bottom: 1px solid #1e293b; letter-spacing: 0.5px;
+    }
+    .hrms-table tbody tr { border-bottom: 1px solid #1e293b; }
+    .hrms-table tbody tr:last-child { border-bottom: none; }
+    .hrms-table td { padding: 14px 10px; color: #e2e8f0; font-size: 0.88rem; vertical-align: middle; }
+
+    .name-cell .name { font-weight: 600; color: #fff; }
+    .name-cell .sub { font-size: 0.75rem; color: #64748b; }
+
+    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; }
+    .st-draft { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+    .st-pending { background: rgba(234,179,8,0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+    .st-changes { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+    .st-approved { background: rgba(59,130,246,0.15); color: #38bdf8; border: 1px solid rgba(59,130,246,0.3); }
+    .st-sent { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+    .st-signed { background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.3); }
+    .st-countersigned { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+
+    .row-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .btn-mini {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 6px 12px; border-radius: 7px; font-size: 0.78rem; cursor: pointer; text-decoration: none;
+    }
+    .btn-mini:hover { background: #334155; }
+    .btn-mini.primary { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-mini.primary:hover { background: #15803d; }
+    .btn-mini.danger { background: transparent; border-color: #7f1d1d; color: #f87171; }
+    .btn-mini.danger:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    .empty-state { text-align: center; color: #64748b; padding: 40px 20px; }
+</style>
+
+<div class="hrms-wrapper">
+    <div class="hrms-header">
+        <div>
+            <div class="hrms-title">Offer Letters</div>
+            <div class="hrms-subtitle">Draft, approve, and e-sign offers — the NDA and onboarding invite follow automatically.</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <form action="/hrms/offers/import-bulk-csv" method="POST" enctype="multipart/form-data" id="bulkCsvForm" style="display:inline-block; margin:0;">
+                <input type="file" name="csv_file" accept=".csv" required style="display:none;" id="bulkCsvInput" onchange="document.getElementById('bulkCsvForm').submit();">
+                <button type="button" class="btn-mini" onclick="document.getElementById('bulkCsvInput').click();" style="padding:10px 16px;">📂 Bulk CSV Import</button>
+            </form>
+            <a href="/hrms/offers/bulk-csv-template" class="btn-mini" style="padding:10px 16px;">📥 CSV Template</a>
+            <a href="/hrms/offers/templates/ui" class="btn-mini" style="padding:10px 16px;">Edit Templates</a>
+            <a href="/hrms/offers/new/ui" class="btn-add">+ New Offer</a>
+        </div>
+    </div>
+
+    <div class="hrms-card">
+        <div class="table-wrap">
+            <table class="hrms-table">
+                <thead>
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Designation</th>
+                        <th>CTC</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in offers %}
+                    <tr>
+                        <td class="name-cell">
+                            <div class="name">{{ o.candidate_name }}</div>
+                            <div class="sub">{{ o.candidate_email }}</div>
+                        </td>
+                        <td>{{ o.designation or '-' }}{% if o.department %} &middot; {{ o.department }}{% endif %}</td>
+                        <td>{{ '₹{:,.0f}'.format(o.ctc_annual) if o.ctc_annual else '-' }}</td>
+                        <td>
+                            {% if o.status == 'Draft' %}<span class="status-badge st-draft">Draft</span>
+                            {% elif o.status == 'Pending Approval' %}<span class="status-badge st-pending">Pending Approval</span>
+                            {% elif o.status == 'Changes Requested' %}<span class="status-badge st-changes">Changes Requested</span>
+                            {% elif o.status == 'Approved' %}<span class="status-badge st-approved">Approved</span>
+                            {% elif o.status == 'Sent' %}<span class="status-badge st-sent">Sent for Signature</span>
+                            {% elif o.status == 'Signed' %}<span class="status-badge st-signed">Awaiting HR Countersign</span>
+                            {% elif o.status == 'Countersigned' %}<span class="status-badge st-countersigned">Fully Executed</span>
+                            {% endif %}
+                            <div style="font-size:11px;color:#64748b;margin-top:3px;">{{ o.offer_type or 'Full Time' }}</div>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <a class="btn-mini" href="/hrms/offers/{{ o.id }}/review/ui">View</a>
+                                {% if o.status in ('Draft', 'Changes Requested') %}
+                                    <a class="btn-mini" href="/hrms/offers/{{ o.id }}/edit/ui">Edit</a>
+                                    <button class="btn-mini primary" onclick="submitForApproval('{{ o.id }}')">Submit for Approval</button>
+                                    <button class="btn-mini danger" onclick="deleteOffer('{{ o.id }}', '{{ o.candidate_name }}')">Delete</button>
+                                {% elif o.status == 'Pending Approval' and is_admin %}
+                                    <span class="btn-mini" style="cursor:default;">Awaiting your review — see "View"</span>
+                                {% elif o.status == 'Approved' %}
+                                    <button class="btn-mini primary" onclick="sendOffer('{{ o.id }}')">Send for E-Sign</button>
+                                {% elif o.status == 'Signed' %}
+                                    <span class="btn-mini" style="cursor:default;">Open "View" to countersign</span>
+                                {% elif o.status == 'Countersigned' and ndas_by_offer.get(o.id|string) %}
+                                    {% set nda = ndas_by_offer.get(o.id|string) %}
+                                    {% if nda.status == 'Signed' %}
+                                        <a class="btn-mini primary" href="/hrms/offers/nda/{{ nda.id }}/review/ui">Countersign NDA</a>
+                                    {% elif nda.status == 'Sent' %}
+                                        <a class="btn-mini" href="/hrms/offers/nda/{{ nda.id }}/review/ui">NDA Sent — View</a>
+                                    {% elif nda.status == 'Countersigned' %}
+                                        <a class="btn-mini" href="/hrms/offers/nda/{{ nda.id }}/review/ui">NDA Executed</a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="empty-state">No offers yet. Click "New Offer" to draft one.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function submitForApproval(id) {
+    window.customConfirm("Submit for Approval", "Send this offer to Admin for review?", async () => {
+        const res = await fetch(`/hrms/offers/${id}/submit`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, "error"); }
+        else { showToast("Submitted for approval!", "success"); setTimeout(() => location.reload(), 900); }
+    }, { confirmLabel: "Yes, Submit", safe: true });
+}
+
+async function sendOffer(id) {
+    window.customConfirm("Send for E-Sign", "Email this offer letter to the candidate for signature?", async () => {
+        const res = await fetch(`/hrms/offers/${id}/send`, { method: "POST" });
+        const data = await res.json();
+        if (data.error) { showToast(data.error, "error"); }
+        else { showToast("Offer sent to candidate!", "success"); setTimeout(() => location.reload(), 900); }
+    }, { confirmLabel: "Yes, Send", safe: true });
+}
+
+function deleteOffer(id, name) {
+    window.customConfirm(
+        "Delete Offer",
+        `Delete the offer for ${name}? This can't be undone.`,
+        async () => {
+            const res = await fetch(`/hrms/offers/${id}/delete`, { method: "POST" });
+            const data = await res.json();
+            if (data.error) { showToast(data.error, "error"); }
+            else { showToast("Offer deleted.", "success"); setTimeout(() => location.reload(), 900); }
+        }
+    );
+}
+</script>
+
+{% endblock %}

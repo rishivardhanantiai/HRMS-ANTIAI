@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 900px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #94a3b8; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .back-link:hover { color: #fff; }
+    .hrms-title { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 22px; }
+
+    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; margin-left: 10px; vertical-align: middle; }
+    .st-pending { background: rgba(234,179,8,0.15); color: #eab308; }
+
+    .action-card { background: #0f172a; border-radius: 12px; padding: 22px; margin-bottom: 20px; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-mini {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 9px 16px; border-radius: 7px; font-size: 0.85rem; cursor: pointer; text-decoration: none; font-weight: 600;
+    }
+    .btn-mini:hover { background: #334155; }
+    .btn-mini.primary { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-mini.primary:hover { background: #15803d; }
+    .btn-mini.danger { background: transparent; border-color: #7f1d1d; color: #f87171; }
+    .btn-mini.danger:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
+
+    textarea {
+        width: 100%; background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 10px 12px; border-radius: 8px; outline: none; font-size: 0.9rem; font-family: inherit;
+        min-height: 80px; margin-bottom: 12px; resize: vertical; display: none;
+    }
+    
+    .diff-container { display: flex; gap: 20px; margin-bottom: 20px; }
+    .diff-col { flex: 1; max-width: 50%; display: flex; flex-direction: column; }
+    .diff-title { font-size: 14px; font-weight: 600; text-transform: uppercase; margin: 0 0 10px; color: #f8fafc; }
+    .diff-box {
+        background: #1e293b; border-radius: 8px; padding: 15px; border: 1px solid #334155;
+        font-family: monospace; font-size: 13px; line-height: 1.6;
+        white-space: pre-wrap; word-break: break-all; color: #e2e8f0; flex: 1;
+    }
+
+    .letter-paper {
+        background: #fff; color: #111111; border-radius: 10px; padding: 44px 48px; margin-bottom: 20px;
+        font-family: 'Times New Roman', Georgia, serif; font-size: 14.5px; line-height: 1.65;
+        max-height: 760px; overflow-y: auto; position: relative; text-align: justify;
+    }
+    .letter-paper .watermark {
+        position: absolute; top: 260px; left: 50%; transform: translateX(-50%);
+        width: 480px; opacity: 0.07; pointer-events: none; z-index: 0;
+    }
+    .letter-header { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; position: relative; z-index: 1; }
+    .letter-header img { width: 90px; height: auto; }
+    .letter-header .co-name { font-size: 22px; font-weight: 700; color: #111111; font-family: 'Times New Roman', Georgia, serif; }
+    .letter-header .co-addr { font-size: 11.5px; font-weight: 700; color: #111111; margin-top: 3px; }
+    .letter-header-rule { border: none; border-top: 2.5px solid #111; margin: 8px 0 20px; position: relative; z-index: 1; }
+    .doc-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 0 0 20px; position: relative; z-index: 1; }
+    .letter-body { position: relative; z-index: 1; }
+    .letter-body h3 { font-size: 15.5px; font-weight: 700; margin: 22px 0 8px; }
+    .letter-body p { margin: 0 0 10px; }
+    .letter-body .sec-divider { border: none; border-top: 1.4px solid #111; margin: 12px 0 4px; }
+    .letter-paper h2, .letter-paper h3 { color: #111111; }
+    .letter-paper table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; }
+    .letter-paper table th, .letter-paper table td { border: 1px solid #333; padding: 8px 10px; font-size: 12.5px; }
+    .letter-paper table th { background: #f0f0f0; text-align: left; font-weight: 700; }
+</style>
+
+<div class="hrms-wrapper">
+    <a class="back-link" href="/hrms/approvals/">← Back to Approvals Queue</a>
+
+    <div class="hrms-title">
+        Review {{ req.action_type | replace('_', ' ') | title }}
+        <span class="status-badge st-pending">{{ req.status }}</span>
+    </div>
+    <div class="hrms-subtitle">
+        Requested by {{ req.requested_by }} on {{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '' }}
+        {% if req.target_table %}
+        &middot; Target: {{ req.target_table }} {% if req.target_id %}({{ req.target_id }}){% endif %}
+        {% endif %}
+    </div>
+
+    {% if req.action_type == 'template_edit' %}
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px;">
+        <h3 style="color:#e2e8f0; margin:0;" id="templateViewTitle">Proposed Template Content</h3>
+        <div style="background:#1e293b; border-radius:8px; padding:4px; display:inline-flex; border:1px solid #334155;">
+            <button id="btnViewProposed" onclick="toggleTemplateView('proposed')" style="background:#3b82f6; color:#fff; border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">Proposed</button>
+            <button id="btnViewExisting" onclick="toggleTemplateView('existing')" style="background:transparent; color:#94a3b8; border:none; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">Existing</button>
+        </div>
+    </div>
+    <div class="letter-paper">
+        <img class="watermark" src="/static/images/logo_globe_watermark.png" alt="">
+        <div class="letter-header">
+            <img src="/static/images/logo_wordmark.png" alt="">
+            <div>
+                <div class="co-name">ANTI.AI PRIVATE LIMITED</div>
+                <div class="co-addr">73, Rose Villa, Rajendra Nagar, Bharatpur</div>
+            </div>
+        </div>
+        <hr class="letter-header-rule">
+        <div class="doc-title">
+            TEMPLATE PREVIEW
+        </div>
+        <div class="letter-body" id="templateBodyContainer">
+            {{ req.payload_after.content | safe if req.payload_after and req.payload_after.content else 'No content' }}
+        </div>
+    </div>
+    <div id="hiddenProposedContent" style="display:none;">
+        {% if req.payload_after and req.payload_after.content %}
+            {{ req.payload_after.content | safe }}
+        {% else %}
+            <span style="color:#94a3b8;font-style:italic;">No content</span>
+        {% endif %}
+    </div>
+    <div id="hiddenExistingContent" style="display:none;">
+        {% if req.payload_before and req.payload_before.content %}
+            {{ req.payload_before.content | safe }}
+        {% else %}
+            <span style="color:#94a3b8;font-style:italic;">No previous content.</span>
+        {% endif %}
+    </div>
+    {% elif req.action_type == 'bulk_send' %}
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 22px; margin-bottom: 20px;">
+        <div style="margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
+            <strong style="color: #94a3b8; display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Subject</strong>
+            <div style="color: #f8fafc; font-size: 17px; font-weight: 600;">{{ req.payload_after.subject }}</div>
+        </div>
+        <div style="margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
+            <strong style="color: #94a3b8; display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Recipients ({{ req.payload_after.recipients|length }})</strong>
+            <div style="max-height: 120px; overflow-y: auto; font-size: 13.5px; color: #cbd5e1; line-height: 1.6; background: rgba(2,6,23,0.3); padding: 10px; border-radius: 8px;">
+                {% for rcpt in req.payload_after.recipients %}
+                    <span style="display:inline-block; margin-right: 12px;">
+                        <span style="color: #f8fafc; font-weight: 500;">{{ rcpt.name }}</span> <span style="color: #94a3b8;">&lt;{{ rcpt.email }}&gt;</span>{% if not loop.last %},{% endif %}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <strong style="color: #94a3b8; display: block; font-size: 11.5px; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Email Body Preview</strong>
+            <div style="background: #f1f5f9; padding: 32px 12px; border-radius: 8px; font-family: 'Segoe UI', Helvetica, Arial, sans-serif;">
+                <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(15,23,42,0.08);">
+                    <div style="background: linear-gradient(135deg, #020617, #0b1220); padding: 28px 32px; text-align: center;">
+                        <img src="/static/images/logo.png" alt="Anti AI" width="52" style="display: block; margin: 0 auto 10px; border-radius: 8px;">
+                        <div style="color: #ffffff; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">Anti AI &middot; Human Resources</div>
+                    </div>
+                    <div style="padding: 34px 32px 8px;">
+                        <h1 style="margin: 0 0 6px; color: #0f172a; font-size: 21px; font-weight: 700;">{{ req.payload_after.subject }}</h1>
+                    </div>
+                    <div style="padding: 0 32px 30px; color: #334155; font-size: 14.5px; line-height: 1.65;">
+                        {{ req.payload_after.body_html | safe }}
+                    </div>
+                    <div style="padding: 20px 32px 28px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 12px; line-height: 1.6;">
+                        This is an automated message from the HR team. Please do not reply directly to this email.<br>
+                        &copy; Anti AI. All rights reserved.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="diff-container">
+        <div class="diff-col">
+            <div class="diff-title" style="color: #f87171;">Before (Target State)</div>
+            <div class="diff-box" id="diffBefore"></div>
+        </div>
+        <div class="diff-col">
+            <div class="diff-title" style="color: #34d399;">After (Proposed State)</div>
+            <div class="diff-box" id="diffAfter"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="action-card">
+        <div class="btn-row">
+            <button class="btn-mini primary" onclick="resolveRequest('Approved')">
+                {% if req.action_type == 'bulk_send' %}
+                    Approve Send
+                {% else %}
+                    Approve Change
+                {% endif %}
+            </button>
+            <button class="btn-mini danger" onclick="toggleComments()">Reject</button>
+        </div>
+        <textarea id="commentsBox" placeholder="Why is this being rejected? (Required)"></textarea>
+        <div class="btn-row" id="commentsSubmitRow" style="display:none;">
+            <button class="btn-mini danger" onclick="resolveRequest('Rejected')">Submit Rejection</button>
+        </div>
+    </div>
+</div>
+
+<textarea id="rawBefore" style="display:none;">{{ req.payload_before | tojson if req.payload_before else '{}' }}</textarea>
+<textarea id="rawAfter" style="display:none;">{{ req.payload_after | tojson if req.payload_after else '{}' }}</textarea>
+
+<script>
+function toggleComments() {
+    const box = document.getElementById("commentsBox");
+    const row = document.getElementById("commentsSubmitRow");
+    const show = box.style.display !== "block";
+    box.style.display = show ? "block" : "none";
+    row.style.display = show ? "flex" : "none";
+}
+
+function toggleTemplateView(viewType) {
+    const btnProposed = document.getElementById('btnViewProposed');
+    const btnExisting = document.getElementById('btnViewExisting');
+    const container = document.getElementById('templateBodyContainer');
+    const title = document.getElementById('templateViewTitle');
+    
+    if(viewType === 'proposed') {
+        btnProposed.style.background = '#3b82f6';
+        btnProposed.style.color = '#fff';
+        btnExisting.style.background = 'transparent';
+        btnExisting.style.color = '#94a3b8';
+        container.innerHTML = document.getElementById('hiddenProposedContent').innerHTML;
+        title.innerText = "Proposed Template Content";
+    } else {
+        btnExisting.style.background = '#3b82f6';
+        btnExisting.style.color = '#fff';
+        btnProposed.style.background = 'transparent';
+        btnProposed.style.color = '#94a3b8';
+        container.innerHTML = document.getElementById('hiddenExistingContent').innerHTML;
+        title.innerText = "Existing Template Content";
+    }
+}
+
+function formatJson(jsonStr) {
+    if(!jsonStr || jsonStr === "{}" || jsonStr === "null") return '<span style="color:#64748b;font-style:italic;">No data (Empty)</span>';
+    try {
+        const obj = JSON.parse(jsonStr);
+        if(Object.keys(obj).length === 0) return '<span style="color:#64748b;font-style:italic;">No data (Empty)</span>';
+        let pretty = JSON.stringify(obj, null, 4);
+        pretty = pretty.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return pretty.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+            let cls = 'color: #38bdf8;'; 
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) { cls = 'color: #e2e8f0; font-weight: 500;'; }
+            } else if (/true|false/.test(match)) { cls = 'color: #f472b6;'; 
+            } else if (/null/.test(match)) { cls = 'color: #94a3b8; font-style: italic;'; 
+            } else { cls = 'color: #a78bfa;'; } 
+            return '<span style="' + cls + '">' + match + '</span>';
+        });
+    } catch(e) {
+        return jsonStr;
+    }
+}
+
+document.getElementById('diffBefore').innerHTML = formatJson(document.getElementById('rawBefore').value);
+document.getElementById('diffAfter').innerHTML = formatJson(document.getElementById('rawAfter').value);
+
+async function resolveRequest(status) {
+    const comment = document.getElementById('commentsBox').value.trim();
+    if(status === 'Rejected' && !comment) {
+        showToast("Please provide a reason for rejection.", "error");
+        return;
+    }
+    
+    window.customConfirm("Resolve Request", "Are you sure you want to " + status.toLowerCase() + " this request?", async () => {
+        const res = await fetch(`/hrms/approvals/{{ req.id }}/resolve`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: status, comment: comment})
+        });
+        const data = await res.json();
+        if(data.error) { showToast(data.error, "error"); }
+        else {
+            showToast("Request " + status.toLowerCase() + " successfully!", "success");
+            setTimeout(() => window.location.href = '/hrms/approvals/', 900);
+        }
+    }, { confirmLabel: "Yes, " + status, safe: status === 'Approved' });
+}
+</script>
+
+{% endblock %}

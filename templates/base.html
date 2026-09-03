@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ title or "HR Panel" }}</title>
 
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#3b82f6">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 
@@ -58,6 +62,21 @@ input:focus, textarea:focus, select:focus {
 .sidebar-nav a.active {
     background: linear-gradient(135deg, #3b82f6, #6366f1);
     color: #fff;
+}
+
+.sidebar-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #5b6e85;
+    text-transform: uppercase;
+    margin: 22px 0 8px 12px;
+}
+
+.sidebar-divider {
+    border: 0;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    margin: 18px 0;
 }
 
 .main-content {
@@ -180,6 +199,12 @@ input:focus, textarea:focus, select:focus {
 .btn-confirm:hover {
     background: #dc2626;
 }
+.btn-confirm.safe {
+    background: #16a34a;
+}
+.btn-confirm.safe:hover {
+    background: #15803d;
+}
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -220,10 +245,6 @@ input:focus, textarea:focus, select:focus {
 
 <div class="app-container">
 
-<button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
-Menu
-</button>
-
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <aside class="sidebar">
@@ -247,6 +268,18 @@ class="{% if request.path.startswith('/hrms/attendance') %}active{% endif %}">
 Attendance
 </a>
 
+<!-- DIRECTORY -->
+<a href="/hrms/employees/directory"
+class="{% if request.path == '/hrms/employees/directory' %}active{% endif %}">
+Directory
+</a>
+
+<!-- HOLIDAYS -->
+<a href="/hrms/leave/holidays"
+class="{% if request.path == '/hrms/leave/holidays' %}active{% endif %}">
+Holidays
+</a>
+
 <!-- USER INFO -->
 <div class="user-profile" style="margin:15px 0;">
 <h4>{{ session.get("employee_name") }}</h4>
@@ -258,7 +291,7 @@ Attendance
 {% if session.get("role") == "Employee" %}
 
 <a href="/hrms/leave"
-class="{% if request.path.startswith('/hrms/leave') %}active{% endif %}">
+class="{% if request.path.startswith('/hrms/leave') and not request.path.startswith('/hrms/leave/holidays') %}active{% endif %}">
 Leave
 </a>
 
@@ -272,6 +305,21 @@ class="{% if request.path.startswith('/hrms/employees/my-documents') %}active{% 
 Documents
 </a>
 
+<a href="/hrms/announcements/feed"
+class="{% if request.path.startswith('/hrms/announcements/feed') %}active{% endif %}">
+Announcements
+</a>
+
+<a href="/hrms/helpdesk"
+class="{% if request.path == '/hrms/helpdesk' %}active{% endif %}">
+Help Desk
+</a>
+
+<a href="/hrms/policies"
+class="{% if request.path == '/hrms/policies' %}active{% endif %}">
+Policies &amp; Compliance
+</a>
+
 <a href="/hrms/performance/my_evaluations"
 class="{% if request.path.startswith('/hrms/performance/my_evaluations') %}active{% endif %}">
 My Performance
@@ -283,10 +331,84 @@ My Performance
 
 {% if session.get("role") in ["HR","Admin"] %}
 
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Recruitment &amp; ATS</div>
+
+<a href="/jobs"
+class="{% if request.path.startswith('/jobs') %}active{% endif %}">
+Manage Jobs
+</a>
+
+<a href="/applications"
+class="{% if request.path.startswith('/applications') %}active{% endif %}">
+Applications (Inbox)
+</a>
+
+<a href="/hrms/candidates"
+class="{% if request.path.startswith('/hrms/candidates') %}active{% endif %}">
+Pipeline (ATS)
+</a>
+
+<a href="/hrms/interviews/"
+class="{% if request.path.startswith('/hrms/interviews') %}active{% endif %}">
+Interviews
+</a>
+
+<a href="/hrms/offers/"
+class="{% if request.path.startswith('/hrms/offers') %}active{% endif %}">
+Offer Letters
+</a>
+
+<a href="/hrms/onboarding/"
+class="{% if request.path.startswith('/hrms/onboarding') %}active{% endif %}">
+Onboarding
+</a>
+
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Employees &amp; Core HR</div>
+
+<a href="/hrms/employees/ui"
+class="{% if request.path == '/hrms/employees/ui' %}active{% endif %}">
+Employees
+</a>
+
 <a href="/hrms/leave/manage"
 class="{% if request.path.startswith('/hrms/leave/manage') %}active{% endif %}">
 Manage Leave
 </a>
+
+<a href="/hrms/employees/documents-hub"
+class="{% if request.path.startswith('/hrms/employees/documents') %}active{% endif %}">
+Documents
+</a>
+
+<a href="/hrms/announcements/"
+class="{% if request.path.startswith('/hrms/announcements') %}active{% endif %}">
+Announcements
+</a>
+
+<a href="/hrms/policies/manage"
+class="{% if request.path == '/hrms/policies/manage' %}active{% endif %}">
+Policy Manager
+</a>
+
+<a href="/hrms/helpdesk/manage"
+class="{% if request.path == '/hrms/helpdesk/manage' %}active{% endif %}">
+Help Desk Requests
+</a>
+
+<a href="/hrms/exit/history"
+class="{% if request.path.startswith('/hrms/exit') %}active{% endif %}">
+Employee Exit History
+</a>
+
+<a href="/hrms/performance/ui"
+class="{% if request.path.startswith('/hrms/performance/ui') %}active{% endif %}">
+Performance
+</a>
+
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Payroll &amp; Finance</div>
 
 <a href="/hrms/payroll/"
 class="{% if request.path.startswith('/hrms/payroll') %}active{% endif %}">
@@ -303,35 +425,8 @@ class="{% if request.path.startswith('/salary-records') %}active{% endif %}">
 Salary Records
 </a>
 
-<a href="/jobs"
-class="{% if request.path.startswith('/jobs') %}active{% endif %}">
-Manage Jobs
-</a>
-
-<a href="/applications"
-class="{% if request.path.startswith('/applications') %}active{% endif %}">
-Applications
-</a>
-
-<a href="/hrms/employees/ui"
-class="{% if request.path == '/hrms/employees/ui' %}active{% endif %}">
-Employees
-</a>
-
-<a href="/hrms/employees/documents-hub"
-class="{% if request.path.startswith('/hrms/employees/documents') %}active{% endif %}">
-Documents
-</a>
-
-<a href="/hrms/performance/ui"
-class="{% if request.path.startswith('/hrms/performance/ui') %}active{% endif %}">
-Performance
-</a>
-
-<a href="/hrms/exit/history"
-class="{% if request.path.startswith('/hrms/exit') %}active{% endif %}">
-Employee Exit History
-</a>
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Administration &amp; System</div>
 
 <a href="/hrms/letters/generator"
 class="{% if request.path.startswith('/hrms/letters') %}active{% endif %}">
@@ -342,6 +437,41 @@ Letter Generation
 class="{% if request.path.startswith('/hrms/roles') %}active{% endif %}">
 Roles
 </a>
+
+<a href="/hrms/admin/calendar/setup"
+class="{% if request.path == '/hrms/admin/calendar/setup' %}active{% endif %}">
+📅 Google Calendar
+</a>
+
+<a href="/hrms/admin/settings"
+class="{% if request.path == '/hrms/admin/settings' %}active{% endif %}">
+🏢 Company Settings
+</a>
+
+{% if session.get("role") == "Admin" %}
+<div class="sidebar-divider"></div>
+<div class="sidebar-section-title">Admin Control Center</div>
+
+<a href="/hrms/admin/dashboards"
+class="{% if request.path == '/hrms/admin/dashboards' %}active{% endif %}">
+📊 Dashboards
+</a>
+
+<a href="/hrms/approvals/"
+class="{% if request.path.startswith('/hrms/approvals') %}active{% endif %}">
+🛡 Approvals Queue
+</a>
+
+<a href="/hrms/admin/users"
+class="{% if request.path == '/hrms/admin/users' %}active{% endif %}">
+👥 User Logins
+</a>
+
+<a href="/hrms/admin/audit-logs"
+class="{% if request.path == '/hrms/admin/audit-logs' %}active{% endif %}">
+📋 Audit Logs
+</a>
+{% endif %}
 
 {% endif %}
 
@@ -361,6 +491,33 @@ Logout
 </aside>
 
 <main class="main-content">
+{% if session.get("role") in ["HR", "Admin", "Employee"] %}
+    <div class="top-nav">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="Toggle navigation" aria-expanded="false">
+            <span class="burger-bar"></span>
+            <span class="burger-bar"></span>
+            <span class="burger-bar"></span>
+        </button>
+        
+        <div class="brand-title">Anti AI</div>
+
+        <div class="notification-wrapper" style="position:relative;">
+            <button id="notifBtn" style="background:none; border:none; color:#cbd5e1; font-size:20px; cursor:pointer; position:relative;">
+                🔔
+                <span id="notifBadge" style="display:none; position:absolute; top:-5px; right:-5px; background:#ef4444; color:white; font-size:10px; padding:2px 5px; border-radius:10px; font-weight:bold;">0</span>
+            </button>
+            <div id="notifDropdown" style="display:none; position:absolute; right:0; top:35px; width:300px; background:#1e293b; border:1px solid #334155; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:1000; max-height:400px; overflow-y:auto;">
+                <div style="padding:10px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="color:white;">Notifications</strong>
+                    <button id="markAllReadBtn" style="background:none; border:none; color:#3b82f6; cursor:pointer; font-size:12px;">Mark all read</button>
+                </div>
+                <div id="notifList" style="padding:0;">
+                    <div style="padding:15px; text-align:center; color:#94a3b8; font-size:14px;">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
 {% block content %}{% endblock %}
 </main>
 
@@ -384,37 +541,7 @@ setTimeout(()=>t.remove(),500);
 
 },3000);
 
-const appContainer = document.querySelector(".app-container");
-const navToggle = document.getElementById("navToggle");
-const sidebarOverlay = document.getElementById("sidebarOverlay");
 
-function closeSidebar() {
-    if (!appContainer) return;
-    appContainer.classList.remove("sidebar-open");
-    if (navToggle) {
-        navToggle.setAttribute("aria-expanded", "false");
-    }
-}
-
-function toggleSidebar() {
-    if (!appContainer || !navToggle) return;
-    const isOpen = appContainer.classList.toggle("sidebar-open");
-    navToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-}
-
-if (navToggle) {
-    navToggle.addEventListener("click", toggleSidebar);
-}
-
-if (sidebarOverlay) {
-    sidebarOverlay.addEventListener("click", closeSidebar);
-}
-
-document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-        closeSidebar();
-    }
-});
 
 window.showToast = function(message, category = "success") {
     let container = document.querySelector(".toast-container");
@@ -435,7 +562,8 @@ window.showToast = function(message, category = "success") {
     }, 4000);
 };
 
-window.customConfirm = function(title, message, onConfirm) {
+window.customConfirm = function(title, message, onConfirm, opts) {
+    opts = opts || {};
     const overlay = document.getElementById("customConfirmModal");
     const titleEl = document.getElementById("confirmModalTitle");
     const msgEl = document.getElementById("confirmModalMessage");
@@ -444,6 +572,8 @@ window.customConfirm = function(title, message, onConfirm) {
 
     titleEl.textContent = title;
     msgEl.textContent = message;
+    okBtn.textContent = opts.confirmLabel || "Yes, Delete";
+    okBtn.classList.toggle("safe", !!opts.safe);
 
     overlay.classList.add("active");
 
@@ -464,6 +594,104 @@ window.customConfirm = function(title, message, onConfirm) {
 };
 </script>
 <script src="/static/js/main.js"></script>
+<script>
+// Notifications Logic
+document.addEventListener('DOMContentLoaded', () => {
+    const notifBtn = document.getElementById('notifBtn');
+    if (!notifBtn) return;
+    
+    const notifDropdown = document.getElementById('notifDropdown');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifList = document.getElementById('notifList');
+    const markAllReadBtn = document.getElementById('markAllReadBtn');
+    
+    notifBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        notifDropdown.style.display = notifDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+            notifDropdown.style.display = 'none';
+        }
+    });
+    
+    function fetchNotifications() {
+        fetch('/hrms/notifications/api/feed')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.notifications) return;
+                
+                notifList.innerHTML = '';
+                let unreadCount = 0;
+                
+                if (data.notifications.length === 0) {
+                    notifList.innerHTML = '<div style="padding:15px; text-align:center; color:#94a3b8; font-size:14px;">No notifications</div>';
+                }
+                
+                data.notifications.forEach(n => {
+                    const isUnread = !n.read_at;
+                    if (isUnread) unreadCount++;
+                    
+                    const item = document.createElement('a');
+                    item.href = n.link || '#';
+                    item.style.display = 'block';
+                    item.style.padding = '12px 15px';
+                    item.style.borderBottom = '1px solid #334155';
+                    item.style.textDecoration = 'none';
+                    item.style.color = '#e5e7eb';
+                    item.style.fontSize = '13px';
+                    item.style.background = isUnread ? 'rgba(59, 130, 246, 0.1)' : 'transparent';
+                    
+                    item.innerHTML = `
+                        <div style="font-weight:${isUnread ? 'bold' : 'normal'}; margin-bottom:4px;">${n.message}</div>
+                        <div style="font-size:11px; color:#94a3b8;">${n.created_at ? new Date(n.created_at).toLocaleString() : ''}</div>
+                    `;
+                    
+                    item.addEventListener('click', (e) => {
+                        if (isUnread) {
+                            e.preventDefault();
+                            fetch('/hrms/notifications/api/mark-read', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({id: n.id})
+                            }).then(() => {
+                                window.location.href = item.href;
+                            });
+                        }
+                    });
+                    notifList.appendChild(item);
+                });
+                
+                if (unreadCount > 0) {
+                    notifBadge.innerText = unreadCount;
+                    notifBadge.style.display = 'block';
+                } else {
+                    notifBadge.style.display = 'none';
+                }
+            })
+            .catch(err => console.error(err));
+    }
+    
+    markAllReadBtn.addEventListener('click', () => {
+        fetch('/hrms/notifications/api/mark-read', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        }).then(() => fetchNotifications());
+    });
+    
+    fetchNotifications();
+    setInterval(fetchNotifications, 60000);
+});
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/static/sw.js')
+      .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+      .catch(err => console.error('Service Worker registration failed:', err));
+  });
+}
+</script>
 </body>
 </html>

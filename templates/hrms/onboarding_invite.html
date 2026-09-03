@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 760px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .back-link {
+        display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+        color: #94a3b8; font-size: 13px; font-weight: 600; margin-bottom: 16px;
+    }
+    .back-link:hover { color: #fff; }
+
+    .hrms-title { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 22px; }
+
+    .hrms-card { background: #0f172a; border-radius: 12px; padding: 26px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-grid .full { grid-column: 1 / -1; }
+
+    label { display: block; font-size: 12.5px; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
+    input, select {
+        width: 100%; background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 10px 12px; border-radius: 8px; outline: none; font-size: 0.9rem;
+    }
+    input:focus, select:focus { border-color: #3b82f6; }
+
+    .submit-btn {
+        margin-top: 20px; width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6);
+        border: none; color: #fff; padding: 12px; border-radius: 9px; font-weight: 700;
+        font-size: 0.95rem; cursor: pointer;
+    }
+    .submit-btn:hover { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+
+    .hint { font-size: 12px; color: #64748b; margin-top: 16px; line-height: 1.5; }
+
+    @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="hrms-wrapper">
+    <a class="back-link" href="/hrms/onboarding/">← Back to Onboarding Pipeline</a>
+
+    <div class="hrms-title">Invite a New Hire</div>
+    <div class="hrms-subtitle">Fill in the basics — the candidate fills in the rest themselves via a secure emailed link.</div>
+
+    <div class="hrms-card">
+        <form id="inviteForm" onsubmit="return submitInvite(event)">
+            <div class="form-grid">
+                <div class="full">
+                    <label>Full Name</label>
+                    <input type="text" name="full_name" required>
+                </div>
+
+                <div class="full">
+                    <label>Personal / Work Email</label>
+                    <input type="email" name="email" required placeholder="candidate@example.com">
+                </div>
+
+                <div>
+                    <label>Designation</label>
+                    <input type="text" name="designation" required placeholder="e.g. Software Engineer">
+                </div>
+
+                <div>
+                    <label>Department</label>
+                    <select name="department">
+                        <option value="">Select Department</option>
+                        <option>HR</option>
+                        <option>Finance</option>
+                        <option>Technical</option>
+                        <option>Sales</option>
+                        <option>Operations</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Role (System Access)</label>
+                    <select name="role_id" required>
+                        <option value="">Select Role</option>
+                        {% for r in roles %}
+                        <option value="{{ r.id }}">{{ r.role_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label>Employment Type</label>
+                    <select name="employment_type">
+                        <option>Full Time</option>
+                        <option>Contract</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Reporting Manager (optional)</label>
+                    <select name="manager_id">
+                        <option value="">No Manager</option>
+                        {% for m in managers %}
+                        <option value="{{ m.id }}">{{ m.full_name }} ({{ m.employee_code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label>Joining Date</label>
+                    <input type="date" name="joining_date">
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">Send Onboarding Invite</button>
+
+            <div class="hint">
+                The candidate will receive an email at the address above with a secure, one-time link
+                (valid for 7 days) where they'll fill in their personal, bank &amp; compliance details,
+                upload their documents, and set their own login password. You'll get notified once they submit.
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+async function submitInvite(e) {
+    e.preventDefault();
+    const form = document.getElementById("inviteForm");
+    const btn = form.querySelector(".submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending Invite...";
+
+    try {
+        const res = await fetch("/hrms/onboarding/invite", {
+            method: "POST",
+            body: new FormData(form)
+        });
+        const data = await res.json();
+        if (data.error) {
+            showToast(data.error, "error");
+            btn.disabled = false;
+            btn.textContent = "Send Onboarding Invite";
+        } else {
+            showToast("Invite sent successfully!", "success");
+            setTimeout(() => window.location.href = data.redirect, 900);
+        }
+    } catch (err) {
+        showToast("Failed to send invite. Please try again.", "error");
+        btn.disabled = false;
+        btn.textContent = "Send Onboarding Invite";
+    }
+    return false;
+}
+</script>
+
+{% endblock %}

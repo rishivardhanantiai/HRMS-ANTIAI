@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 800px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #94a3b8; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .back-link:hover { color: #fff; }
+    .hrms-title { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 22px; }
+    .hrms-card { background: #0f172a; border-radius: 12px; padding: 26px; }
+    .section-label { color: #38bdf8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 22px 0 10px; }
+    .section-label:first-child { margin-top: 0; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 12.5px; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
+    input, select, textarea {
+        width: 100%; background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 10px 12px; border-radius: 8px; outline: none; font-size: 0.9rem; font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #3b82f6; }
+    textarea { resize: vertical; min-height: 90px; }
+    .hint { font-size: 11.5px; color: #64748b; margin-top: 4px; }
+    .changes-banner {
+        background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5;
+        padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; line-height: 1.5;
+    }
+    .submit-btn {
+        margin-top: 22px; width: 100%; background: linear-gradient(135deg, #2563eb, #3b82f6);
+        border: none; color: #fff; padding: 12px; border-radius: 9px; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+    }
+    .submit-btn:hover { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+    @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="hrms-wrapper">
+    <a class="back-link" href="/hrms/offers/">← Back to Offer Letters</a>
+
+    <div class="hrms-title">{{ 'Edit Offer Letter' if offer else 'New Offer Letter' }}</div>
+    <div class="hrms-subtitle">Fill in the details — a full offer letter is generated automatically from these, with your compensation table filled in.</div>
+
+    <div class="hrms-card">
+        {% if offer and offer.status == 'Changes Requested' and offer.admin_comments %}
+        <div class="changes-banner">
+            <strong>Admin requested changes:</strong><br>{{ offer.admin_comments }}
+        </div>
+        {% endif %}
+
+        <form id="offerForm" onsubmit="return submitOffer(event)">
+            {% if prefill and prefill.application_id %}
+            <input type="hidden" name="application_id" value="{{ prefill.application_id }}">
+            {% endif %}
+            
+            <div class="section-label">Candidate</div>
+            <div class="form-grid">
+                <div class="full">
+                    <label>Candidate Full Name *</label>
+                    <input type="text" name="candidate_name" value="{{ offer.candidate_name if offer else (prefill.candidate_name if prefill else '') }}" required>
+                </div>
+                <div class="full">
+                    <label>Candidate Email *</label>
+                    <input type="email" name="candidate_email" value="{{ offer.candidate_email if offer else (prefill.candidate_email if prefill else '') }}" {% if offer %}readonly{% endif %} required>
+                </div>
+                <div class="full">
+                    <label>Candidate Address</label>
+                    <input type="text" name="candidate_address" value="{{ offer.candidate_address if offer else '' }}" placeholder="Used in the NDA and Internship Agreement">
+                </div>
+            </div>
+
+            <div class="section-label">Role</div>
+            <div class="form-grid">
+                <div>
+                    <label>Designation *</label>
+                    <input type="text" name="designation" value="{{ offer.designation if offer else '' }}" required>
+                </div>
+                <div>
+                    <label>Department</label>
+                    <select name="department">
+                        <option value="">Select Department</option>
+                        {% for d in ["HR","Finance","Technical","Sales","Operations"] %}
+                        <option value="{{ d }}" {% if offer and offer.department == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Role (System Access) *</label>
+                    <select name="role_id" required>
+                        {% for r in roles %}
+                        <option value="{{ r.id }}" {% if offer and offer.role_id == r.id %}selected{% endif %}>{{ r.role_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Effective Date of Employment</label>
+                    <input type="date" name="effective_date" value="{{ offer.effective_date if offer else '' }}">
+                </div>
+                <div>
+                    <label>Offer Type *</label>
+                    <select name="offer_type" id="offerType" onchange="toggleOfferTypeFields()" required>
+                        {% for t in offer_types %}
+                        <option value="{{ t }}" {% if offer and offer.offer_type == t %}selected{% elif not offer and t == 'Full Time' %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="hint">Determines which offer letter template is used (Full Time / Contract / Intern each read differently).</div>
+                </div>
+            </div>
+
+            <div class="section-label" id="compFulltimeLabel">Compensation (Monthly) — Full Time</div>
+            <div class="form-grid" id="compFulltimeFields">
+                <div>
+                    <label>Basic Salary</label>
+                    <input type="number" step="0.01" name="basic_monthly" class="ctc-input" value="{{ offer.basic_monthly if offer else '' }}">
+                </div>
+                <div>
+                    <label>House Rent Allowance</label>
+                    <input type="number" step="0.01" name="hra_monthly" class="ctc-input" value="{{ offer.hra_monthly if offer else '' }}">
+                </div>
+                <div>
+                    <label>Special Allowance</label>
+                    <input type="number" step="0.01" name="special_allowance_monthly" class="ctc-input" value="{{ offer.special_allowance_monthly if offer else '' }}">
+                </div>
+                <div>
+                    <label>Provident Fund</label>
+                    <input type="number" step="0.01" name="pf_monthly" class="ctc-input" value="{{ offer.pf_monthly if offer else '' }}">
+                </div>
+                <div>
+                    <label>Performance Bonus</label>
+                    <input type="number" step="0.01" name="bonus_monthly" class="ctc-input" value="{{ offer.bonus_monthly if offer else '' }}">
+                </div>
+                <div class="full">
+                    <label>Annual CTC</label>
+                    <input type="number" step="0.01" name="ctc_annual" id="ctcAnnual" readonly style="opacity:0.75;cursor:not-allowed;">
+                    <div class="hint">Auto-calculated as the sum of the monthly components × 12 — always matches the table in the letter, so it can't be typed separately.</div>
+                </div>
+            </div>
+
+            <div class="section-label" id="compContractLabel" style="display:none;">Commission Structure</div>
+            <div class="form-grid" id="compContractFields" style="display:none;">
+                <div>
+                    <label>Commission Range — Minimum</label>
+                    <input type="number" step="0.01" name="commission_min" value="{{ offer.commission_min if offer else '' }}">
+                    <div class="hint">Per successful deal.</div>
+                </div>
+                <div>
+                    <label>Commission Range — Maximum</label>
+                    <input type="number" step="0.01" name="commission_max" value="{{ offer.commission_max if offer else '' }}">
+                    <div class="hint">Per successful deal.</div>
+                </div>
+            </div>
+
+            <div class="section-label" id="compInternLabel" style="display:none;">Internship Terms</div>
+            <div class="form-grid" id="compInternFields" style="display:none;">
+                <div>
+                    <label>Monthly Stipend</label>
+                    <input type="number" step="0.01" name="stipend_monthly" value="{{ offer.stipend_monthly if offer else '' }}">
+                </div>
+                <div>
+                    <label>Duration (months)</label>
+                    <input type="number" step="1" min="1" name="duration_months" value="{{ offer.duration_months if offer else '' }}">
+                </div>
+            </div>
+
+            <div class="section-label">Role Details</div>
+            <div class="form-grid">
+                <div class="full">
+                    <label>Roles &amp; Responsibilities</label>
+                    <textarea name="responsibilities" placeholder="One responsibility per line...">{{ offer.responsibilities if offer else '' }}</textarea>
+                    <div class="hint">One per line — each becomes a bullet point in the offer letter.</div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">{{ 'Save Changes' if offer else 'Create Offer (Draft)' }}</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleOfferTypeFields() {
+    const type = document.getElementById("offerType").value;
+    document.getElementById("compFulltimeLabel").style.display = type === "Full Time" ? "" : "none";
+    document.getElementById("compFulltimeFields").style.display = type === "Full Time" ? "grid" : "none";
+    document.getElementById("compContractLabel").style.display = type === "Contract" ? "" : "none";
+    document.getElementById("compContractFields").style.display = type === "Contract" ? "grid" : "none";
+    document.getElementById("compInternLabel").style.display = type === "Intern" ? "" : "none";
+    document.getElementById("compInternFields").style.display = type === "Intern" ? "grid" : "none";
+}
+toggleOfferTypeFields();
+
+function recalcCtcAnnual() {
+    const inputs = document.querySelectorAll(".ctc-input");
+    let total = 0;
+    inputs.forEach(i => total += (parseFloat(i.value) || 0));
+    document.getElementById("ctcAnnual").value = (total * 12).toFixed(2);
+}
+document.querySelectorAll(".ctc-input").forEach(i => i.addEventListener("input", recalcCtcAnnual));
+recalcCtcAnnual();
+
+async function submitOffer(e) {
+    e.preventDefault();
+    const form = document.getElementById("offerForm");
+    const btn = form.querySelector(".submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+
+    const url = {% if offer %}"/hrms/offers/{{ offer.id }}/edit"{% else %}"/hrms/offers"{% endif %};
+    try {
+        const res = await fetch(url, { method: "POST", body: new FormData(form) });
+        const data = await res.json();
+        if (data.error) {
+            showToast(data.error, "error");
+            btn.disabled = false;
+            btn.textContent = "{{ 'Save Changes' if offer else 'Create Offer (Draft)' }}";
+        } else {
+            showToast("{{ 'Changes saved!' if offer else 'Offer created!' }}", "success");
+            setTimeout(() => window.location.href = "/hrms/offers/", 800);
+        }
+    } catch (err) {
+        showToast("Something went wrong.", "error");
+        btn.disabled = false;
+        btn.textContent = "{{ 'Save Changes' if offer else 'Create Offer (Draft)' }}";
+    }
+    return false;
+}
+</script>
+
+{% endblock %}

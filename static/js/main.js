@@ -1,5 +1,21 @@
 document.addEventListener("DOMContentLoaded", function () {
 
+    // Sidebar toggle for mobile devices
+    const navToggle = document.getElementById("navToggle");
+    const appContainer = document.querySelector(".app-container");
+    const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+    if (navToggle && appContainer) {
+        navToggle.addEventListener("click", function () {
+            appContainer.classList.toggle("sidebar-open");
+        });
+    }
+    if (sidebarOverlay && appContainer) {
+        sidebarOverlay.addEventListener("click", function () {
+            appContainer.classList.remove("sidebar-open");
+        });
+    }
+
     // Rename class selector to prevent conflict with newer page-specific attendance logic
     const statusText = document.querySelector(".legacy-attendance-status");
     const checkInBtn = document.querySelector("#checkInBtn");

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .hrms-wrapper { padding: 30px; max-width: 900px; margin: 0 auto; font-family: 'Inter', sans-serif; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #94a3b8; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .back-link:hover { color: #fff; }
+    .hrms-title { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+    .hrms-subtitle { color: #64748b; font-size: 13.5px; margin-bottom: 22px; }
+
+    .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; display: inline-block; margin-left: 10px; vertical-align: middle; }
+    .st-sent { background: rgba(168,85,247,0.15); color: #c084fc; }
+    .st-signed { background: rgba(250,204,21,0.15); color: #facc15; }
+    .st-countersigned { background: rgba(34,197,94,0.15); color: #22c55e; }
+
+    .letter-paper {
+        background: #fff; color: #111111; border-radius: 10px; padding: 44px 48px; margin-bottom: 20px;
+        font-family: 'Times New Roman', Georgia, serif; font-size: 14.5px; line-height: 1.65;
+        max-height: 760px; overflow-y: auto; position: relative; text-align: justify;
+    }
+    .letter-paper .watermark {
+        position: absolute; top: 260px; left: 50%; transform: translateX(-50%);
+        width: 480px; opacity: 0.07; pointer-events: none; z-index: 0;
+    }
+    .letter-header {
+        display: flex; align-items: center; gap: 16px; margin-bottom: 6px; position: relative; z-index: 1;
+    }
+    .letter-header img { width: 90px; height: auto; }
+    .letter-header .co-name { font-size: 22px; font-weight: 700; color: #111111; font-family: 'Times New Roman', Georgia, serif; }
+    .letter-header .co-addr { font-size: 11.5px; font-weight: 700; color: #111111; margin-top: 3px; }
+    .letter-header-rule { border: none; border-top: 2.5px solid #111; margin: 8px 0 20px; position: relative; z-index: 1; }
+    .doc-title { text-align: center; font-size: 17px; font-weight: 700; text-decoration: underline; margin: 0 0 20px; position: relative; z-index: 1; }
+    .letter-body { position: relative; z-index: 1; }
+    .letter-body h3 { font-size: 15.5px; font-weight: 700; margin: 22px 0 8px; }
+    .letter-body p { margin: 0 0 10px; }
+    .letter-body .sec-divider { border: none; border-top: 1.4px solid #111; margin: 12px 0 4px; }
+    .letter-paper h2, .letter-paper h3 { color: #111111; }
+    .letter-paper table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; }
+    .letter-paper table th, .letter-paper table td { border: 1px solid #333; padding: 8px 10px; font-size: 12.5px; }
+    .letter-paper table th { background: #f0f0f0; text-align: left; font-weight: 700; }
+    .letter-footer {
+        display: flex; margin-top: 44px; position: relative; z-index: 1; font-size: 11.5px; color: #111111;
+    }
+    .letter-footer > div { flex: 1; border: 1px solid #333; padding: 10px 12px; min-height: 40px; }
+    .letter-footer > div:first-child { border-right: none; }
+
+    .action-card { background: #0f172a; border-radius: 12px; padding: 22px; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-mini {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 9px 16px; border-radius: 7px; font-size: 0.85rem; cursor: pointer; text-decoration: none; font-weight: 600;
+    }
+    .btn-mini.primary { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-mini.primary:hover { background: #15803d; }
+</style>
+
+<div class="hrms-wrapper">
+    <a class="back-link" href="/hrms/offers/">← Back to Offer Letters</a>
+
+    <div class="hrms-title">
+        NDA for {{ employee.full_name if employee else nda.employee_id }}
+        {% if nda.status == 'Sent' %}<span class="status-badge st-sent">Sent for Signature</span>
+        {% elif nda.status == 'Signed' %}<span class="status-badge st-signed">Awaiting HR Countersign</span>
+        {% elif nda.status == 'Countersigned' %}<span class="status-badge st-countersigned">Fully Executed</span>
+        {% endif %}
+    </div>
+    <div class="hrms-subtitle">Non-Disclosure Agreement</div>
+
+    <div class="letter-paper">
+        <img class="watermark" src="/static/images/logo_globe_watermark.png" alt="">
+        <div class="letter-header">
+            <img src="/static/images/logo_wordmark.png" alt="">
+            <div>
+                <div class="co-name">ANTI.AI PRIVATE LIMITED</div>
+                <div class="co-addr">73, Rose Villa, Rajendra Nagar, Bharatpur</div>
+            </div>
+        </div>
+        <hr class="letter-header-rule">
+        <div class="doc-title">NON-DISCLOSURE AGREEMENT</div>
+        <div class="letter-body">{{ nda.content_html | safe }}</div>
+        <div class="letter-footer">
+            <div>Disclosing Party Signature</div>
+            <div>Receiving Party Signature</div>
+        </div>
+    </div>
+
+    <div class="action-card">
+        {% if nda.status == 'Sent' %}
+            <p style="color:#94a3b8; font-size:13.5px;">Sent to the candidate for e-signature — waiting on them.</p>
+        {% elif nda.status == 'Signed' %}
+            <p style="color:#94a3b8; font-size:13.5px; margin-bottom:14px;">
+                Candidate signed as <strong style="color:#e2e8f0;">{{ nda.signed_name }}</strong>
+                on {{ nda.signed_at }} from IP {{ nda.signed_ip }}. Countersign to fully execute the NDA —
+                the onboarding invite will fire automatically the moment you do.
+            </p>
+            <label style="display:block;font-size:12.5px;color:#94a3b8;margin-bottom:6px;font-weight:600;">Type your name to countersign</label>
+            <input type="text" id="hrSignName" placeholder="Your full name" style="width:100%;max-width:320px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:10px 12px;border-radius:8px;margin-bottom:12px;">
+            <div class="btn-row">
+                <button class="btn-mini primary" onclick="countersign()">Countersign NDA</button>
+            </div>
+        {% elif nda.status == 'Countersigned' %}
+            <p style="color:#94a3b8; font-size:13.5px;">
+                Fully executed — signed by <strong style="color:#e2e8f0;">{{ nda.signed_name }}</strong>
+                and countersigned by <strong style="color:#e2e8f0;">{{ nda.hr_signed_name }}</strong>.
+                Their onboarding invite has been sent automatically.
+                {% if nda.pdf_url %}<br><a href="{{ nda.pdf_url }}" target="_blank" style="color:#38bdf8;">Download signed PDF</a>{% endif %}
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+async function countersign() {
+    const name = document.getElementById("hrSignName").value.trim();
+    if (!name) { showToast("Please type your name to countersign.", "error"); return; }
+    const fd = new FormData();
+    fd.append("hr_signed_name", name);
+    const res = await fetch(`/hrms/offers/nda/{{ nda.id }}/countersign`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, "error"); }
+    else { showToast("Countersigned! Onboarding invite sent.", "success"); setTimeout(() => location.reload(), 900); }
+}
+</script>
+
+{% endblock %}

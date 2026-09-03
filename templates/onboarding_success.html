@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding Submitted</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .onb-shell {
+            min-height: 100vh; display: grid; place-items: center; padding: 28px 14px;
+            background:
+                radial-gradient(900px 500px at 8% -8%, rgba(34,197,94,0.16), transparent 55%),
+                radial-gradient(900px 500px at 100% 0%, rgba(59,130,246,0.16), transparent 55%),
+                #020202;
+        }
+        .onb-card {
+            width: min(520px, 100%); text-align: center;
+            background: linear-gradient(180deg, #0d0d0d, #080808);
+            border: 1px solid #1f1f1f; border-radius: 16px; padding: 40px 32px;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+        }
+        .check {
+            width: 64px; height: 64px; border-radius: 50%; background: rgba(34,197,94,0.15);
+            border: 1px solid rgba(34,197,94,0.35); display: flex; align-items: center;
+            justify-content: center; font-size: 30px; margin: 0 auto 18px; color: #22c55e;
+        }
+        h1 { font-size: 21px; margin: 0 0 10px; }
+        p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 6px; }
+        .next-steps {
+            text-align: left; margin-top: 22px; padding: 16px 18px; background: #0b0b0b;
+            border: 1px solid #262626; border-radius: 10px; font-size: 13px; color: #cbd5e1;
+        }
+        .next-steps li { margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+<div class="onb-shell">
+    <div class="onb-card">
+        <div class="check">✓</div>
+        <h1>You're all done, {{ employee.full_name.split(' ')[0] }}!</h1>
+        <p>We've received your details and documents. Our HR team will verify everything shortly.</p>
+        <p>You'll get an email at <strong>{{ employee.email }}</strong> the moment your account is activated.</p>
+
+        <div class="next-steps">
+            <strong>What happens next:</strong>
+            <ul style="margin:10px 0 0 18px; padding:0;">
+                <li>HR reviews your submitted documents</li>
+                <li>Your account gets activated</li>
+                <li>You log in with {{ employee.email }} and the password you just set</li>
+            </ul>
+        </div>
+    </div>
+</div>
+</body>
+</html>

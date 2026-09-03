@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Onboarding Link</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .onb-shell {
+            min-height: 100vh; display: grid; place-items: center; padding: 28px 14px;
+            background: radial-gradient(900px 500px at 50% -8%, rgba(239,68,68,0.10), transparent 55%), #020202;
+        }
+        .onb-card {
+            width: min(480px, 100%); text-align: center;
+            background: linear-gradient(180deg, #0d0d0d, #080808);
+            border: 1px solid #1f1f1f; border-radius: 16px; padding: 38px 30px;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+        }
+        .icon {
+            width: 60px; height: 60px; border-radius: 50%; background: rgba(148,163,184,0.12);
+            border: 1px solid rgba(148,163,184,0.3); display: flex; align-items: center;
+            justify-content: center; font-size: 26px; margin: 0 auto 16px; color: #94a3b8;
+        }
+        h1 { font-size: 19px; margin: 0 0 10px; }
+        p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+        a.btn { display: inline-block; margin-top: 18px; padding: 10px 20px; border-radius: 8px;
+            background: #1e293b; border: 1px solid #334155; color: #e2e8f0; text-decoration: none; font-size: 13.5px; }
+        a.btn:hover { background: #334155; }
+    </style>
+</head>
+<body>
+<div class="onb-shell">
+    <div class="onb-card">
+        {% if reason == "expired" %}
+            <div class="icon">⏳</div>
+            <h1>This link has expired</h1>
+            <p>Your onboarding invite link is no longer valid. Please reach out to HR and ask them to resend your invite — it only takes them a click.</p>
+        {% elif reason == "already_submitted" %}
+            <div class="icon">✓</div>
+            <h1>You've already submitted your details</h1>
+            <p>We already have your onboarding information on file. HR is reviewing it — you'll get an email once your account is activated.</p>
+        {% elif reason == "already_active" %}
+            <div class="icon">🎉</div>
+            <h1>Your account is already active</h1>
+            <p>You're all set! Head to the login page and sign in with the email and password you set during onboarding.</p>
+            <a class="btn" href="/">Go to Login</a>
+        {% else %}
+            <div class="icon">?</div>
+            <h1>Invalid onboarding link</h1>
+            <p>We couldn't find an onboarding invite matching this link. Please check the URL, or contact HR for a fresh invite.</p>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>

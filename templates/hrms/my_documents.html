@@ -259,6 +259,47 @@ select.form-control {
     </div>
     {% endif %}
 
+    {% if signed_offers or signed_ndas %}
+    <div class="docs-card" style="border-color: #10b981; background: rgba(16,185,129,0.02); margin-bottom: 30px;">
+        <h3 style="color:#10b981; margin-top:0; display: flex; align-items: center; gap: 8px;">📜 Signed Agreements & Contracts</h3>
+        <table class="docs-table">
+            <thead>
+                <tr>
+                    <th>Date Signed</th>
+                    <th>Document Type</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Attachment</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for offer in signed_offers %}
+                <tr>
+                    <td>{{ (offer.date|string)[:10] if offer.date else '-' }}</td>
+                    <td style="color:#f3f4f6; font-weight:600;">{{ offer.doc_type }}</td>
+                    <td>{{ offer.title }}</td>
+                    <td><span class="badge-status status-verified">Signed</span></td>
+                    <td>
+                        <a href="{{ offer.pdf_url or offer.final_pdf_url }}" target="_blank" class="btn-attachment">Download PDF</a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% for nda in signed_ndas %}
+                <tr>
+                    <td>{{ (nda.date|string)[:10] if nda.date else '-' }}</td>
+                    <td style="color:#f3f4f6; font-weight:600;">{{ nda.doc_type }}</td>
+                    <td>{{ nda.title }}</td>
+                    <td><span class="badge-status status-verified">Signed</span></td>
+                    <td>
+                        <a href="{{ nda.pdf_url or nda.final_pdf_url }}" target="_blank" class="btn-attachment">Download PDF</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     <div class="docs-card">
         <div class="filters-wrapper">
             <input type="text" id="searchFilter" class="form-control" placeholder="Search Title or Description...">
