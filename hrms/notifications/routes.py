@@ -45,7 +45,7 @@ def get_feed():
                 "created_at": r["created_at"].isoformat() if r["created_at"] else None,
             })
             
-        # Admin aging alerts dynamically injected
+        # Admin aging alerts and pending approval queue checks dynamically injected
         if role == "Admin":
             cur.execute("""
                 SELECT COUNT(*) as count 
@@ -64,6 +64,14 @@ def get_feed():
                     "read_at": None,
                     "created_at": datetime.utcnow().isoformat()
                 })
+
+            # If there are active items in admin_approval_queue, keep approval_queue notifications unread for Admin
+            cur.execute("SELECT COUNT(*) as c FROM admin_approval_queue WHERE status = 'Pending'")
+            p_row = cur.fetchone()
+            if p_row and p_row["c"] > 0:
+                for n in notifications:
+                    if n["type"] in ("approval_queue", "approval_requested"):
+                        n["read_at"] = None
                 
     except Exception as e:
         print(f"Error fetching notifications: {e}")
