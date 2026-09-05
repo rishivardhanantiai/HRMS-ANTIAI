@@ -156,6 +156,83 @@
         </div>
     </div>
     {% else %}
+    {% if req.action_type == 'delete_offer' %}
+    <div style="background: #1e293b; border: 1px solid #ef4444; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(239,68,68,0.1);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #334155;">
+            <div style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                🗑️
+            </div>
+            <div>
+                <h3 style="margin: 0; color: #f8fafc; font-size: 17px; font-weight: 700;">Permanent Deletion Request — Offer Letter</h3>
+                <div style="color: #f87171; font-size: 13px; font-weight: 500; margin-top: 2px;">Review details before approving deletion</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Candidate Name</span>
+                <span style="color: #f8fafc; font-size: 15px; font-weight: 600;">{{ req.payload_before.candidate_name if req.payload_before and req.payload_before.candidate_name else (req.payload_before.name if req.payload_before and req.payload_before.name else 'N/A') }}</span>
+            </div>
+
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Candidate Email</span>
+                <span style="color: #f8fafc; font-size: 14px; font-weight: 500;">{{ req.payload_before.candidate_email if req.payload_before and req.payload_before.candidate_email else (req.payload_before.email if req.payload_before and req.payload_before.email else 'N/A') }}</span>
+            </div>
+
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Target Offer ID</span>
+                <span style="color: #cbd5e1; font-size: 13px; font-family: monospace;">{{ req.target_id or 'N/A' }}</span>
+            </div>
+
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Employee Shell ID</span>
+                <span style="color: #cbd5e1; font-size: 13px; font-family: monospace;">{{ req.payload_before.employee_id if req.payload_before and req.payload_before.employee_id else 'N/A' }}</span>
+            </div>
+        </div>
+
+        <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 12px 16px; color: #fca5a5; font-size: 13px; line-height: 1.5;">
+            ⚠️ <strong>Action Impact:</strong> Approving this request will permanently delete the offer letter and associated pending employee shell record from the database. This action cannot be reversed.
+        </div>
+    </div>
+    {% elif req.action_type == 'delete_candidate' %}
+    <div style="background: #1e293b; border: 1px solid #ef4444; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(239,68,68,0.1);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #334155;">
+            <div style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                👤
+            </div>
+            <div>
+                <h3 style="margin: 0; color: #f8fafc; font-size: 17px; font-weight: 700;">Permanent Deletion Request — Candidate Application</h3>
+                <div style="color: #f87171; font-size: 13px; font-weight: 500; margin-top: 2px;">Review candidate details before approving deletion</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Candidate Name</span>
+                <span style="color: #f8fafc; font-size: 15px; font-weight: 600;">{{ req.payload_before.name if req.payload_before and req.payload_before.name else 'N/A' }}</span>
+            </div>
+
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Email Address</span>
+                <span style="color: #f8fafc; font-size: 14px; font-weight: 500;">{{ req.payload_before.email if req.payload_before and req.payload_before.email else 'N/A' }}</span>
+            </div>
+
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Current Pipeline Stage</span>
+                <span style="color: #cbd5e1; font-size: 13.5px; font-weight: 500;">{{ req.payload_before.status if req.payload_before and req.payload_before.status else 'N/A' }}</span>
+            </div>
+
+            <div style="background: rgba(2,6,23,0.4); padding: 14px 16px; border-radius: 8px; border: 1px solid #334155;">
+                <span style="color: #94a3b8; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Application ID</span>
+                <span style="color: #cbd5e1; font-size: 13px; font-family: monospace;">{{ req.target_id or 'N/A' }}</span>
+            </div>
+        </div>
+
+        <div style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 8px; padding: 12px 16px; color: #fca5a5; font-size: 13px; line-height: 1.5;">
+            ⚠️ <strong>Action Impact:</strong> Approving this request will permanently remove the candidate application record from the ATS pipeline. This action cannot be reversed.
+        </div>
+    </div>
+    {% else %}
     <div class="diff-container">
         <div class="diff-col">
             <div class="diff-title" style="color: #f87171;">Before (Target State)</div>
@@ -167,12 +244,15 @@
         </div>
     </div>
     {% endif %}
+    {% endif %}
 
     <div class="action-card">
         <div class="btn-row">
             <button class="btn-mini primary" onclick="resolveRequest('Approved')">
                 {% if req.action_type == 'bulk_send' %}
                     Approve Send
+                {% elif req.action_type in ['delete_offer', 'delete_candidate'] or req.action_type.startswith('delete_') %}
+                    Approve Deletion
                 {% else %}
                     Approve Change
                 {% endif %}
@@ -242,8 +322,12 @@ function formatJson(jsonStr) {
     }
 }
 
-document.getElementById('diffBefore').innerHTML = formatJson(document.getElementById('rawBefore').value);
-document.getElementById('diffAfter').innerHTML = formatJson(document.getElementById('rawAfter').value);
+if(document.getElementById('diffBefore')) {
+    document.getElementById('diffBefore').innerHTML = formatJson(document.getElementById('rawBefore').value);
+}
+if(document.getElementById('diffAfter')) {
+    document.getElementById('diffAfter').innerHTML = formatJson(document.getElementById('rawAfter').value);
+}
 
 async function resolveRequest(status) {
     const comment = document.getElementById('commentsBox').value.trim();
