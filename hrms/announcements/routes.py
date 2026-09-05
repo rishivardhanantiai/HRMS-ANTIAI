@@ -312,11 +312,32 @@ def send_message():
             )
             return jsonify({"success": True, "status": "Pending Approval", "message": f"Bulk send request for {len(emails)} recipients submitted for Admin approval."})
             
-        # If single recipient and no approval needed, send immediately
+        # If single recipient and no approval needed, check quota before sending immediately
         if len(emails) == 1:
             rcpt = emails[0]
             personalized_body = body_html.replace("{{candidate_name}}", rcpt["name"]).replace("{{employee_name}}", rcpt["name"])
             
+            # Enforce daily email quota cap (500)
+            cur.execute("""
+                SELECT count(*) as c 
+                FROM outbound_messages 
+                WHERE status = 'Sent' 
+                  AND (DATE(sent_at) = CURRENT_DATE OR (sent_at IS NULL AND DATE(created_at) = CURRENT_DATE))
+            """)
+            sent_today = (cur.fetchone() or {}).get('c', 0) or 0
+            
+            if sent_today >= 500:
+                cur.execute("""
+                    INSERT INTO outbound_messages (subject, body_html, recipient_email, status, created_by)
+                    VALUES (%s, %s, %s, 'Queued', %s)
+                """, (subject, personalized_body, rcpt["email"], session.get("user")))
+                conn.commit()
+                return jsonify({
+                    "success": True, 
+                    "status": "Queued", 
+                    "message": "Daily email quota reached (500/500). Message queued for sending when quota resets."
+                })
+
             from utils.mailer import send_email, COMPANY_NAME, _wrap_html
             final_body = personalized_body.replace("{{company_name}}", COMPANY_NAME)
             

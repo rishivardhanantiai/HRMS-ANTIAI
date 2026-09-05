@@ -1671,31 +1671,60 @@ def delete_offer(offer_id):
     if offer["status"] not in ("Draft", "Changes Requested", "Pending Approval"):
         return jsonify({"error": "Signed or sent offers can't be deleted — use Onboarding's Delete instead."}), 400
 
-    conn, cur = None, None
-    try:
-        conn, cur = get_db(True)
-        if not conn:
-            raise Exception("no db")
-        cur.execute("DELETE FROM employee_offers WHERE id=%s", (offer_id,))
-        cur.execute("DELETE FROM hrms_employees WHERE id=%s AND status='Offer Pending'", (offer["employee_id"],))
-        conn.commit()
-        from utils.audit import log_action
-        log_action(session.get("email") or "HR", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"]})
-    except Exception as e:
-        print("Error deleting offer via DB, trying REST:", e)
+    from hrms.approvals.routes import create_approval_request
+
+    if session.get("role") == "Admin":
+        conn, cur = None, None
         try:
-            supabase_rest.delete_rows("employee_offers", {"id": f"eq.{offer_id}"})
-            supabase_rest.delete_rows("hrms_employees", {"id": f"eq.{offer['employee_id']}", "status": "eq.Offer Pending"})
+            conn, cur = get_db(True)
+            if not conn:
+                raise Exception("no db")
+            cur.execute("DELETE FROM employee_offers WHERE id=%s", (offer_id,))
+            cur.execute("DELETE FROM hrms_employees WHERE id=%s AND status='Offer Pending'", (offer["employee_id"],))
+            conn.commit()
+            create_approval_request(
+                action_type="delete_offer",
+                target_table="employee_offers",
+                target_id=str(offer_id),
+                payload_before=dict(offer) if offer else None,
+                payload_after=None,
+                auto_approve=True
+            )
             from utils.audit import log_action
-            log_action(session.get("email") or "HR", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "fallback": True})
-        except Exception as rest_err:
-            print("REST fallback for delete offer failed:", rest_err)
-            return jsonify({"error": "Failed to delete offer."}), 500
-    finally:
-        if conn:
-            release_db(conn, cur)
-            
-    return jsonify({"success": True})
+            log_action(session.get("email") or "Admin", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"]})
+        except Exception as e:
+            print("Error deleting offer via DB, trying REST:", e)
+            try:
+                supabase_rest.delete_rows("employee_offers", {"id": f"eq.{offer_id}"})
+                supabase_rest.delete_rows("hrms_employees", {"id": f"eq.{offer['employee_id']}", "status": "eq.Offer Pending"})
+                create_approval_request(
+                    action_type="delete_offer",
+                    target_table="employee_offers",
+                    target_id=str(offer_id),
+                    payload_before=dict(offer) if offer else None,
+                    payload_after=None,
+                    auto_approve=True
+                )
+                from utils.audit import log_action
+                log_action(session.get("email") or "Admin", "offer_deleted", "employee_offers", offer_id, {"candidate_name": offer["candidate_name"], "fallback": True})
+            except Exception as rest_err:
+                print("REST fallback for delete offer failed:", rest_err)
+                return jsonify({"error": "Failed to delete offer."}), 500
+        finally:
+            if conn:
+                release_db(conn, cur)
+                
+        return jsonify({"success": True})
+    else:
+        create_approval_request(
+            action_type="delete_offer",
+            target_table="employee_offers",
+            target_id=str(offer_id),
+            payload_before=dict(offer) if offer else None,
+            payload_after=None,
+            auto_approve=False
+        )
+        return jsonify({"success": True, "message": "Deletion submitted for Admin approval."})
 
 
 # =====================================================================

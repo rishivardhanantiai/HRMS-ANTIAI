@@ -162,7 +162,7 @@ function deleteOffer(id, name) {
             const res = await fetch(`/hrms/offers/${id}/delete`, { method: "POST" });
             const data = await res.json();
             if (data.error) { showToast(data.error, "error"); }
-            else { showToast("Offer deleted.", "success"); setTimeout(() => location.reload(), 900); }
+            else { showToast(data.message || "Offer deleted.", "success"); setTimeout(() => location.reload(), 900); }
         }
     );
 }

@@ -3,11 +3,13 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from utils.db import get_db, release_db
 from utils.mailer import send_email, COMPANY_NAME
 
+DAILY_QUOTA_LIMIT = 500
+
 def process_email_queue(app):
     """
     Worker loop to process queued announcements.
     Pulls up to 10 'Queued' messages at a time and sends them via Gmail SMTP.
-    Limits to 10 per cycle (every 30s) to avoid spamming the SMTP server or hitting the 500/day limit too fast.
+    Limits to 10 per cycle (every 30s) and enforces the daily 500 email quota limit.
     """
     with app.app_context():
         conn, cur = None, None
@@ -15,22 +17,41 @@ def process_email_queue(app):
             conn, cur = get_db(True)
             if not conn:
                 return
+
+            # Check total emails sent today across system
+            cur.execute("""
+                SELECT count(*) as c 
+                FROM outbound_messages 
+                WHERE status = 'Sent' 
+                  AND (DATE(sent_at) = CURRENT_DATE OR (sent_at IS NULL AND DATE(created_at) = CURRENT_DATE))
+            """)
+            sent_today = (cur.fetchone() or {}).get('c', 0) or 0
+            
+            if sent_today >= DAILY_QUOTA_LIMIT:
+                print(f"APScheduler: Daily email quota limit reached ({sent_today}/{DAILY_QUOTA_LIMIT}). Holding queued messages until tomorrow.")
+                return
+
+            remaining_quota = DAILY_QUOTA_LIMIT - sent_today
+            batch_limit = min(10, remaining_quota)
                 
             cur.execute("""
                 SELECT id, subject, body_html, recipient_email 
                 FROM outbound_messages 
                 WHERE status = 'Queued' 
                 ORDER BY created_at ASC 
-                LIMIT 10
-            """)
+                LIMIT %s
+            """, (batch_limit,))
             messages = cur.fetchall()
             
             if not messages:
                 return
                 
-            print(f"APScheduler: Processing {len(messages)} queued messages...")
+            print(f"APScheduler: Processing {len(messages)} queued messages (Sent today: {sent_today}/{DAILY_QUOTA_LIMIT})...")
             
             for msg in messages:
+                if sent_today >= DAILY_QUOTA_LIMIT:
+                    print(f"APScheduler: Reached daily limit mid-batch ({sent_today}/{DAILY_QUOTA_LIMIT}). Holding remaining messages.")
+                    break
                 try:
                     # Format body in case there's simple {{company_name}} remaining
                     final_body = msg['body_html'].replace("{{company_name}}", COMPANY_NAME)
@@ -49,8 +70,10 @@ def process_email_queue(app):
                         UPDATE outbound_messages 
                         SET status = %s, sent_at = %s 
                         WHERE id = %s
-                    """, (status, datetime.utcnow(), msg['id']))
+                    """, (status, datetime.utcnow() if success else None, msg['id']))
                     conn.commit()
+                    if success:
+                        sent_today += 1
                 except Exception as e:
                     print(f"Error sending queued message {msg['id']}: {e}")
                     cur.execute("UPDATE outbound_messages SET status = 'Failed' WHERE id = %s", (msg['id'],))
