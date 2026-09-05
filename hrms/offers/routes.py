@@ -1281,27 +1281,54 @@ def create_offer():
             return jsonify({"error": f"{f.replace('_', ' ').title()} is required"}), 400
 
     offer_type = data.get("offer_type") if data.get("offer_type") in OFFER_TYPES else "Full Time"
+    candidate_email = data["candidate_email"].strip().lower()
+    candidate_name = data["candidate_name"].strip()
+    designation = data["designation"].strip()
+    role_id = data.get("role_id", "").strip()
+    
+    app_id_raw = (data.get("application_id") or "").strip()
+    application_id = app_id_raw if app_id_raw and app_id_raw.lower() not in ("null", "undefined", "none", "") else None
+
+    eff_date_raw = (data.get("effective_date") or "").strip()
+    effective_date = None
+    if eff_date_raw:
+        try:
+            effective_date = datetime.strptime(eff_date_raw, "%Y-%m-%d").date()
+        except Exception:
+            effective_date = date.today()
+    else:
+        effective_date = date.today()
+
+    contract_end_raw = (data.get("contract_end_date") or "").strip()
+    contract_end_date = None
+    if contract_end_raw:
+        try:
+            contract_end_date = datetime.strptime(contract_end_raw, "%Y-%m-%d").date()
+        except Exception:
+            contract_end_date = None
+
+    offer_type = data.get("offer_type") if data.get("offer_type") in OFFER_TYPES else "Full Time"
     offer_fields = dict(
-        candidate_name=data["candidate_name"],
-        candidate_email=data["candidate_email"],
-        candidate_address=data.get("candidate_address") or None,
-        designation=data["designation"],
-        department=data.get("department"),
+        candidate_name=candidate_name,
+        candidate_email=candidate_email,
+        candidate_address=(data.get("candidate_address") or "").strip() or None,
+        designation=designation,
+        department=(data.get("department") or "").strip() or None,
         offer_type=offer_type,
-        effective_date=data.get("effective_date") or None,
-        ctc_annual=data.get("ctc_annual") or 0,
-        basic_monthly=data.get("basic_monthly") or 0,
-        hra_monthly=data.get("hra_monthly") or 0,
-        special_allowance_monthly=data.get("special_allowance_monthly") or 0,
-        pf_monthly=data.get("pf_monthly") or 0,
-        bonus_monthly=data.get("bonus_monthly") or 0,
-        contract_end_date=data.get("contract_end_date") or None,
-        commission_min=data.get("commission_min") or 0,
-        commission_max=data.get("commission_max") or 0,
-        stipend_monthly=data.get("stipend_monthly") or 0,
-        duration_months=data.get("duration_months") or None,
-        responsibilities=data.get("responsibilities") or "",
-        application_id=data.get("application_id") or None,
+        effective_date=effective_date,
+        ctc_annual=float(data.get("ctc_annual") or 0),
+        basic_monthly=float(data.get("basic_monthly") or 0),
+        hra_monthly=float(data.get("hra_monthly") or 0),
+        special_allowance_monthly=float(data.get("special_allowance_monthly") or 0),
+        pf_monthly=float(data.get("pf_monthly") or 0),
+        bonus_monthly=float(data.get("bonus_monthly") or 0),
+        contract_end_date=contract_end_date,
+        commission_min=float(data.get("commission_min") or 0),
+        commission_max=float(data.get("commission_max") or 0),
+        stipend_monthly=float(data.get("stipend_monthly") or 0),
+        duration_months=int(data.get("duration_months")) if data.get("duration_months") else None,
+        responsibilities=(data.get("responsibilities") or "").strip(),
+        application_id=application_id,
     )
     content_html = _render_offer_content(offer_fields)
 
@@ -1310,21 +1337,25 @@ def create_offer():
     try:
         conn, cur = get_db(True)
         if not conn:
-            raise Exception("no db")
+            raise Exception("no db connection")
 
-        cur.execute("SELECT id FROM hrms_employees WHERE email=%s AND status != 'Deleted'", (data["candidate_email"],))
+        cur.execute("SELECT id FROM hrms_employees WHERE LOWER(email)=%s AND status != 'Deleted'", (candidate_email,))
         if cur.fetchone():
             release_db(conn, cur)
-            return jsonify({"error": "An employee/candidate with this email already exists"}), 400
+            return jsonify({"error": f"An employee with email '{candidate_email}' already exists."}), 400
+
+        cur.execute("SELECT id FROM employee_offers WHERE LOWER(candidate_email)=%s AND status NOT IN ('Signed', 'Countersigned')", (candidate_email,))
+        if cur.fetchone():
+            release_db(conn, cur)
+            return jsonify({"error": f"An active offer for email '{candidate_email}' already exists."}), 400
 
         employee_code = _next_employee_code(cur)
         cur.execute("""
             INSERT INTO hrms_employees (employee_code, full_name, email, department, designation,
                 role_id, joining_date, status, employment_type)
             VALUES (%s,%s,%s,%s,%s,%s,%s,'Offer Pending',%s) RETURNING id
-        """, (employee_code, data["candidate_name"], data["candidate_email"], data.get("department"),
-              data["designation"], data["role_id"], offer_fields["effective_date"] or date.today(),
-              offer_type))
+        """, (employee_code, candidate_name, candidate_email, offer_fields["department"],
+              designation, role_id, effective_date, offer_type))
         employee_id = cur.fetchone()["id"]
 
         cur.execute("""
@@ -1354,8 +1385,8 @@ def create_offer():
             except Exception:
                 pass
         try:
-            if supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{data['candidate_email']}", "status": "not.eq.Deleted"}):
-                return jsonify({"error": "An employee/candidate with this email already exists"}), 400
+            if supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{candidate_email}", "status": "not.eq.Deleted"}):
+                return jsonify({"error": f"An employee with email '{candidate_email}' already exists."}), 400
             last = supabase_rest.get_first_row("hrms_employees", {
                 "select": "employee_code", "employee_code": "like.EMP-*", "order": "created_at.desc", "limit": 1
             })
@@ -1366,13 +1397,13 @@ def create_offer():
                 except Exception:
                     pass
             emp_row = supabase_rest.insert_row("hrms_employees", {
-                "employee_code": next_code, "full_name": data["candidate_name"], "email": data["candidate_email"],
-                "department": data.get("department"), "designation": data["designation"], "role_id": data["role_id"],
-                "joining_date": str(offer_fields["effective_date"] or date.today()), "status": "Offer Pending",
+                "employee_code": next_code, "full_name": candidate_name, "email": candidate_email,
+                "department": offer_fields["department"], "designation": designation, "role_id": role_id,
+                "joining_date": str(effective_date), "status": "Offer Pending",
                 "employment_type": offer_type,
             })
             if not emp_row:
-                return jsonify({"error": "Could not create the candidate record."}), 500
+                return jsonify({"error": f"Could not create candidate record: {e}"}), 500
             employee_id = emp_row.get("id")
             offer_row = supabase_rest.insert_row("employee_offers", {
                 **{k: (str(v) if isinstance(v, date) else v) for k, v in offer_fields.items()},
