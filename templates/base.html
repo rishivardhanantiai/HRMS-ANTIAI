@@ -645,7 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     item.innerHTML = `
                         <div style="font-weight:${isUnread ? 'bold' : 'normal'}; margin-bottom:4px;">${n.message}</div>
-                        <div style="font-size:11px; color:#94a3b8;">${n.created_at ? new Date(n.created_at).toLocaleString() : ''}</div>
+                        <div style="font-size:11px; color:#94a3b8;">${n.created_at ? new Date(String(n.created_at).replace(' ', 'T') + (String(n.created_at).includes('+') || String(n.created_at).endsWith('Z') ? '' : 'Z')).toLocaleString() : ''}</div>
                     `;
                     
                     item.addEventListener('click', (e) => {

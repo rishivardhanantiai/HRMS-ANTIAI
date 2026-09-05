@@ -72,7 +72,7 @@
         <span class="status-badge st-pending">{{ req.status }}</span>
     </div>
     <div class="hrms-subtitle">
-        Requested by {{ req.requested_by }} on {{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '' }}
+        Requested by {{ req.requested_by }} on {{ req.created_at | format_datetime('%Y-%m-%d %H:%M') if req.created_at else '' }}
         {% if req.target_table %}
         &middot; Target: {{ req.target_table }} {% if req.target_id %}({{ req.target_id }}){% endif %}
         {% endif %}

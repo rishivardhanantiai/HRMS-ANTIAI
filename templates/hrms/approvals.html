@@ -33,7 +33,7 @@
                 </td>
                 <td>{{ req.target_table }} {% if req.target_id %}({{ req.target_id }}){% endif %}</td>
                 <td>{{ req.requested_by }}</td>
-                <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '' }}</td>
+                <td>{{ req.created_at | format_datetime('%Y-%m-%d %H:%M') if req.created_at else '' }}</td>
                 <td>
                     <a href="/hrms/approvals/{{ req.id }}/review" class="btn btn-primary btn-sm" style="text-decoration:none;">Review</a>
                 </td>
@@ -76,7 +76,7 @@
                     <span class="badge {% if req.status == 'Approved' %}badge-success{% else %}badge-danger{% endif %}">{{ req.status }}</span>
                 </td>
                 <td>{{ req.resolved_by }}</td>
-                <td>{{ req.resolved_at.strftime('%Y-%m-%d %H:%M') if req.resolved_at else '' }}</td>
+                <td>{{ req.resolved_at | format_datetime('%Y-%m-%d %H:%M') if req.resolved_at else '' }}</td>
                 <td>{{ req.admin_comment or '' }}</td>
             </tr>
             {% endfor %}
