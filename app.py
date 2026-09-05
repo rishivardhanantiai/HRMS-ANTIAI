@@ -14,31 +14,6 @@ if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "product
 import tempfile
 from datetime import datetime, date, timezone
 
-def _parse_iso_datetime(value):
-    if not value:
-        return None
-    if isinstance(value, datetime):
-        return value
-    try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except (ValueError, TypeError):
-        return None
-
-@app.template_filter('format_datetime')
-def format_datetime_filter(value, format="%Y-%m-%d"):
-    if not value:
-        return ""
-    dt = _parse_iso_datetime(value)
-    if dt:
-        try:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc).astimezone()
-            else:
-                dt = dt.astimezone()
-        except Exception:
-            pass
-        return dt.strftime(format)
-    return str(value)
 import httpx
 from dotenv import load_dotenv
 import psycopg2
@@ -139,6 +114,34 @@ def verify_supabase_bucket():
             print(f"\nWARNING: Could not verify Supabase bucket: {e}\n")
 
 verify_supabase_bucket()
+
+
+def _parse_iso_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+@app.template_filter('format_datetime')
+def format_datetime_filter(value, format="%Y-%m-%d"):
+    if not value:
+        return ""
+    dt = _parse_iso_datetime(value)
+    if dt:
+        try:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc).astimezone()
+            else:
+                dt = dt.astimezone()
+        except Exception:
+            pass
+        return dt.strftime(format)
+    return str(value)
+
 
 
 
