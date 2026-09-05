@@ -1339,10 +1339,10 @@ def create_offer():
         if not conn:
             raise Exception("no db connection")
 
-        cur.execute("SELECT id FROM hrms_employees WHERE LOWER(email)=%s AND status != 'Deleted'", (candidate_email,))
+        cur.execute("SELECT id FROM hrms_employees WHERE LOWER(email)=%s", (candidate_email,))
         if cur.fetchone():
             release_db(conn, cur)
-            return jsonify({"error": f"An employee with email '{candidate_email}' already exists."}), 400
+            return jsonify({"error": f"An employee or candidate with email '{candidate_email}' already exists in the system."}), 400
 
         cur.execute("SELECT id FROM employee_offers WHERE LOWER(candidate_email)=%s AND status NOT IN ('Signed', 'Countersigned')", (candidate_email,))
         if cur.fetchone():
@@ -1384,9 +1384,14 @@ def create_offer():
                 conn.rollback()
             except Exception:
                 pass
+
+        err_str = str(e).lower()
+        if "unique constraint" in err_str or "duplicate key" in err_str or "already exists" in err_str:
+            return jsonify({"error": f"An employee or candidate with email '{candidate_email}' already exists in the system."}), 400
+
         try:
-            if supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{candidate_email}", "status": "not.eq.Deleted"}):
-                return jsonify({"error": f"An employee with email '{candidate_email}' already exists."}), 400
+            if supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{candidate_email}"}):
+                return jsonify({"error": f"An employee or candidate with email '{candidate_email}' already exists in the system."}), 400
             last = supabase_rest.get_first_row("hrms_employees", {
                 "select": "employee_code", "employee_code": "like.EMP-*", "order": "created_at.desc", "limit": 1
             })
@@ -1403,7 +1408,7 @@ def create_offer():
                 "employment_type": offer_type,
             })
             if not emp_row:
-                return jsonify({"error": f"Could not create candidate record: {e}"}), 500
+                return jsonify({"error": f"An employee or candidate with email '{candidate_email}' already exists in the system."}), 400
             employee_id = emp_row.get("id")
             offer_row = supabase_rest.insert_row("employee_offers", {
                 **{k: (str(v) if isinstance(v, date) else v) for k, v in offer_fields.items()},
@@ -1416,7 +1421,10 @@ def create_offer():
                        {"candidate_name": offer_fields["candidate_name"], "candidate_email": offer_fields["candidate_email"], "designation": offer_fields["designation"], "fallback": True})
         except Exception as rest_err:
             print("REST fallback for offer creation failed:", rest_err)
-            return jsonify({"error": f"Failed to create offer: {rest_err}"}), 500
+            rest_err_str = str(rest_err).lower()
+            if "unique constraint" in rest_err_str or "duplicate key" in rest_err_str or "already exists" in rest_err_str:
+                return jsonify({"error": f"An employee or candidate with email '{candidate_email}' already exists in the system."}), 400
+            return jsonify({"error": "Failed to create offer. Please verify candidate details and try again."}), 500
     finally:
         if conn and cur:
             release_db(conn, cur)
