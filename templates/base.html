@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ title or "HR Panel" }}</title>
 
+{% set sb_url = supabase_url if supabase_url else "https://supabase.co" %}
+<link rel="preconnect" href="{{ sb_url }}" crossorigin>
+<link rel="dns-prefetch" href="{{ sb_url }}">
+
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#3b82f6">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -593,7 +597,7 @@ window.customConfirm = function(title, message, onConfirm, opts) {
     okBtn.addEventListener("click", okFn);
 };
 </script>
-<script src="/static/js/main.js"></script>
+<script src="{{ url_for('static', filename='js/main.min.js') }}" defer></script>
 <script>
 // Notifications Logic
 document.addEventListener('DOMContentLoaded', () => {

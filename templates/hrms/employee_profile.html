@@ -114,7 +114,7 @@
     </div>
     <div class="profile-header">
         {% if emp.profile_photo_url %}
-        <img src="{{ emp.profile_photo_url }}" class="avatar-large">
+        <img src="{{ emp.profile_photo_url }}" class="avatar-large" loading="lazy">
         {% else %}
         <div class="avatar-large"
             style="background:#374151; display:flex; align-items:center; justify-content:center; font-size:40px; color:#fff; font-weight:bold;">
@@ -301,7 +301,7 @@
 </div>
 
 <!-- Chart.js for Trend Graph -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 <script>
     function openTab(evt, tabId) {
         var i, tabcontent, tablinks;

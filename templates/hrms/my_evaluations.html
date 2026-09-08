@@ -115,7 +115,7 @@
 </div>
 
 {% if evals %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 <script>
 const ctx = document.getElementById('trendChart').getContext('2d');
 const labels = [{% for ev in evals|reverse %}'{{ ev.evaluation_month }}/{{ ev.evaluation_year }}',{% endfor %}];

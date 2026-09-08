@@ -5,13 +5,8 @@ from utils.db import get_db, release_db
 from utils import supabase_rest
 from constants import PAYROLL_STATUS
 from datetime import datetime
-from reportlab.pdfgen import canvas
 from flask import send_file
 import io
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import units
 
 payroll_bp = Blueprint("payroll", __name__, url_prefix="/hrms")
 
@@ -264,6 +259,10 @@ def download_payslip(id):
             return "Unauthorized"
 
     buffer = io.BytesIO()
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+
     doc = SimpleDocTemplate(buffer)
 
     elements = []

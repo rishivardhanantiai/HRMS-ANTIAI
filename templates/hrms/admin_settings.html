@@ -184,8 +184,8 @@
                     <div style="margin-top: 10px;">
                         <span style="color:#64748b; font-size:11px; display:block; margin-bottom:5px;">Current Logo Preview:</span>
                         <div class="preview-pane">
-                            {% if company.offer_logo_wordmark_b64 %}
-                                <img src="data:image/png;base64,{{ company.offer_logo_wordmark_b64 }}" class="preview-img" alt="Logo Preview">
+                            {% if company and (company.offer_logo_wordmark_b64 or company.logo_url) %}
+                                <img src="/hrms/offers/company/logo-image" class="preview-img" alt="Logo Preview" loading="lazy">
                             {% else %}
                                 <span style="color:#475569; font-size:12px;">No Logo Uploaded</span>
                             {% endif %}
@@ -204,8 +204,8 @@
                     <div style="margin-top: 10px;">
                         <span style="color:#64748b; font-size:11px; display:block; margin-bottom:5px;">Current Watermark Preview:</span>
                         <div class="preview-pane">
-                            {% if company.offer_watermark_b64 %}
-                                <img src="data:image/png;base64,{{ company.offer_watermark_b64 }}" class="preview-img" style="opacity: 0.4;" alt="Watermark Preview">
+                            {% if company and company.offer_watermark_b64 %}
+                                <img src="/hrms/offers/company/watermark-image" class="preview-img" style="opacity: 0.4;" alt="Watermark Preview" loading="lazy">
                             {% else %}
                                 <span style="color:#475569; font-size:12px;">No Watermark Uploaded</span>
                             {% endif %}
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    container.innerHTML = `<img src="${e.target.result}" class="preview-img" alt="Preview" style="${fileInputName === 'watermark_file' ? 'opacity: 0.4;' : ''}">`;
+                    container.innerHTML = `<img src="${e.target.result}" class="preview-img" alt="Preview" loading="lazy" style="${fileInputName === 'watermark_file' ? 'opacity: 0.4;' : ''}">`;
                 };
                 reader.readAsDataURL(file);
             }

@@ -20,17 +20,19 @@ db_pool = None
 def init_db_pool():
     global db_pool
     if not db_pool and DATABASE_URL:
+        min_conn = int(os.getenv("DB_POOL_MIN", "1"))
+        max_conn = int(os.getenv("DB_POOL_MAX", "3"))
         try:
             db_pool = pool.SimpleConnectionPool(
-                1,
-                20,
+                min_conn,
+                max_conn,
                 DATABASE_URL
             )
         except Exception as e:
             try:
                 db_pool = pool.SimpleConnectionPool(
-                    1,
-                    20,
+                    min_conn,
+                    max_conn,
                     dsn=DATABASE_URL
                 )
             except Exception as pool_err:

@@ -106,7 +106,7 @@ If the button doesn't work, copy this link into your browser:<br>
 </p>"""
 
 
-def _log_outbound_email(to_email, subject, html_body, status='Sent'):
+def _log_outbound_email(to_email, subject, html_body, status='Sent', created_by='System'):
     """Log the outbound email in outbound_messages using direct SQL or REST fallback."""
     try:
         from utils.db import get_db, release_db
@@ -123,7 +123,7 @@ def _log_outbound_email(to_email, subject, html_body, status='Sent'):
                 cur.execute("""
                     INSERT INTO outbound_messages (subject, body_html, recipient_email, status, created_by, sent_at)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (subject, html_body, to_email, status, 'System', datetime.utcnow() if status == 'Sent' else None))
+                """, (subject, html_body, to_email, status, created_by, datetime.utcnow() if status == 'Sent' else None))
                 conn.commit()
                 db_success = True
         except Exception as db_err:
@@ -144,7 +144,7 @@ def _log_outbound_email(to_email, subject, html_body, status='Sent'):
                     "body_html": html_body,
                     "recipient_email": to_email,
                     "status": status,
-                    "created_by": "System"
+                    "created_by": created_by
                 }
                 if sent_at_val:
                     payload["sent_at"] = sent_at_val
@@ -155,7 +155,38 @@ def _log_outbound_email(to_email, subject, html_body, status='Sent'):
         print("Outbound email logging wrapper error:", e)
 
 
-def send_email(to_email, subject, html_body, to_name=None, log_email=True):
+def get_daily_sent_count():
+    """Returns the total number of outbound emails sent today across all system features."""
+    conn, cur = None, None
+    try:
+        from utils.db import get_db, release_db
+        conn, cur = get_db(True)
+        if conn:
+            cur.execute("""
+                SELECT count(*) as c 
+                FROM outbound_messages 
+                WHERE status IN ('Sent', 'Queued') 
+                  AND (DATE(sent_at) = CURRENT_DATE OR (sent_at IS NULL AND DATE(created_at) = CURRENT_DATE))
+            """)
+            return (cur.fetchone() or {}).get('c', 0) or 0
+    except Exception as e:
+        print("Error getting daily sent count via DB, trying REST:", e)
+        try:
+            from utils import supabase_rest
+            from datetime import datetime
+            today_str = datetime.utcnow().strftime("%Y-%m-%d")
+            c1 = supabase_rest.get_count("outbound_messages", {"created_at": f"gte.{today_str}", "status": "eq.Sent"})
+            c2 = supabase_rest.get_count("outbound_messages", {"created_at": f"gte.{today_str}", "status": "eq.Queued"})
+            return c1 + c2
+        except Exception:
+            return 0
+    finally:
+        if conn:
+            release_db(conn, cur)
+    return 0
+
+
+def send_email(to_email, subject, html_body, to_name=None, log_email=True, created_by='System'):
     """Send one HTML email with the company logo inlined. Returns True/False."""
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
@@ -165,7 +196,7 @@ def send_email(to_email, subject, html_body, to_name=None, log_email=True):
         print(f"Subject: {subject}")
         print("--------------------------------------------------------")
         if log_email:
-            _log_outbound_email(to_email, subject, html_body, 'Failed')
+            _log_outbound_email(to_email, subject, html_body, 'Failed', created_by=created_by)
         return False
 
     msg = EmailMessage()
@@ -187,12 +218,12 @@ def send_email(to_email, subject, html_body, to_name=None, log_email=True):
             server.login(SENDER_EMAIL, app_password)
             server.send_message(msg)
         if log_email:
-            _log_outbound_email(to_email, subject, html_body, 'Sent')
+            _log_outbound_email(to_email, subject, html_body, 'Sent', created_by=created_by)
         return True
     except Exception as e:
         print(f"Email send failed ({to_email}): {e}")
         if log_email:
-            _log_outbound_email(to_email, subject, html_body, 'Failed')
+            _log_outbound_email(to_email, subject, html_body, 'Failed', created_by=created_by)
         return False
 
 
@@ -222,7 +253,7 @@ It only takes a few minutes and covers:</p>
         preheader=f"Complete your onboarding at {COMPANY_NAME}",
         body_html=body,
     )
-    return send_email(to_email, f"Welcome to {COMPANY_NAME} — Complete Your Onboarding", html, to_name=candidate_name)
+    return send_email(to_email, f"Welcome to {COMPANY_NAME} — Complete Your Onboarding", html, to_name=candidate_name, created_by="Onboarding Invite")
 
 
 def send_submission_notice_to_hr(hr_email, candidate_name, review_url):
@@ -238,7 +269,7 @@ their account is activated.</p>
         preheader=f"{candidate_name} submitted their onboarding details",
         body_html=body,
     )
-    return send_email(hr_email, f"Onboarding submitted: {candidate_name}", html)
+    return send_email(hr_email, f"Onboarding submitted: {candidate_name}", html, created_by="Onboarding Review Notice")
 
 
 def send_submission_ack_to_candidate(to_email, candidate_name):
@@ -254,7 +285,7 @@ email the moment you're all set to log in.</p>
         preheader="Your submission is under review",
         body_html=body,
     )
-    return send_email(to_email, "We've received your onboarding details", html, to_name=candidate_name)
+    return send_email(to_email, "We've received your onboarding details", html, to_name=candidate_name, created_by="Onboarding Ack")
 
 
 def send_activation_email(to_email, candidate_name, login_url):
@@ -271,7 +302,7 @@ and password you set during onboarding.</p>
         preheader="Your HRMS account has been activated",
         body_html=body,
     )
-    return send_email(to_email, f"You're all set — Welcome to {COMPANY_NAME}!", html, to_name=candidate_name)
+    return send_email(to_email, f"You're all set — Welcome to {COMPANY_NAME}!", html, to_name=candidate_name, created_by="Account Activation")
 
 
 # =====================================================================
@@ -290,7 +321,7 @@ def send_offer_for_approval(admin_email, candidate_name, designation, review_url
         preheader=f"Offer for {candidate_name} needs review",
         body_html=body,
     )
-    return send_email(admin_email, f"Approval needed: Offer for {candidate_name}", html)
+    return send_email(admin_email, f"Approval needed: Offer for {candidate_name}", html, created_by="Offer Approval Notice")
 
 
 def send_offer_changes_requested(hr_email, candidate_name, comments, edit_url):
@@ -307,7 +338,7 @@ def send_offer_changes_requested(hr_email, candidate_name, comments, edit_url):
         preheader=f"Admin requested changes for {candidate_name}'s offer",
         body_html=body,
     )
-    return send_email(hr_email, f"Changes requested: Offer for {candidate_name}", html)
+    return send_email(hr_email, f"Changes requested: Offer for {candidate_name}", html, created_by="Offer Revision Notice")
 
 
 def send_offer_approved_notice(hr_email, candidate_name, send_url):
@@ -322,7 +353,7 @@ to the candidate for e-signature.</p>
         preheader=f"{candidate_name}'s offer was approved",
         body_html=body,
     )
-    return send_email(hr_email, f"Approved: Offer for {candidate_name}", html)
+    return send_email(hr_email, f"Approved: Offer for {candidate_name}", html, created_by="Offer Approved Notice")
 
 
 def send_offer_for_signature(to_email, candidate_name, designation, sign_url, expires_display):
@@ -341,7 +372,7 @@ def send_offer_for_signature(to_email, candidate_name, designation, sign_url, ex
         preheader=f"Review and e-sign your offer from {COMPANY_NAME}",
         body_html=body,
     )
-    return send_email(to_email, f"Your Offer Letter from {COMPANY_NAME}", html, to_name=candidate_name)
+    return send_email(to_email, f"Your Offer Letter from {COMPANY_NAME}", html, to_name=candidate_name, created_by="Offer Letter")
 
 
 def send_offer_awaiting_countersign(hr_email, candidate_name, countersign_url):
@@ -356,7 +387,7 @@ countersignature before the NDA can go out.</p>
         preheader=f"{candidate_name} signed their offer, awaiting HR countersignature",
         body_html=body,
     )
-    return send_email(hr_email, f"Please countersign: Offer for {candidate_name}", html)
+    return send_email(hr_email, f"Please countersign: Offer for {candidate_name}", html, created_by="Offer Countersign Notice")
 
 
 def send_nda_awaiting_countersign(hr_email, candidate_name, countersign_url):
@@ -371,7 +402,7 @@ countersignature — once that's done, their onboarding invite goes out automati
         preheader=f"{candidate_name} signed their NDA, awaiting HR countersignature",
         body_html=body,
     )
-    return send_email(hr_email, f"Please countersign: NDA for {candidate_name}", html)
+    return send_email(hr_email, f"Please countersign: NDA for {candidate_name}", html, created_by="NDA Countersign Notice")
 
 
 def send_nda_for_signature(to_email, candidate_name, sign_url, expires_display):
@@ -388,7 +419,7 @@ please review and sign your Non-Disclosure Agreement below.</p>
         preheader=f"Your NDA from {COMPANY_NAME} is ready to sign",
         body_html=body,
     )
-    return send_email(to_email, f"Non-Disclosure Agreement — {COMPANY_NAME}", html, to_name=candidate_name)
+    return send_email(to_email, f"Non-Disclosure Agreement — {COMPANY_NAME}", html, to_name=candidate_name, created_by="NDA Signature Invite")
 
 
 def send_nda_signed_notice(hr_email, candidate_name):
@@ -402,14 +433,14 @@ sent automatically — you'll see them appear in the Onboarding Pipeline shortly
         preheader=f"{candidate_name} completed their NDA",
         body_html=body,
     )
-    return send_email(hr_email, f"NDA signed: {candidate_name}", html)
+    return send_email(hr_email, f"NDA signed: {candidate_name}", html, created_by="NDA Signed Notice")
 
 
 # =====================================================================
 # CALENDAR / INTERVIEW INVITES
 # =====================================================================
 
-def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method="REQUEST", log_email=True):
+def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method="REQUEST", log_email=True, created_by="Interviews"):
     """Send an email with an attached .ics calendar invite."""
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
@@ -419,7 +450,7 @@ def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method
         print(f"Subject: {subject}")
         print("--------------------------------------------------------")
         if log_email:
-            _log_outbound_email(to_email, subject, html_body, 'Failed')
+            _log_outbound_email(to_email, subject, html_body, 'Failed', created_by=created_by)
         return False
 
     msg = EmailMessage()
@@ -458,10 +489,10 @@ def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method
             server.login(SENDER_EMAIL, app_password)
             server.send_message(msg)
         if log_email:
-            _log_outbound_email(to_email, subject, html, 'Sent')
+            _log_outbound_email(to_email, subject, html, 'Sent', created_by=created_by)
         return True
     except Exception as e:
         print(f"Meeting invite send failed ({to_email}): {e}")
         if log_email:
-            _log_outbound_email(to_email, subject, html, 'Failed')
+            _log_outbound_email(to_email, subject, html, 'Failed', created_by=created_by)
         return False

@@ -4,6 +4,7 @@ from flask import (
     Flask, flash, render_template, request,
     redirect, session, send_from_directory
 )
+from flask_compress import Compress
 import csv
 from io import BytesIO
 from io import StringIO
@@ -19,7 +20,6 @@ from dotenv import load_dotenv
 import psycopg2
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-import pandas as pd
 from flask import send_file
 from hrms.leave.routes import leave_bp
 from utils.auth import login_required
@@ -53,10 +53,14 @@ from hrms.announcements.scheduler import start_scheduler
 load_dotenv()
 
 # =========================
-# APP CONFIG
+# APP CONFIG & COMPRESSION
 # =========================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
+
+# Enable Gzip / Brotli response compression for HTML, JSON, CSS, JS
+Compress(app)
+
 app.register_blueprint(attendance_bp)
 app.register_blueprint(payroll_bp)
 app.register_blueprint(salary_bp)
@@ -79,9 +83,10 @@ app.register_blueprint(helpdesk_bp)
 app.register_blueprint(policies_bp)
 app.register_blueprint(admin_bp)
 
-# Start background scheduler for announcements
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
-    start_scheduler(app)
+# Start background scheduler ONLY in non-Vercel environments (e.g., local server)
+if not os.getenv("VERCEL") and not os.getenv("VERCEL_ENV") and os.getenv("DISABLE_SCHEDULER") != "true":
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        start_scheduler(app)
 
 # Vercel runtime is read-only except for /tmp, so use /tmp there.
 if os.getenv("VERCEL") == "1":
@@ -112,8 +117,6 @@ def verify_supabase_bucket():
                     print(f"\nWARNING: Supabase bucket '{SUPABASE_RESUME_BUCKET}' not found or not public. Document uploads/views may fail!\n")
         except Exception as e:
             print(f"\nWARNING: Could not verify Supabase bucket: {e}\n")
-
-verify_supabase_bucket()
 
 
 def _parse_iso_datetime(value):
@@ -146,6 +149,7 @@ def format_datetime_filter(value, format="%Y-%m-%d"):
 
 
 def _send_excel_dataframe(df, filename):
+    import pandas as pd
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
@@ -174,6 +178,13 @@ def _supabase_headers(use_service=False):
 def _supabase_rest_base_url():
     url = os.getenv("SUPABASE_URL", "").rstrip("/")
     return f"{url}/rest/v1" if url else None
+
+
+@app.context_processor
+def inject_supabase_url():
+    url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    return {"supabase_url": url}
+
 
 
 
@@ -423,11 +434,11 @@ def dashboard():
                 if not conn:
                     raise psycopg2.OperationalError("Database connection failed")
                 
-                # Letters
+                # 1. Letters
                 cur.execute("SELECT * FROM generated_letters WHERE employee_id = %s ORDER BY generated_at DESC", (emp_id,))
                 letters = cur.fetchall()
                 
-                # Today's attendance
+                # 2. Today's attendance
                 cur.execute("""
                     SELECT status, check_in_time, check_out_time, duration 
                     FROM hrms_attendance 
@@ -435,73 +446,58 @@ def dashboard():
                 """, (emp_id,))
                 today_attendance = cur.fetchone()
                 
-                # Leave requests summary
-                cur.execute("""
-                    SELECT status, COUNT(*) as count 
-                    FROM leave_applications 
-                    WHERE employee_id = %s 
-                    GROUP BY status
-                """, (emp_id,))
-                for row in cur.fetchall():
-                    status_lower = row["status"].lower()
-                    if "pending" in status_lower:
-                        leave_summary["pending"] = row["count"]
-                    elif "approved" in status_lower:
-                        leave_summary["approved"] = row["count"]
-                    elif "rejected" in status_lower:
-                        leave_summary["rejected"] = row["count"]
-                
-                # Recent leave applications
+                # 3. Leave Applications (consolidated counts + recent applications in 1 query)
                 cur.execute("""
                     SELECT la.from_date, la.to_date, la.status, lt.name as leave_type 
                     FROM leave_applications la
                     JOIN leave_types lt ON la.leave_type_id = lt.id
                     WHERE la.employee_id = %s 
-                    ORDER BY la.from_date DESC LIMIT 3
+                    ORDER BY la.from_date DESC
                 """, (emp_id,))
-                leave_summary["recent"] = cur.fetchall()
+                all_leaves = cur.fetchall()
+                for row in all_leaves:
+                    st_lower = str(row["status"]).lower()
+                    if "pending" in st_lower:
+                        leave_summary["pending"] += 1
+                    elif "approved" in st_lower:
+                        leave_summary["approved"] += 1
+                    elif "rejected" in st_lower:
+                        leave_summary["rejected"] += 1
+                leave_summary["recent"] = all_leaves[:3]
 
-                # Document summary
-                cur.execute("""
-                    SELECT verification_status, COUNT(*) as count 
-                    FROM employee_documents 
-                    WHERE employee_id = %s 
-                    GROUP BY verification_status
-                """, (emp_id,))
-                for row in cur.fetchall():
-                    status_lower = row["verification_status"].lower()
-                    if "pending" in status_lower:
-                        doc_summary["pending"] = row["count"]
-                    elif "verified" in status_lower:
-                        doc_summary["verified"] = row["count"]
-                    elif "rejected" in status_lower:
-                        doc_summary["rejected"] = row["count"]
-
-                # Recent documents
+                # 4. Employee Documents (consolidated counts + recent documents in 1 query)
                 cur.execute("""
                     SELECT document_title, document_type, verification_status 
                     FROM employee_documents 
                     WHERE employee_id = %s 
-                    ORDER BY created_at DESC LIMIT 3
+                    ORDER BY created_at DESC
                 """, (emp_id,))
-                doc_summary["recent"] = cur.fetchall()
+                all_docs = cur.fetchall()
+                for row in all_docs:
+                    v_lower = str(row.get("verification_status") or "").lower()
+                    if "pending" in v_lower:
+                        doc_summary["pending"] += 1
+                    elif "verified" in v_lower:
+                        doc_summary["verified"] += 1
+                    elif "rejected" in v_lower:
+                        doc_summary["rejected"] += 1
+                doc_summary["recent"] = all_docs[:3]
 
-                # Performance summary
+                # 5. Performance Evaluations (consolidated total + latest completed in 1 query)
                 cur.execute("""
-                    SELECT final_score, grade, evaluation_date 
+                    SELECT final_score, grade, status, evaluation_date 
                     FROM performance_evaluations 
-                    WHERE employee_id = %s AND status = 'Completed' 
-                    ORDER BY evaluation_date DESC LIMIT 1
+                    WHERE employee_id = %s 
+                    ORDER BY evaluation_date DESC
                 """, (emp_id,))
-                latest_eval = cur.fetchone()
-                if latest_eval:
-                    eval_summary["latest_score"] = latest_eval["final_score"]
-                    eval_summary["latest_grade"] = latest_eval["grade"]
+                all_evals = cur.fetchall()
+                eval_summary["total"] = len(all_evals)
+                completed_evals = [e for e in all_evals if e.get("status") == "Completed"]
+                if completed_evals:
+                    eval_summary["latest_score"] = completed_evals[0]["final_score"]
+                    eval_summary["latest_grade"] = completed_evals[0]["grade"]
 
-                cur.execute("SELECT COUNT(*) as total FROM performance_evaluations WHERE employee_id = %s", (emp_id,))
-                eval_summary["total"] = cur.fetchone()["total"]
-
-                # Fetch Active Exit for Employee Notification
+                # 6. Active Exit
                 cur.execute("""
                     SELECT * FROM employee_exits 
                     WHERE employee_id::text = %s 
@@ -1509,6 +1505,7 @@ def update_application_status(application_id):
 @login_required
 @role_required(["HR", "Admin"])
 def download_excel():
+    import pandas as pd
 
     selected_job = request.args.get("job_id")
     search_q = request.args.get("search", "").strip()
@@ -1824,6 +1821,7 @@ def salary_records():
 @app.route("/download-salary-records")
 @login_required
 def download_salary_records():
+    import pandas as pd
     conn = None
     cur = None
     df = None
@@ -1888,11 +1886,51 @@ def download_salary_records():
 
 
 # =========================
+# VERCEL CRON ENDPOINT
+# =========================
+@app.route("/api/cron/process-jobs", methods=["GET", "POST"])
+def cron_process_jobs():
+    """
+    Dedicated Vercel Cron Endpoint to run background jobs on Vercel Serverless.
+    Executes queued email sending, daily reminders, and candidate PII retention purge.
+    """
+    cron_secret = os.getenv("CRON_SECRET")
+    if cron_secret:
+        auth_header = request.headers.get("Authorization", "")
+        req_secret = request.args.get("secret", "")
+        if auth_header != f"Bearer {cron_secret}" and req_secret != cron_secret:
+            return jsonify({"error": "Unauthorized"}), 401
+
+    results = {}
+    from hrms.announcements.scheduler import process_email_queue, run_daily_reminders, run_candidate_pii_purge
+
+    try:
+        process_email_queue(app)
+        results["email_queue"] = "success"
+    except Exception as e:
+        results["email_queue"] = f"error: {str(e)}"
+
+    try:
+        run_daily_reminders(app)
+        results["daily_reminders"] = "success"
+    except Exception as e:
+        results["daily_reminders"] = f"error: {str(e)}"
+
+    try:
+        run_candidate_pii_purge(app)
+        results["candidate_pii_purge"] = "success"
+    except Exception as e:
+        results["candidate_pii_purge"] = f"error: {str(e)}"
+
+    return jsonify({"status": "completed", "results": results}), 200
+
+
+# =========================
 # RUN SERVER
 # =========================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # Only start scheduler in the main process to avoid double running with Werkzeug reloader
+    verify_supabase_bucket()
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         from hrms.announcements.scheduler import start_scheduler
         start_scheduler(app)

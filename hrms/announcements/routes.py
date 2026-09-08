@@ -348,7 +348,7 @@ def send_message():
             )
             
             # Send immediately
-            success = send_email(rcpt["email"], subject, wrapped_body)
+            success = send_email(rcpt["email"], subject, wrapped_body, log_email=False, created_by=session.get("user") or "System")
             status = 'Sent' if success else 'Failed'
             
             cur.execute("""

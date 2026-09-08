@@ -11,8 +11,8 @@ html, body {
 }
 
 body {
-    background: #050505;
-    color: #ffffff;
+    background: radial-gradient(circle at top, #020617, #000000);
+    color: #e5e7eb;
 }
 
 
@@ -26,7 +26,7 @@ body {
 /* ================= SIDEBAR (PERSISTENT) ================= */
 .sidebar {
     width: 240px;
-    background: linear-gradient(180deg, #050505, #0c0c0c);
+    background: linear-gradient(180deg, #000000, #020617);
     padding: 30px 20px;
     position: fixed;
     left: 0;
@@ -592,8 +592,8 @@ a:hover {
 /* ACTION BUTTON GROUP */
 .action-group {
     display: flex;
-    gap: 8px;
-    justify-content: flex-end;
+    gap: 12px;
+    align-items: center;
 }
 
 

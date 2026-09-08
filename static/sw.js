@@ -1,10 +1,24 @@
-const CACHE_NAME = 'anti-hrms-cache-v1';
+const CACHE_NAME = 'anti-hrms-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
+  '/static/manifest.json',
   '/static/css/style.css',
+  '/static/css/style.min.css',
   '/static/css/theme.css',
+  '/static/css/theme.min.css',
+  '/static/css/announcements.css',
+  '/static/css/announcements.min.css',
   '/static/js/main.js',
-  '/static/images/logo.png'
+  '/static/js/main.min.js',
+  '/static/js/announcements.js',
+  '/static/js/announcements.min.js',
+  '/static/images/logo.png',
+  '/static/images/logo_globe.png',
+  '/static/images/logo_globe_watermark.png',
+  '/static/images/logo_wordmark.png',
+  '/static/images/icon-96.png',
+  '/static/images/icon-192.png',
+  '/static/images/icon-512.png'
 ];
 
 // Install Event
@@ -33,7 +47,7 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch Event (Network-first with cache fallback for dynamic resources, cache-first for static assets)
+// Fetch Event (Cache-first for static assets, network-first for dynamic resources)
 self.addEventListener('fetch', event => {
   const requestUrl = new URL(event.request.url);
   
@@ -52,10 +66,10 @@ self.addEventListener('fetch', event => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          // If offline and request is HTML document, we can return a basic offline notification message
-          if (event.request.headers.get('accept').includes('text/html')) {
+          // If offline and request is HTML document, return fallback offline page
+          if (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) {
             return new Response(
-              '<h1>Offline Mode</h1><p>You are currently offline. Please check your internet connection and try again.</p>',
+              '<!DOCTYPE html><html><head><title>Offline</title><style>body{background:#050505;color:#e2e8f0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;}</style></head><body><div><h1>Offline Mode</h1><p>You are currently offline. Please check your internet connection.</p></div></body></html>',
               { headers: { 'Content-Type': 'text/html' } }
             );
           }

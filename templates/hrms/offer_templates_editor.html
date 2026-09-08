@@ -115,7 +115,7 @@
                 <div class="app-field">
                     <label>Header Logo</label>
                     <div class="img-preview" id="logoPreview">
-                        <img src="data:image/png;base64,{{ company.get('offer_logo_wordmark_b64') or default_logo_b64 }}">
+                        <img src="/hrms/offers/company/logo-image" loading="lazy">
                     </div>
                     <input type="file" accept="image/png,image/jpeg" id="logoFile">
                     <div class="hint">Shown beside the company name/address in the letterhead.</div>
@@ -129,7 +129,7 @@
                 <div class="app-field">
                     <label>Watermark Image</label>
                     <div class="img-preview" id="watermarkPreview">
-                        <img src="data:image/png;base64,{{ company.get('offer_watermark_b64') or default_watermark_b64 }}">
+                        <img src="/hrms/offers/company/watermark-image" loading="lazy">
                     </div>
                     <input type="file" accept="image/png,image/jpeg" id="watermarkFile">
                     <div class="hint">Printed faintly behind the body text on every page. Use a low-opacity or single-color PNG.</div>

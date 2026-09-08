@@ -3,10 +3,6 @@ import os
 if not os.getenv("VERCEL") and os.getenv("FLASK_ENV", "development") != "production":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 import json
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
 from utils.encryption import encrypt_token, decrypt_token
 from utils.db import get_db, release_db
 
@@ -14,6 +10,7 @@ SECRETS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "utils",
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_oauth_flow(redirect_uri=None):
+    from google_auth_oauthlib.flow import Flow
     env_secrets = os.getenv("GOOGLE_CLIENT_SECRETS_JSON")
     if env_secrets:
         try:
@@ -99,6 +96,8 @@ def get_credentials(user_email):
     try:
         decrypted_json = decrypt_token(encrypted_data)
         token_dict = json.loads(decrypted_json)
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
         creds = Credentials(
             token=token_dict.get('token'),
             refresh_token=token_dict.get('refresh_token'),
@@ -134,6 +133,7 @@ def get_calendar_service(user_email):
     if not creds:
         return None
     try:
+        from googleapiclient.discovery import build
         return build('calendar', 'v3', credentials=creds)
     except Exception as e:
         print(f"Error building Google Calendar service: {e}")

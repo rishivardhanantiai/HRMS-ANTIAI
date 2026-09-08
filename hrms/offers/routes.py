@@ -56,12 +56,6 @@ from utils import supabase_rest
 from utils import mailer
 from hrms.notifications.routes import create_notification
 
-try:
-    from xhtml2pdf import pisa
-    PDF_GENERATOR_AVAILABLE = True
-except Exception:
-    PDF_GENERATOR_AVAILABLE = False
-
 offers_bp = Blueprint("offers", __name__, url_prefix="/hrms/offers")
 offers_public_bp = Blueprint("offers_public", __name__, url_prefix="/sign")
 
@@ -766,10 +760,13 @@ def _render_nda_content(candidate_name, candidate_address, designation):
     return _fill(tpl, ctx)
 
 
-def _get_company(cur=None):
+def _get_company(cur=None, include_b64=True):
     try:
         if cur:
-            cur.execute("SELECT * FROM company_settings LIMIT 1")
+            if include_b64:
+                cur.execute("SELECT * FROM company_settings LIMIT 1")
+            else:
+                cur.execute("SELECT id, company_name, offer_watermark_opacity, offer_watermark_width_cm, offer_logo_width_px, candidate_retention_months, logo_url FROM company_settings LIMIT 1")
             row = cur.fetchone()
             if row:
                 return row
@@ -778,6 +775,9 @@ def _get_company(cur=None):
     try:
         row = supabase_rest.get_first_row("company_settings", {})
         if row:
+            if not include_b64:
+                row.pop("offer_logo_wordmark_b64", None)
+                row.pop("offer_watermark_b64", None)
             return row
     except Exception:
         pass
@@ -787,6 +787,13 @@ def _get_company(cur=None):
 def _update_company_settings(fields):
     """Upsert into the single company_settings row — used by the Document
     Appearance panel (watermark/logo image + sizing overrides)."""
+    # Task 20: Validate base64 payload size limits (max 500,000 chars / ~375 KB raw image)
+    for k in ("offer_logo_wordmark_b64", "offer_watermark_b64"):
+        v = fields.get(k)
+        if v and len(str(v)) > 500000:
+            print(f"Validation Error: {k} exceeds maximum 500,000 character size limit.")
+            return False
+
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
@@ -820,6 +827,34 @@ def _update_company_settings(fields):
     finally:
         if conn:
             release_db(conn, cur)
+
+
+@offers_bp.route("/company/logo-image")
+def company_logo_image():
+    """Task 20: Serve company logo image directly over HTTP with browser caching."""
+    company = _get_company(include_b64=True)
+    b64 = company.get("offer_logo_wordmark_b64") if isinstance(company, dict) else None
+    if not b64:
+        return redirect(url_for("static", filename="images/logo_wordmark.png"))
+    try:
+        img_bytes = base64.b64decode(b64)
+        return Response(img_bytes, mimetype="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    except Exception:
+        return redirect(url_for("static", filename="images/logo_wordmark.png"))
+
+
+@offers_bp.route("/company/watermark-image")
+def company_watermark_image():
+    """Task 20: Serve company watermark image directly over HTTP with browser caching."""
+    company = _get_company(include_b64=True)
+    b64 = company.get("offer_watermark_b64") if isinstance(company, dict) else None
+    if not b64:
+        return redirect(url_for("static", filename="images/logo_globe_watermark.png"))
+    try:
+        img_bytes = base64.b64decode(b64)
+        return Response(img_bytes, mimetype="image/png", headers={"Cache-Control": "public, max-age=86400"})
+    except Exception:
+        return redirect(url_for("static", filename="images/logo_globe_watermark.png"))
 
 
 def _save_offer_template(template_type, content):
@@ -883,7 +918,9 @@ This constitutes a valid electronic signature under the Indian IT Act, 2000.</p>
 def _render_pdf_and_upload(content_html, file_label, doc_title=""):
     """Wrap content_html in the branded offer letterhead (logo, watermark,
     repeating per-page signature footer) and upload the rendered PDF to Storage."""
-    if not PDF_GENERATOR_AVAILABLE:
+    try:
+        from xhtml2pdf import pisa
+    except Exception:
         return None
     conn, cur = get_db(True)
     try:
@@ -1098,7 +1135,11 @@ def preview_template(template_type):
     appearance settings — lets HR see changes before they touch a real offer."""
     if not hr_admin_required():
         return redirect("/dashboard")
-    if template_type not in TEMPLATE_DEFAULTS or not PDF_GENERATOR_AVAILABLE:
+    if template_type not in TEMPLATE_DEFAULTS:
+        return "Preview unavailable", 404
+    try:
+        from xhtml2pdf import pisa
+    except Exception:
         return "Preview unavailable", 404
 
     override_content = request.args.get("content")

@@ -304,6 +304,19 @@ def audit_logs():
     return render_template("hrms/admin_audit_logs.html", logs=[], page=1, total_pages=1, total=0)
 
 
+_HAS_POLICIES_TABLE = None
+
+def _check_policies_table_exists(cur):
+    global _HAS_POLICIES_TABLE
+    if _HAS_POLICIES_TABLE is None:
+        try:
+            cur.execute("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'employee_policy_signatures')")
+            _HAS_POLICIES_TABLE = cur.fetchone()["exists"]
+        except Exception:
+            _HAS_POLICIES_TABLE = False
+    return _HAS_POLICIES_TABLE
+
+
 @admin_bp.route("/dashboards", methods=["GET"])
 @login_required
 @role_required(["Admin"])
@@ -315,55 +328,38 @@ def dashboards():
             flash("Database connection failed", "error")
             return redirect("/dashboard")
             
-        # 1. Quota & System Usage
-        # Gmail daily sends
-        cur.execute("SELECT COUNT(*) FROM outbound_messages WHERE status = 'Sent' AND sent_at >= CURRENT_DATE")
-        emails_sent_today = cur.fetchone()["count"]
+        # 1. Quota & System Usage (Batched Single Query)
+        has_policies_table = _check_policies_table_exists(cur)
+        policies_subquery = "(SELECT COUNT(*) FROM employee_policy_signatures WHERE pdf_url IS NOT NULL)" if has_policies_table else "0"
+
+        cur.execute(f"""
+            SELECT 
+                (SELECT COUNT(*) FROM outbound_messages WHERE status = 'Sent' AND (DATE(sent_at) = CURRENT_DATE OR (sent_at IS NULL AND DATE(created_at) = CURRENT_DATE))) AS emails_sent_today,
+                (SELECT COUNT(*) FROM employee_offers WHERE pdf_url IS NOT NULL OR final_pdf_url IS NOT NULL) AS offers_pdf_count,
+                (SELECT COUNT(*) FROM employee_ndas WHERE pdf_url IS NOT NULL OR final_pdf_url IS NOT NULL) AS ndas_pdf_count,
+                {policies_subquery} AS policies_pdf_count,
+                (SELECT SUM(n_live_tup) FROM pg_stat_user_tables) AS total_db_rows,
+                (SELECT COUNT(*) FROM applications) AS total_candidates
+        """)
+        m = cur.fetchone() or {}
+        
+        emails_sent_today = m.get("emails_sent_today") or 0
         email_quota_max = 500
         email_quota_pct = min(100.0, (emails_sent_today / email_quota_max) * 100.0)
         
-        # Document Hub count of stored files (production schema uses pdf_url)
-        try:
-            cur.execute("SELECT COUNT(*) FROM employee_offers WHERE pdf_url IS NOT NULL")
-            offers_pdf_count = cur.fetchone()["count"]
-        except Exception:
-            conn.rollback()
-            cur.execute("SELECT COUNT(*) FROM employee_offers WHERE final_pdf_url IS NOT NULL")
-            offers_pdf_count = cur.fetchone()["count"]
-            
-        try:
-            cur.execute("SELECT COUNT(*) FROM employee_ndas WHERE pdf_url IS NOT NULL")
-            ndas_pdf_count = cur.fetchone()["count"]
-        except Exception:
-            conn.rollback()
-            cur.execute("SELECT COUNT(*) FROM employee_ndas WHERE final_pdf_url IS NOT NULL")
-            ndas_pdf_count = cur.fetchone()["count"]
-        
-        # Check if table employee_policy_signatures exists first
-        cur.execute("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'employee_policy_signatures')")
-        has_policies_table = cur.fetchone()["exists"]
-        policies_pdf_count = 0
-        if has_policies_table:
-            cur.execute("SELECT COUNT(*) FROM employee_policy_signatures WHERE pdf_url IS NOT NULL")
-            policies_pdf_count = cur.fetchone()["count"]
-            
+        offers_pdf_count = m.get("offers_pdf_count") or 0
+        ndas_pdf_count = m.get("ndas_pdf_count") or 0
+        policies_pdf_count = m.get("policies_pdf_count") or 0
         total_docs_count = offers_pdf_count + ndas_pdf_count + policies_pdf_count
-        
-        # Database sizes (approx rows as storage proxy)
-        cur.execute("SELECT SUM(n_live_tup) FROM pg_stat_user_tables")
-        total_db_rows = cur.fetchone()["sum"] or 0
-        
+        total_db_rows = m.get("total_db_rows") or 0
+        total_candidates = m.get("total_candidates") or 0
+
         # 2. Hiring Analytics
-        # Total Candidates
-        cur.execute("SELECT COUNT(*) FROM applications")
-        total_candidates = cur.fetchone()["count"]
-        
         # Funnel stage counts
-        cur.execute("SELECT status, COUNT(*) FROM applications GROUP BY status")
+        cur.execute("SELECT status, COUNT(*) as count FROM applications GROUP BY status")
         funnel_rows = cur.fetchall()
         funnel_stats = {r["status"]: r["count"] for r in funnel_rows}
         
-        # Ensure all standard stages exist in mapping
         stages_list = [
             ("Screening", "Screening"),
             ("Interviewing", "Interviewing"),
@@ -375,7 +371,6 @@ def dashboards():
         ]
         funnel_data = []
         for stage_val, stage_label in stages_list:
-            # Aggregate status values
             count = 0
             for k, v in funnel_stats.items():
                 if k == stage_val or (stage_val == "Pending" and "pending" in str(k).lower()):
@@ -383,22 +378,14 @@ def dashboards():
             funnel_data.append({"label": stage_label, "count": count})
             
         # Offer Acceptance Rate
-        cur.execute("SELECT status, COUNT(*) FROM employee_offers GROUP BY status")
+        cur.execute("SELECT status, COUNT(*) as count FROM employee_offers GROUP BY status")
         offer_rows = cur.fetchall()
         offer_stats = {r["status"]: r["count"] for r in offer_rows}
         
-        extended = 0
-        accepted = 0
-        for k, v in offer_stats.items():
-            if k in ("Sent", "Signed", "Countersigned"):
-                extended += v
-            if k in ("Signed", "Countersigned"):
-                accepted += v
-                
-        acceptance_rate = 0.0
-        if extended > 0:
-            acceptance_rate = round((accepted / extended) * 100.0, 1)
-            
+        extended = sum(v for k, v in offer_stats.items() if k in ("Sent", "Signed", "Countersigned"))
+        accepted = sum(v for k, v in offer_stats.items() if k in ("Signed", "Countersigned"))
+        acceptance_rate = round((accepted / extended) * 100.0, 1) if extended > 0 else 0.0
+
         # Average Time-to-Hire
         cur.execute("""
             SELECT AVG(EXTRACT(EPOCH FROM (o.created_at - a.applied_at))/86400) AS avg_days 
@@ -418,7 +405,7 @@ def dashboards():
             avg_days = row["avg_days"] if row and row["avg_days"] is not None else 14.5
             
         avg_time_to_hire = round(float(avg_days), 1)
-        
+
         # Recent activity log (latest 5 audit records)
         cur.execute("""
             SELECT actor, action, created_at 
@@ -427,7 +414,7 @@ def dashboards():
             LIMIT 5
         """)
         recent_activities = cur.fetchall()
-        
+
         return render_template("hrms/admin_dashboards.html",
                                emails_sent_today=emails_sent_today,
                                email_quota_max=email_quota_max,

@@ -248,12 +248,11 @@ def start_scheduler(app):
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=process_email_queue, args=[app], trigger="interval", seconds=30)
     
-    # Run daily reminders immediately on startup and then every 24 hours
-    from datetime import datetime
-    scheduler.add_job(func=run_daily_reminders, args=[app], trigger="interval", days=1, next_run_time=datetime.now())
+    # Run daily reminders every 24 hours
+    scheduler.add_job(func=run_daily_reminders, args=[app], trigger="interval", days=1)
     
     # Run candidate PII purge daily
-    scheduler.add_job(func=run_candidate_pii_purge, args=[app], trigger="interval", days=1, next_run_time=datetime.now())
+    scheduler.add_job(func=run_candidate_pii_purge, args=[app], trigger="interval", days=1)
     
     scheduler.start()
     return scheduler

@@ -8,11 +8,6 @@ from utils.supabase_rest import upload_file_bytes
 from utils import supabase_rest
 import json
 import decimal
-try:
-    from xhtml2pdf import pisa
-    PDF_GENERATOR_AVAILABLE = True
-except ImportError:
-    PDF_GENERATOR_AVAILABLE = False
 
 letters_bp = Blueprint("letters_bp", __name__, url_prefix="/hrms/letters")
 
@@ -117,13 +112,16 @@ def _get_company(cur=None):
     company = None
     if cur:
         try:
-            cur.execute("SELECT * FROM company_settings LIMIT 1")
+            cur.execute("SELECT id, company_name, logo_url, company_email, company_phone, company_website, company_address FROM company_settings LIMIT 1")
             company = cur.fetchone()
         except Exception:
             pass
     if not company:
         try:
             company = supabase_rest.get_first_row("company_settings")
+            if company:
+                company.pop("offer_logo_wordmark_b64", None)
+                company.pop("offer_watermark_b64", None)
         except Exception:
             pass
             
@@ -585,7 +583,9 @@ def generate_pdf():
     pdf_path = os.path.join(upload_dir, f"doc_{int(time.time())}.pdf")
 
     try:
-        if not PDF_GENERATOR_AVAILABLE:
+        try:
+            from xhtml2pdf import pisa
+        except Exception:
             raise Exception("PDF generation (xhtml2pdf) not available on this server.")
             
         with open(pdf_path, "w+b") as result_file:

@@ -54,7 +54,7 @@
         <tr>
             <td style="vertical-align: top; width: 60%;">
                 {% if company.logo_url %}
-                <img src="{{ company.logo_url }}" alt="Logo" style="height: 50px; margin-bottom: 10px;">
+                <img src="{{ company.logo_url }}" alt="Logo" style="height: 50px; margin-bottom: 10px;" loading="lazy">
                 {% endif %}
                 <div style="font-size: 24px; font-weight: bold; color: #111827;">{{ company.company_name or 'ANTI AI' }}</div>
                 <div style="font-size: 10pt; color: #4b5563;">{{ company.company_address }}</div>

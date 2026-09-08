@@ -10,6 +10,12 @@
       "use": "@vercel/static"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cron/process-jobs",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/static/(.*)",
