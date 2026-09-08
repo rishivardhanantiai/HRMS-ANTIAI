@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anti-hrms-cache-v2';
+const CACHE_NAME = 'anti-hrms-cache-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/manifest.json',
@@ -13,25 +13,36 @@ const ASSETS_TO_CACHE = [
   '/static/js/announcements.js',
   '/static/js/announcements.min.js',
   '/static/images/logo.png',
+  '/static/images/logo.webp',
   '/static/images/logo_globe.png',
+  '/static/images/logo_globe.webp',
   '/static/images/logo_globe_watermark.png',
+  '/static/images/logo_globe_watermark.webp',
   '/static/images/logo_wordmark.png',
+  '/static/images/logo_wordmark.webp',
   '/static/images/icon-96.png',
+  '/static/images/icon-96.webp',
   '/static/images/icon-192.png',
-  '/static/images/icon-512.png'
+  '/static/images/icon-192.webp',
+  '/static/images/icon-512.png',
+  '/static/images/icon-512.webp'
 ];
 
-// Install Event
+// Install Event — resilient caching so single redirect/failure does not break installation
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return Promise.all(
+        ASSETS_TO_CACHE.map(url => {
+          return cache.add(url).catch(err => console.warn('Failed to cache asset:', url, err));
+        })
+      );
     })
   );
   self.skipWaiting();
 });
 
-// Activate Event
+// Activate Event — cleanup old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {

@@ -144,11 +144,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
+    const cfg = window.ANNOUNCEMENT_CONFIG || {};
+    const ACTIVE_COUNT = cfg.activeCount || 0;
+
     function calculateRecipientCount() {
 
         if (sendToAll.checked) {
 
-            return {{ active_count }};
+            return ACTIVE_COUNT;
 
         }
 
@@ -186,10 +189,10 @@ document.addEventListener("DOMContentLoaded", function () {
         if (sendToAll.checked) {
 
             recipientCount.textContent =
-                "{{ active_count }}";
+                ACTIVE_COUNT.toString();
 
             audienceStatus.textContent =
-                "{{ active_count }} active employees";
+                ACTIVE_COUNT + " active employees";
 
             audienceSummaryTitle.textContent =
                 "Everyone active";
@@ -534,8 +537,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 
-    const QUOTA_USED  = parseInt("{{ quota_used  | default(0) }}", 10) || 0;
-    const QUOTA_LIMIT = parseInt("{{ quota_limit | default(500) }}", 10) || 500;
+    const QUOTA_USED  = cfg.quotaUsed || 0;
+    const QUOTA_LIMIT = cfg.quotaLimit || 500;
 
     // Track current over-quota send mode for the two extra buttons
     let _currentOverQuotaRemaining = 0;
