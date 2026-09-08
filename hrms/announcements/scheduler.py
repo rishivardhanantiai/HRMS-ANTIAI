@@ -80,7 +80,34 @@ def process_email_queue(app):
                     conn.commit()
                     
         except Exception as e:
-            print(f"Error in APScheduler process_email_queue: {e}")
+            print(f"Error in APScheduler process_email_queue via DB, trying REST fallback: {e}")
+            try:
+                from utils import supabase_rest
+                today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                sent_today = supabase_rest.get_count("outbound_messages", {"created_at": f"gte.{today_str}", "status": "eq.Sent"})
+                if sent_today < DAILY_QUOTA_LIMIT:
+                    remaining_quota = DAILY_QUOTA_LIMIT - sent_today
+                    batch_limit = min(10, remaining_quota)
+                    messages = supabase_rest.get_rows("outbound_messages", {
+                        "status": "eq.Queued",
+                        "order": "created_at.asc",
+                        "limit": str(batch_limit)
+                    })
+                    for msg in messages:
+                        try:
+                            final_body = (msg.get('body_html') or "").replace("{{company_name}}", COMPANY_NAME)
+                            from utils.mailer import _wrap_html
+                            wrapped_body = _wrap_html(title=msg.get('subject'), preheader=msg.get('subject'), body_html=final_body)
+                            success = send_email(msg.get('recipient_email'), msg.get('subject'), wrapped_body, log_email=False)
+                            status = 'Sent' if success else 'Failed'
+                            supabase_rest.update_rows("outbound_messages", {"id": f"eq.{msg['id']}"}, {
+                                "status": status,
+                                "sent_at": datetime.utcnow().isoformat() if success else None
+                            })
+                        except Exception as msg_err:
+                            print(f"Error processing queued message {msg.get('id')} via REST: {msg_err}")
+            except Exception as rest_err:
+                print("REST fallback for process_email_queue failed:", rest_err)
         finally:
             if conn:
                 release_db(conn, cur)
@@ -98,7 +125,7 @@ def run_daily_reminders(app):
         try:
             conn, cur = get_db(True)
             if not conn:
-                return
+                raise Exception("No DB connection")
                 
             from datetime import date, timedelta
             today = date.today()
@@ -168,7 +195,7 @@ def run_candidate_pii_purge(app):
         try:
             conn, cur = get_db(True)
             if not conn:
-                return
+                raise Exception("No DB connection")
 
             # Fetch candidate_retention_months from company_settings (default: 12)
             cur.execute("SELECT candidate_retention_months FROM company_settings LIMIT 1")
@@ -236,10 +263,46 @@ def run_candidate_pii_purge(app):
                 conn.commit()
                 print("APScheduler: Purge completed successfully.")
         except Exception as e:
-            print(f"Error in run_candidate_pii_purge: {e}")
+            print(f"Error in run_candidate_pii_purge via DB, trying REST fallback: {e}")
             if conn:
                 try: conn.rollback()
                 except Exception: pass
+            try:
+                from utils import supabase_rest
+                setting = supabase_rest.get_first_row("company_settings", {"select": "candidate_retention_months"})
+                retention_months = setting.get("candidate_retention_months") if setting and setting.get("candidate_retention_months") is not None else 12
+                cutoff_date = (datetime.now() - timedelta(days=retention_months * 30)).isoformat()
+                
+                candidates_to_purge = supabase_rest.get_rows("applications", {
+                    "status": "eq.Rejected",
+                    "applied_at": f"lt.{cutoff_date}",
+                    "email": "not.is.null"
+                })
+                candidates_to_purge = [c for c in candidates_to_purge if not str(c.get("email", "")).startswith("anonymized-")]
+                
+                if candidates_to_purge:
+                    from utils.audit import log_action
+                    for cand in candidates_to_purge:
+                        log_action(
+                            actor="System",
+                            action="candidate_pii_purged",
+                            target_table="applications",
+                            target_id=cand["id"],
+                            details={
+                                "email": cand.get("email"),
+                                "applied_at": cand.get("applied_at"),
+                                "retention_months": retention_months
+                            }
+                        )
+                        supabase_rest.update_rows("applications", {"id": f"eq.{cand['id']}"}, {
+                            "name": "Anonymized",
+                            "email": f"anonymized-{cand['id']}@example.com",
+                            "phone": None,
+                            "notes": None,
+                            "resume_url": None
+                        })
+            except Exception as rest_err:
+                print("REST fallback for candidate PII purge failed:", rest_err)
         finally:
             if conn:
                 release_db(conn, cur)

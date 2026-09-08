@@ -66,7 +66,44 @@ def get_feed():
                 })
                 
     except Exception as e:
-        print(f"Error fetching notifications: {e}")
+        print(f"Error fetching notifications via DB, trying REST fallback: {e}")
+        try:
+            from utils import supabase_rest
+            params = {"order": "created_at.desc", "limit": "20"}
+            if role == "Employee":
+                params["recipient_role"] = "eq.Employee"
+                params["employee_id"] = f"eq.{session.get('employee_id')}"
+            else:
+                params["recipient_role"] = f"eq.{role}"
+            
+            rows = supabase_rest.get_rows("notifications", params)
+            for r in rows:
+                notifications.append({
+                    "id": str(r["id"]),
+                    "type": r.get("type"),
+                    "message": r.get("message"),
+                    "link": r.get("link"),
+                    "read_at": r.get("read_at"),
+                    "created_at": r.get("created_at"),
+                })
+            
+            if role == "Admin":
+                five_days_ago = (datetime.utcnow() - timedelta(days=5)).isoformat()
+                aging_count = supabase_rest.get_count("employee_offers", {
+                    "status": "eq.Pending Approval",
+                    "created_at": f"lt.{five_days_ago}"
+                })
+                if aging_count > 0:
+                    notifications.insert(0, {
+                        "id": "aging-alerts",
+                        "type": "aging_alert",
+                        "message": f"{aging_count} offers have been pending approval for 5+ days",
+                        "link": url_for("offers.index"),
+                        "read_at": None,
+                        "created_at": datetime.utcnow().isoformat()
+                    })
+        except Exception as rest_err:
+            print("REST fallback for get_feed failed:", rest_err)
     finally:
         if conn:
             release_db(conn, cur)

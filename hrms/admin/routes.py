@@ -44,9 +44,29 @@ def users_list():
         
         return render_template("hrms/admin_users.html", users=users, roles=roles, employees=employees)
     except Exception as e:
-        print(f"Error in users_list: {e}")
-        flash("Failed to retrieve users.", "error")
-        return redirect("/dashboard")
+        print(f"Error in users_list via DB, trying REST fallback: {e}")
+        try:
+            from utils import supabase_rest
+            roles = supabase_rest.get_rows("hrms_roles", {"select": "id,role_name"})
+            employees = supabase_rest.get_rows("hrms_employees", {"select": "id,full_name,email", "status": "eq.Active"})
+            raw_users = supabase_rest.get_rows("hrms_users", {"select": "id,email,role_id,employee_id", "order": "email.asc"})
+            role_map = {str(r.get("id")): r.get("role_name") for r in roles}
+            emp_map = {str(e.get("id")): e.get("full_name") for e in employees}
+            users = []
+            for u in raw_users:
+                users.append({
+                    "id": u.get("id"),
+                    "email": u.get("email"),
+                    "role_id": u.get("role_id"),
+                    "employee_id": u.get("employee_id"),
+                    "role_name": role_map.get(str(u.get("role_id"))),
+                    "employee_name": emp_map.get(str(u.get("employee_id")))
+                })
+            return render_template("hrms/admin_users.html", users=users, roles=roles, employees=employees)
+        except Exception as rest_err:
+            print("REST fallback for users_list failed:", rest_err)
+            flash("Failed to retrieve users.", "error")
+            return redirect("/dashboard")
     finally:
         if conn:
             release_db(conn, cur)
@@ -94,9 +114,31 @@ def add_user():
                        
             flash(f"Successfully added user '{email}'.", "success")
     except Exception as e:
-        print(f"Error in add_user: {e}")
+        print(f"Error in add_user via DB, trying REST fallback: {e}")
         if conn: conn.rollback()
-        flash("Failed to create user.", "error")
+        try:
+            from utils import supabase_rest
+            existing = supabase_rest.get_first_row("hrms_users", {"email": f"ilike.{email}"})
+            if existing:
+                flash(f"User with email '{email}' already exists.", "error")
+                return redirect(url_for("admin.users_list"))
+            res = supabase_rest.insert_row("hrms_users", {
+                "email": email,
+                "password": hashed,
+                "role_id": role_id,
+                "employee_id": employee_id
+            })
+            if res:
+                role_row = supabase_rest.get_first_row("hrms_roles", {"id": f"eq.{role_id}"})
+                role_name = role_row.get("role_name") if role_row else "Unknown"
+                log_action(session.get("email") or "Admin", "user_created", "hrms_users", res.get("id"), 
+                           {"email": email, "role": role_name, "employee_id": employee_id})
+                flash(f"Successfully added user '{email}'.", "success")
+            else:
+                flash("Failed to create user.", "error")
+        except Exception as rest_err:
+            print("REST fallback for add_user failed:", rest_err)
+            flash("Failed to create user.", "error")
     finally:
         if conn:
             release_db(conn, cur)
@@ -147,9 +189,32 @@ def edit_user():
             log_action(session.get("email") or "Admin", "user_updated", "hrms_users", user_id, details)
             flash("User updated successfully.", "success")
     except Exception as e:
-        print(f"Error in edit_user: {e}")
+        print(f"Error in edit_user via DB, trying REST fallback: {e}")
         if conn: conn.rollback()
-        flash("Failed to update user.", "error")
+        try:
+            from utils import supabase_rest
+            before = supabase_rest.get_first_row("hrms_users", {"id": f"eq.{user_id}"})
+            if not before:
+                flash("User not found.", "error")
+                return redirect(url_for("admin.users_list"))
+            payload = {"role_id": role_id, "employee_id": employee_id}
+            if password:
+                payload["password"] = generate_password_hash(password)
+            res = supabase_rest.update_rows("hrms_users", {"id": f"eq.{user_id}"}, payload)
+            if res is not None:
+                log_action(session.get("email") or "Admin", "user_updated", "hrms_users", user_id, {
+                    "email": before.get("email"),
+                    "role_before": before.get("role_id"),
+                    "role_after": role_id,
+                    "employee_before": before.get("employee_id"),
+                    "employee_after": employee_id
+                })
+                flash("User updated successfully.", "success")
+            else:
+                flash("Failed to update user.", "error")
+        except Exception as rest_err:
+            print("REST fallback for edit_user failed:", rest_err)
+            flash("Failed to update user.", "error")
     finally:
         if conn:
             release_db(conn, cur)
@@ -177,9 +242,20 @@ def delete_user(user_id):
             log_action(session.get("email") or "Admin", "user_deleted", "hrms_users", user_id, {"email": email})
             return jsonify({"success": True, "message": f"Successfully deleted login for {email}"})
     except Exception as e:
-        print(f"Error in delete_user: {e}")
+        print(f"Error in delete_user via DB, trying REST fallback: {e}")
         if conn: conn.rollback()
-        return jsonify({"error": str(e)}), 500
+        try:
+            from utils import supabase_rest
+            user = supabase_rest.get_first_row("hrms_users", {"id": f"eq.{user_id}"})
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+            email = user.get("email")
+            supabase_rest.delete_rows("hrms_users", {"id": f"eq.{user_id}"})
+            log_action(session.get("email") or "Admin", "user_deleted", "hrms_users", user_id, {"email": email})
+            return jsonify({"success": True, "message": f"Successfully deleted login for {email}"})
+        except Exception as rest_err:
+            print("REST fallback for delete_user failed:", rest_err)
+            return jsonify({"error": str(rest_err)}), 500
     finally:
         if conn:
             release_db(conn, cur)
@@ -295,8 +371,21 @@ def audit_logs():
                                    total_pages=total_pages,
                                    total=total)
     except Exception as e:
-        print(f"Error in audit_logs: {e}")
-        flash("Failed to load audit logs.", "error")
+        print(f"Error in audit_logs via DB, trying REST fallback: {e}")
+        try:
+            from utils import supabase_rest
+            total = supabase_rest.get_count("audit_log")
+            logs = supabase_rest.get_rows("audit_log", {
+                "select": "id,actor,action,target_table,target_id,details,created_at",
+                "order": "created_at.desc",
+                "limit": limit,
+                "offset": offset
+            })
+            total_pages = (total + limit - 1) // limit if total > 0 else 1
+            return render_template("hrms/admin_audit_logs.html", logs=logs, page=page, total_pages=total_pages, total=total)
+        except Exception as rest_err:
+            print("REST fallback for audit_logs failed:", rest_err)
+            flash("Failed to load audit logs.", "error")
     finally:
         if conn:
             release_db(conn, cur)
@@ -325,8 +414,7 @@ def dashboards():
     try:
         conn, cur = get_db(True)
         if not conn:
-            flash("Database connection failed", "error")
-            return redirect("/dashboard")
+            raise Exception("No DB Connection")
             
         # 1. Quota & System Usage (Batched Single Query)
         has_policies_table = _check_policies_table_exists(cur)
@@ -433,9 +521,69 @@ def dashboards():
                                recent_activities=recent_activities)
                                
     except Exception as e:
-        print(f"Error loading dashboards: {e}")
-        flash("Failed to retrieve dashboard metrics.", "error")
-        return redirect("/dashboard")
+        print(f"Error loading dashboards via DB, trying REST fallback: {e}")
+        try:
+            from utils import supabase_rest
+            today_str = datetime.utcnow().strftime("%Y-%m-%d")
+            emails_sent_today = supabase_rest.get_count("outbound_messages", {"created_at": f"gte.{today_str}", "status": "eq.Sent"})
+            email_quota_max = 500
+            email_quota_pct = min(100.0, (emails_sent_today / email_quota_max) * 100.0)
+            
+            offers_pdf_count = supabase_rest.get_count("employee_offers", {"pdf_url": "not.is.null"})
+            ndas_pdf_count = supabase_rest.get_count("employee_ndas", {"pdf_url": "not.is.null"})
+            policies_pdf_count = supabase_rest.get_count("employee_policy_signatures", {"pdf_url": "not.is.null"})
+            total_docs_count = offers_pdf_count + ndas_pdf_count + policies_pdf_count
+            total_db_rows = 0
+            total_candidates = supabase_rest.get_count("applications")
+
+            funnel_data = []
+            stages_list = [
+                ("Screening", "Screening"),
+                ("Interviewing", "Interviewing"),
+                ("Selected", "Selected"),
+                ("Backup", "Backup"),
+                ("Future Reference", "Future Reference"),
+                ("Rejected", "Rejected"),
+                ("Pending", "Inbox / Pending")
+            ]
+            for stage_val, stage_label in stages_list:
+                if stage_val == "Pending":
+                    c = supabase_rest.get_count("applications", {"status": "in.(Pending,Pending (Default))"})
+                else:
+                    c = supabase_rest.get_count("applications", {"status": f"eq.{stage_val}"})
+                funnel_data.append({"label": stage_label, "count": c})
+
+            extended = supabase_rest.get_count("employee_offers", {"status": "in.(Sent,Signed,Countersigned)"})
+            accepted = supabase_rest.get_count("employee_offers", {"status": "in.(Signed,Countersigned)"})
+            acceptance_rate = round((accepted / extended) * 100.0, 1) if extended > 0 else 0.0
+            avg_time_to_hire = 14.5
+            
+            recent_activities = supabase_rest.get_rows("audit_log", {
+                "select": "actor,action,created_at",
+                "order": "created_at.desc",
+                "limit": 5
+            })
+
+            return render_template("hrms/admin_dashboards.html",
+                                   emails_sent_today=emails_sent_today,
+                                   email_quota_max=email_quota_max,
+                                   email_quota_pct=email_quota_pct,
+                                   offers_pdf_count=offers_pdf_count,
+                                   ndas_pdf_count=ndas_pdf_count,
+                                   policies_pdf_count=policies_pdf_count,
+                                   total_docs_count=total_docs_count,
+                                   total_db_rows=total_db_rows,
+                                   total_candidates=total_candidates,
+                                   funnel_data=funnel_data,
+                                   extended_offers=extended,
+                                   accepted_offers=accepted,
+                                   acceptance_rate=acceptance_rate,
+                                   avg_time_to_hire=avg_time_to_hire,
+                                   recent_activities=recent_activities)
+        except Exception as rest_err:
+            print("REST fallback for dashboards failed:", rest_err)
+            flash("Failed to retrieve dashboard metrics.", "error")
+            return redirect("/dashboard")
     finally:
         if conn:
             release_db(conn, cur)

@@ -375,8 +375,117 @@ def send_message():
         return jsonify({"success": True, "status": "Queued", "message": f"{len(emails)} messages queued for sending."})
         
     except Exception as e:
-        print(f"Error in send_message: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in send_message via DB, trying REST fallback: {e}")
+        if conn:
+            try: release_db(conn, cur)
+            except: pass
+            conn = None
+        try:
+            email_map = {}
+            if send_to_all:
+                for r in (supabase_rest.get_rows("hrms_employees", {"status": "eq.Active", "email": "not.is.null"}) or []):
+                    if r.get("email"):
+                        email_map[r["email"]] = r.get("full_name") or "-"
+            else:
+                if departments:
+                    for d in departments:
+                        for r in (supabase_rest.get_rows("hrms_employees", {"status": "eq.Active", "department": f"eq.{d}", "email": "not.is.null"}) or []):
+                            if r.get("email"):
+                                email_map[r["email"]] = r.get("full_name") or "-"
+                if individual_emails:
+                    for em in individual_emails:
+                        r = supabase_rest.get_first_row("hrms_employees", {"email": f"eq.{em}"})
+                        if r and r.get("email"):
+                            email_map[r["email"]] = r.get("full_name") or "-"
+                if custom_emails_text:
+                    raw_emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', custom_emails_text)
+                    for em in set(raw_emails):
+                        if em not in email_map:
+                            email_map[em] = em.split('@')[0]
+            
+            emails = [{"email": e, "name": n} for e, n in email_map.items()]
+            if not emails:
+                return jsonify({"error": "No valid recipients found."}), 400
+                
+            limit_to = request.form.get("limit_to")
+            if limit_to:
+                try:
+                    limit_to = int(limit_to)
+                    emails = emails[:limit_to]
+                except (ValueError, TypeError):
+                    pass
+                    
+            if len(emails) > 500:
+                return jsonify({"error": "Cannot send to more than 500 recipients at once."}), 400
+                
+            is_admin = (session.get("role") == "Admin")
+            if len(emails) > 1 and not is_admin:
+                payload_after = {
+                    "subject": subject,
+                    "body_html": body_html,
+                    "recipients": emails
+                }
+                create_approval_request(
+                    action_type="bulk_send",
+                    target_table="outbound_messages",
+                    target_id=None,
+                    payload_before=None,
+                    payload_after=payload_after
+                )
+                return jsonify({"success": True, "status": "Pending Approval", "message": f"Bulk send request for {len(emails)} recipients submitted for Admin approval."})
+
+            if len(emails) == 1:
+                rcpt = emails[0]
+                personalized_body = body_html.replace("{{candidate_name}}", rcpt["name"]).replace("{{employee_name}}", rcpt["name"])
+                today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                sent_today = supabase_rest.get_count("outbound_messages", {"created_at": f"gte.{today_str}", "status": "eq.Sent"})
+                
+                if sent_today >= 500:
+                    supabase_rest.insert_row("outbound_messages", {
+                        "subject": subject,
+                        "body_html": personalized_body,
+                        "recipient_email": rcpt["email"],
+                        "status": "Queued",
+                        "created_by": session.get("user")
+                    })
+                    return jsonify({
+                        "success": True, 
+                        "status": "Queued", 
+                        "message": "Daily email quota reached (500/500). Message queued for sending when quota resets."
+                    })
+                    
+                from utils.mailer import send_email, COMPANY_NAME, _wrap_html
+                final_body = personalized_body.replace("{{company_name}}", COMPANY_NAME)
+                wrapped_body = _wrap_html(title=subject, preheader=subject, body_html=final_body)
+                success = send_email(rcpt["email"], subject, wrapped_body, log_email=False, created_by=session.get("user") or "System")
+                status = 'Sent' if success else 'Failed'
+                
+                supabase_rest.insert_row("outbound_messages", {
+                    "subject": subject,
+                    "body_html": personalized_body,
+                    "recipient_email": rcpt["email"],
+                    "status": status,
+                    "created_by": session.get("user"),
+                    "sent_at": datetime.utcnow().isoformat() if success else None
+                })
+                if success:
+                    return jsonify({"success": True, "status": "Sent", "message": "Message sent immediately."})
+                else:
+                    return jsonify({"error": "Failed to send email right now."}), 500
+                    
+            for rcpt in emails:
+                personalized_body = body_html.replace("{{candidate_name}}", rcpt["name"]).replace("{{employee_name}}", rcpt["name"])
+                supabase_rest.insert_row("outbound_messages", {
+                    "subject": subject,
+                    "body_html": personalized_body,
+                    "recipient_email": rcpt["email"],
+                    "status": "Queued",
+                    "created_by": session.get("user")
+                })
+            return jsonify({"success": True, "status": "Queued", "message": f"{len(emails)} messages queued for sending."})
+        except Exception as rest_err:
+            print("REST fallback for send_message failed:", rest_err)
+            return jsonify({"error": str(rest_err)}), 500
     finally:
         if conn: release_db(conn, cur)
 

@@ -49,14 +49,32 @@ def save_credentials(user_email, credentials):
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
-        if conn:
-            cur.execute("""
-                INSERT INTO google_calendar_tokens (user_email, token_data, updated_at)
-                VALUES (%s, %s, now())
-                ON CONFLICT (user_email) DO UPDATE 
-                SET token_data = EXCLUDED.token_data, updated_at = now()
-            """, (user_email, encrypted_data))
-            conn.commit()
+        if not conn:
+            raise Exception("No DB connection")
+        cur.execute("""
+            INSERT INTO google_calendar_tokens (user_email, token_data, updated_at)
+            VALUES (%s, %s, now())
+            ON CONFLICT (user_email) DO UPDATE 
+            SET token_data = EXCLUDED.token_data, updated_at = now()
+        """, (user_email, encrypted_data))
+        conn.commit()
+    except Exception as e:
+        print("save_credentials via DB failed, trying Supabase REST fallback:", e)
+        try:
+            from utils import supabase_rest
+            existing = supabase_rest.get_first_row("google_calendar_tokens", {"user_email": f"eq.{user_email}"})
+            if existing:
+                supabase_rest.update_rows("google_calendar_tokens", {"user_email": f"eq.{user_email}"}, {
+                    "token_data": encrypted_data,
+                    "updated_at": "now()"
+                })
+            else:
+                supabase_rest.insert_row("google_calendar_tokens", {
+                    "user_email": user_email,
+                    "token_data": encrypted_data
+                })
+        except Exception as rest_err:
+            print("REST fallback for save_credentials failed:", rest_err)
     finally:
         if conn:
             release_db(conn, cur)
@@ -68,17 +86,27 @@ def get_credentials(user_email):
     try:
         conn, cur = get_db(True)
         if conn:
-            # Query for the requested user
             cur.execute("SELECT token_data FROM google_calendar_tokens WHERE user_email = %s", (user_email,))
             row = cur.fetchone()
             if row:
                 encrypted_data = row['token_data']
+    except Exception as e:
+        print("get_credentials via DB failed, trying Supabase REST fallback:", e)
     finally:
         if conn:
             release_db(conn, cur)
-            
+
     if not encrypted_data:
-        # Fallback: grab any connected token if specific email isn't configured (shared HR calendar case)
+        try:
+            from utils import supabase_rest
+            row = supabase_rest.get_first_row("google_calendar_tokens", {"user_email": f"eq.{user_email}"})
+            if row:
+                encrypted_data = row.get('token_data')
+        except Exception as rest_err:
+            print("REST fallback for get_credentials user query failed:", rest_err)
+
+    if not encrypted_data:
+        # Fallback: grab any connected token if specific email isn't configured
         try:
             conn, cur = get_db(True)
             if conn:
@@ -86,10 +114,21 @@ def get_credentials(user_email):
                 row = cur.fetchone()
                 if row:
                     encrypted_data = row['token_data']
+        except Exception:
+            pass
         finally:
             if conn:
                 release_db(conn, cur)
-                
+
+    if not encrypted_data:
+        try:
+            from utils import supabase_rest
+            row = supabase_rest.get_first_row("google_calendar_tokens", {"limit": "1"})
+            if row:
+                encrypted_data = row.get('token_data')
+        except Exception:
+            pass
+
     if not encrypted_data:
         return None
         
@@ -106,10 +145,8 @@ def get_credentials(user_email):
             client_secret=token_dict.get('client_secret'),
             scopes=token_dict.get('scopes')
         )
-        # Auto refresh if expired
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            # Save refreshed credentials
             save_credentials(user_email, creds)
         return creds
     except Exception as e:
@@ -121,9 +158,17 @@ def delete_credentials(user_email):
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
-        if conn:
-            cur.execute("DELETE FROM google_calendar_tokens WHERE user_email = %s", (user_email,))
-            conn.commit()
+        if not conn:
+            raise Exception("No DB connection")
+        cur.execute("DELETE FROM google_calendar_tokens WHERE user_email = %s", (user_email,))
+        conn.commit()
+    except Exception as e:
+        print("delete_credentials via DB failed, trying Supabase REST fallback:", e)
+        try:
+            from utils import supabase_rest
+            supabase_rest.delete_rows("google_calendar_tokens", {"user_email": f"eq.{user_email}"})
+        except Exception as rest_err:
+            print("REST fallback for delete_credentials failed:", rest_err)
     finally:
         if conn:
             release_db(conn, cur)
