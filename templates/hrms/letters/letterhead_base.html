@@ -61,7 +61,7 @@
             </td>
             <td style="vertical-align: top; text-align: right; width: 40%; font-size: 9pt; color: #4b5563; line-height: 1.5;">
                 <div style="background: #f9fafb; padding: 12px; border-radius: 6px; display: inline-block; text-align: left; border: 1px solid #e5e7eb;">
-                    {% if company.company_phone %}<strong>P:</strong> {{ company.company_phone }}<br>{% endif %}
+                    {% if company.company_contact or company.company_phone %}<strong>P:</strong> {{ company.company_contact or company.company_phone }}<br>{% endif %}
                     {% if company.company_email %}<strong>E:</strong> {{ company.company_email }}<br>{% endif %}
                     {% if company.company_website %}<strong>W:</strong> {{ company.company_website }}{% endif %}
                 </div>

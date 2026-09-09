@@ -188,6 +188,16 @@ def get_daily_sent_count():
 
 def send_email(to_email, subject, html_body, to_name=None, log_email=True, created_by='System'):
     """Send one HTML email with the company logo inlined. Returns True/False."""
+    DAILY_QUOTA_LIMIT = int(os.getenv("DAILY_EMAIL_QUOTA", "500"))
+    sent_today = get_daily_sent_count()
+    if sent_today >= DAILY_QUOTA_LIMIT:
+        print(f"--- EMAIL NOT SENT: Daily quota limit reached ({sent_today}/{DAILY_QUOTA_LIMIT}) ---")
+        print(f"To: {to_name or ''} <{to_email}> | Subject: {subject}")
+        print("---------------------------------------------------------------")
+        if log_email:
+            _log_outbound_email(to_email, subject, html_body, 'Quota Exceeded', created_by=created_by)
+        return False
+
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
     if not app_password:
@@ -442,6 +452,16 @@ sent automatically — you'll see them appear in the Onboarding Pipeline shortly
 
 def send_meeting_invite(to_email, to_name, subject, html_body, ics_bytes, method="REQUEST", log_email=True, created_by="Interviews"):
     """Send an email with an attached .ics calendar invite."""
+    DAILY_QUOTA_LIMIT = int(os.getenv("DAILY_EMAIL_QUOTA", "500"))
+    sent_today = get_daily_sent_count()
+    if sent_today >= DAILY_QUOTA_LIMIT:
+        print(f"--- EMAIL NOT SENT: Daily quota limit reached ({sent_today}/{DAILY_QUOTA_LIMIT}) ---")
+        print(f"To: {to_name or ''} <{to_email}> | Subject: {subject}")
+        print("---------------------------------------------------------------")
+        if log_email:
+            _log_outbound_email(to_email, subject, html_body, 'Quota Exceeded', created_by=created_by)
+        return False
+
     app_password = os.getenv("EMAIL_APP_PASSWORD", "").strip()
 
     if not app_password:

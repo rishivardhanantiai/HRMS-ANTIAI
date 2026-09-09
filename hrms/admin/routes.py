@@ -423,8 +423,8 @@ def dashboards():
         cur.execute(f"""
             SELECT 
                 (SELECT COUNT(*) FROM outbound_messages WHERE status = 'Sent' AND (DATE(sent_at) = CURRENT_DATE OR (sent_at IS NULL AND DATE(created_at) = CURRENT_DATE))) AS emails_sent_today,
-                (SELECT COUNT(*) FROM employee_offers WHERE pdf_url IS NOT NULL OR final_pdf_url IS NOT NULL) AS offers_pdf_count,
-                (SELECT COUNT(*) FROM employee_ndas WHERE pdf_url IS NOT NULL OR final_pdf_url IS NOT NULL) AS ndas_pdf_count,
+                (SELECT COUNT(*) FROM employee_offers WHERE pdf_url IS NOT NULL) AS offers_pdf_count,
+                (SELECT COUNT(*) FROM employee_ndas WHERE pdf_url IS NOT NULL) AS ndas_pdf_count,
                 {policies_subquery} AS policies_pdf_count,
                 (SELECT SUM(n_live_tup) FROM pg_stat_user_tables) AS total_db_rows,
                 (SELECT COUNT(*) FROM applications) AS total_candidates

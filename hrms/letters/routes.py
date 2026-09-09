@@ -112,7 +112,7 @@ def _get_company(cur=None):
     company = None
     if cur:
         try:
-            cur.execute("SELECT id, company_name, logo_url, company_email, company_phone, company_website, company_address FROM company_settings LIMIT 1")
+            cur.execute("SELECT id, company_name, logo_url, company_email, company_contact, company_website, company_address FROM company_settings LIMIT 1")
             company = cur.fetchone()
         except Exception:
             pass
@@ -128,12 +128,14 @@ def _get_company(cur=None):
     if not company:
         company = {}
         
-    company["company_name"] = "ANTI AI"
+    company["company_name"] = company.get("company_name") or "ANTI AI"
     company["company_address"] = company.get("company_address") or "73 ROSE VILLA RAJENDRA NAGAR BHARATPUR RAJASTHAN, Rajasthan, 321001"
     company["company_email"] = company.get("company_email") or "hr@antiai.com"
-    company["company_phone"] = company.get("company_phone") or "+91-0000000000"
+    contact_val = company.get("company_contact") or company.get("company_phone") or "+91-0000000000"
+    company["company_contact"] = contact_val
+    company["company_phone"] = contact_val
     company["company_website"] = company.get("company_website") or "www.antiai.com"
-    company["logo_url"] = "/static/images/logo.png"
+    company["logo_url"] = company.get("logo_url") or "/static/images/logo.png"
     
     return company
 
