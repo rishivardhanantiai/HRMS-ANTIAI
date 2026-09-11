@@ -14,36 +14,39 @@ candidates_bp = Blueprint("candidates", __name__, url_prefix="/hrms/candidates")
 @login_required
 @role_required(["HR", "Admin"])
 def pipeline():
+    # ── 1. Try direct PostgreSQL connection ──────────────────────────────────
     conn, cur = None, None
     try:
         conn, cur = get_db(True)
         if conn:
-            # We only want applications that have entered the ATS pipeline (not Pending)
             cur.execute("""
-                SELECT a.*, j.title as job_title 
+                SELECT a.*, j.title as job_title
                 FROM applications a
                 LEFT JOIN jobs j ON a.job_id = j.id
-                WHERE a.status IS NOT NULL 
-                  AND a.status != 'Pending'
-                  AND a.status != 'Pending (Default)'
-                  AND a.status != ''
+                WHERE a.status IS NOT NULL
+                  AND a.status NOT IN ('Pending', 'Pending (Default)', '')
                 ORDER BY a.applied_at DESC
             """)
-            candidates = cur.fetchall()
-            
+            candidates = cur.fetchall() or []
             cur.execute("SELECT id, full_name FROM hrms_employees WHERE status = 'Active'")
-            users = cur.fetchall()
-            
+            users = cur.fetchall() or []
             return render_template("hrms/candidates.html", candidates=candidates, users=users)
     except Exception as e:
-        current_app.logger.warning(f"Database connection failed in candidate pipeline, using REST fallback: {e}")
+        current_app.logger.warning(f"[Pipeline] Direct DB failed, falling back to REST: {e}")
     finally:
         if conn:
-            release_db(conn, cur)
+            try:
+                release_db(conn, cur)
+            except Exception:
+                pass
 
-    # --- REST API FALLBACK ---
+    # ── 2. Supabase REST API fallback ────────────────────────────────────────
     try:
         from utils import supabase_rest
+        if not supabase_rest.is_ready():
+            current_app.logger.error("[Pipeline] REST fallback skipped: SUPABASE_URL or SERVICE_KEY not configured in environment.")
+            raise RuntimeError("Supabase REST not configured")
+
         raw_apps = supabase_rest.get_rows("applications", {"order": "applied_at.desc"}) or []
         jobs_map = {}
         for j in (supabase_rest.get_rows("jobs", {"select": "id,title"}) or []):
@@ -56,12 +59,16 @@ def pipeline():
                 app["job_title"] = jobs_map.get(str(app.get("job_id")), "")
                 candidates.append(app)
 
-        users = supabase_rest.get_rows("hrms_employees", {"status": "eq.Active", "select": "id,full_name"}) or []
+        users = supabase_rest.get_rows(
+            "hrms_employees", {"status": "eq.Active", "select": "id,full_name"}
+        ) or []
         return render_template("hrms/candidates.html", candidates=candidates, users=users)
     except Exception as rest_err:
-        current_app.logger.error(f"REST fallback failed for candidate pipeline: {rest_err}")
-        flash("Database connection unavailable. Please check database configuration.", "error")
-        return render_template("hrms/candidates.html", candidates=[], users=[])
+        current_app.logger.error(f"[Pipeline] REST fallback failed: {rest_err}")
+
+    # ── 3. Hard fallback: render empty board, never 500 ──────────────────────
+    flash("Pipeline data temporarily unavailable. Please try again shortly.", "warning")
+    return render_template("hrms/candidates.html", candidates=[], users=[])
 
 @candidates_bp.route("/check-email", methods=["GET"])
 @login_required
@@ -228,8 +235,9 @@ def update_status(application_id):
     # --- REST API FALLBACK ---
     try:
         from utils import supabase_rest
+        # update_rows returns [] on 204 No Content (success with no body) — treat [] as success
         res = supabase_rest.update_rows("applications", {"id": f"eq.{application_id}"}, {"status": new_status})
-        if res is not None:
+        if res is not None:  # None means the HTTP call itself failed; [] or [...] means success
             return jsonify({"success": True})
         return jsonify({"error": "Failed to update status"}), 500
     except Exception as rest_err:
